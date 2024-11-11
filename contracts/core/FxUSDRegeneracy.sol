@@ -21,6 +21,20 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
   using SafeERC20Upgradeable for IERC20Upgradeable;
   using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
+  /**********
+   * Errors *
+   **********/
+
+  error ErrorCallerNotPoolManager();
+
+  error ErrorCallerNotPegKeeper();
+
+  error ErrorExceedStableReserve();
+
+  error ErrorInsufficientOutput();
+
+  error ErrorInsufficientBuyBack();
+
   /*************
    * Constants *
    *************/
@@ -60,16 +74,22 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
     uint8 decimals;
   }
 
-  /*************
-   * Variables *
-   *************/
+  /***********************
+   * Immutable Variables *
+   ***********************/
 
+  /// @inheritdoc IFxUSDRegeneracy
   address public immutable poolManager;
 
+  /// @inheritdoc IFxUSDRegeneracy
   address public immutable stableToken;
 
-  /// @notice The address of `PegKeeper` contract.
+  /// @inheritdoc IFxUSDRegeneracy
   address public immutable pegKeeper;
+
+  /*********************
+   * Storage Variables *
+   *********************/
 
   /// @notice Mapping from base token address to metadata.
   mapping(address => FxMarketStruct) public markets;
@@ -83,6 +103,7 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
   /// @notice The total supply for legacy 2.0 pools.
   uint256 public legacyTotalSupply;
 
+  /// @notice The reserve struct for stable token.
   StableReserveStruct public stableReserve;
 
   /*************
@@ -105,12 +126,12 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
   }
 
   modifier onlyPoolManager() {
-    if (_msgSender() != poolManager) revert();
+    if (_msgSender() != poolManager) revert ErrorCallerNotPoolManager();
     _;
   }
 
   modifier onlyPegKeeper() {
-    if (_msgSender() != pegKeeper) revert();
+    if (_msgSender() != pegKeeper) revert ErrorCallerNotPegKeeper();
     _;
   }
 
@@ -361,28 +382,32 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
     }
   }
 
+  /// @inheritdoc IFxUSDRegeneracy
   function mint(address to, uint256 amount) external onlyPoolManager {
     _mint(to, amount);
   }
 
+  /// @inheritdoc IFxUSDRegeneracy
   function burn(address from, uint256 amount) external onlyPoolManager {
     _burn(from, amount);
   }
 
+  /// @inheritdoc IFxUSDRegeneracy
   function onRebalanceWithStable(uint256 amountStableToken, uint256 amountFxUSD) external onlyPoolManager {
     stableReserve.owned += uint96(amountStableToken);
     stableReserve.managed += uint96(amountFxUSD);
 
-    // todo emit event
+    emit RebalanceWithStable(amountStableToken, amountFxUSD);
   }
 
+  /// @inheritdoc IFxUSDRegeneracy
   function buyback(
     uint256 amountIn,
     address receiver,
     bytes calldata data
   ) external onlyPegKeeper returns (uint256 amountOut, uint256 bonusOut) {
     StableReserveStruct memory cachedStableReserve = stableReserve;
-    if (cachedStableReserve.owned < amountIn) revert();
+    if (amountIn > cachedStableReserve.owned) revert ErrorExceedStableReserve();
 
     // rounding up
     uint256 expectedFxUSD = (amountIn * cachedStableReserve.managed) / cachedStableReserve.owned + 1;
@@ -394,10 +419,10 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
     actualOut = balanceOf(address(this)) - actualOut;
 
     // check actual fxUSD swapped in case peg keeper is hacked.
-    if (amountOut > actualOut) revert();
+    if (amountOut > actualOut) revert ErrorInsufficientOutput();
 
     // check fxUSD swapped can cover debts
-    if (amountOut < expectedFxUSD) revert();
+    if (amountOut < expectedFxUSD) revert ErrorInsufficientBuyBack();
     bonusOut = amountOut - expectedFxUSD;
 
     _burn(address(this), expectedFxUSD);
@@ -415,7 +440,7 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
       _transfer(address(this), receiver, bonusOut);
     }
 
-    // todo emit event
+    emit Buyback(amountIn, amountOut, bonusOut);
   }
 
   /**********************

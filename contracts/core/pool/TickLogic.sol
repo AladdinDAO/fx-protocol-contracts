@@ -11,11 +11,24 @@ abstract contract TickLogic is PoolStorage {
   using TickBitmap for mapping(int8 => uint256);
   using WordCodec for bytes32;
 
+  /***************
+   * Constructor *
+   ***************/
+
   function __TickLogic_init() internal onlyInitializing {
-    nextTreeNodeId = 1;
-    topTick = type(int16).min;
+    _updateNextTreeNodeId(1);
+    _updateTopTick(type(int16).min);
   }
 
+  /**********************
+   * Internal Functions *
+   **********************/
+
+  /// @dev Internal function to get the root of the given tree node.
+  /// @param node The id of the given tree node.
+  /// @return root The root node id.
+  /// @return collRatio The actual collateral ratio of the given node, multiplied by 2^60.
+  /// @return debtRatio The actual debt ratio of the given node, multiplied by 2^60.
   function _getRootNode(uint256 node) internal view returns (uint256 root, uint256 collRatio, uint256 debtRatio) {
     collRatio = E60;
     debtRatio = E60;
@@ -30,8 +43,14 @@ abstract contract TickLogic is PoolStorage {
     root = node;
   }
 
+  /// @dev Internal function to get the root of the given tree node and compress path.
+  /// @param node The id of the given tree node.
+  /// @return root The root node id.
+  /// @return collRatio The actual collateral ratio of the given node, multiplied by 2^60.
+  /// @return debtRatio The actual debt ratio of the given node, multiplied by 2^60.
   function _getRootNodeAndCompress(uint256 node) internal returns (uint256 root, uint256 collRatio, uint256 debtRatio) {
-    // @todo Change it to non-recursive version to avoid stack overflow.
+    // @note We can change it to non-recursive version to avoid stack overflow. Normally, the depth should be `log(n)`,
+    // where `n` is the total number of tree nodes. So we don't need to worry much about this.
     bytes32 metadata = tickTreeData[node].metadata;
     uint256 parent = metadata.decodeUint(0, 32);
     collRatio = metadata.decodeUint(48, 64);
@@ -50,19 +69,27 @@ abstract contract TickLogic is PoolStorage {
     }
   }
 
+  /// @dev Internal function to create a new tree node.
+  /// @param tick The tick where this tree node belongs to.
+  /// @return node The created tree node id.
   function _newTickTreeNode(int16 tick) internal returns (uint32 node) {
-    node = nextTreeNodeId;
-    nextTreeNodeId = node + 1;
+    unchecked {
+      node = _getNextTreeNodeId();
+      _updateNextTreeNodeId(node + 1);
+    }
     tickData[tick] = node;
 
     bytes32 metadata = bytes32(0);
     metadata = metadata.insertInt(tick, 32, 16); // set tick
-    metadata = metadata.insertUint(PRECISION, 48, 64); // set coll ratio
-    metadata = metadata.insertUint(PRECISION, 112, 64); // set debt ratio
+    metadata = metadata.insertUint(E60, 48, 64); // set coll ratio
+    metadata = metadata.insertUint(E60, 112, 64); // set debt ratio
     tickTreeData[node].metadata = metadata;
   }
 
-  // find first tick such that TickMath.getRatioAtTick(tick) >= ratio
+  /// @dev Internal function to find first tick such that `TickMath.getRatioAtTick(tick) >= debts/colls`.
+  /// @param colls The collateral shares.
+  /// @param debts The debt shares.
+  /// @return tick The value of found first tick.
   function _getTick(uint256 colls, uint256 debts) internal pure returns (int256 tick) {
     uint256 ratio = (debts * TickMath.ZERO_TICK_SCALED_RATIO) / colls;
     uint256 ratioAtTick;
@@ -73,6 +100,9 @@ abstract contract TickLogic is PoolStorage {
     }
   }
 
+  /// @dev Internal function to retrieve or create a tree node.
+  /// @param tick The tick where this tree node belongs to.
+  /// @return node The tree node id.
   function _getOrCreateTickNode(int256 tick) internal returns (uint32 node) {
     node = tickData[tick];
     if (node == 0) {
@@ -80,13 +110,21 @@ abstract contract TickLogic is PoolStorage {
     }
   }
 
+  /// @dev Internal function to add position collaterals and debts to some tick.
+  /// @param colls The collateral shares.
+  /// @param debts The debt shares.
+  /// @param checkDebts Whether we should check the value of `debts`.
+  /// @return tick The tick where this position belongs to.
+  /// @return node The corresponding tree node id for this tick.
   function _addPositionToTick(
     uint256 colls,
     uint256 debts,
     bool checkDebts
   ) internal returns (int256 tick, uint32 node) {
     if (debts > 0) {
-      if (checkDebts && int256(debts) < MIN_DEBT) revert();
+      if (checkDebts && int256(debts) < MIN_DEBT) {
+        revert ErrorDebtTooSmall();
+      }
 
       tick = _getTick(colls, debts);
       node = _getOrCreateTickNode(tick);
@@ -102,10 +140,14 @@ abstract contract TickLogic is PoolStorage {
       }
 
       // update top tick
-      if (tick > topTick) topTick = int16(tick);
+      if (tick > _getTopTick()) {
+        _updateTopTick(int16(tick));
+      }
     }
   }
 
+  /// @dev Internal function to remove position from tick.
+  /// @param position The position struct to remove.
   function _removePositionFromTick(PositionInfo memory position) internal {
     if (position.nodeId == 0) return;
 
@@ -122,36 +164,48 @@ abstract contract TickLogic is PoolStorage {
     }
   }
 
-  /// @dev caller make sure max(liquidatedColl, liquidatedDebt) > 0
-  function _liquidateTick(
-    int16 tick,
-    uint256 liquidatedColl,
-    uint256 liquidatedDebt
-  ) internal returns (int256 nextTick) {
+  /// @dev Internal function to liquidate a tick.
+  ///      The caller make sure `max(liquidatedColl, liquidatedDebt) > 0`.
+  ///
+  /// @param tick The id of tick to liquidate.
+  /// @param liquidatedColl The amount of collateral shares liquidated.
+  /// @param liquidatedDebt The amount of debt shares liquidated.
+  function _liquidateTick(int16 tick, uint256 liquidatedColl, uint256 liquidatedDebt) internal {
     uint32 node = tickData[tick];
     // create new tree node for this tick
     _newTickTreeNode(tick);
+    // clear bitmap first, and it will be updated later if needed.
     tickBitmap.flipTick(tick);
 
     bytes32 value = tickTreeData[node].value;
     bytes32 metadata = tickTreeData[node].metadata;
-    uint256 tickColl = value.decodeUint(0, 128) - liquidatedColl;
-    uint256 tickDebt = value.decodeUint(128, 128) - liquidatedDebt;
-    uint256 collRatio = (tickColl * PRECISION) / tickColl;
-    uint256 debtRatio = (tickDebt * PRECISION) / tickDebt;
+    uint256 tickColl = value.decodeUint(0, 128);
+    uint256 tickDebt = value.decodeUint(128, 128);
+    uint256 tickCollAfter = tickColl - liquidatedColl;
+    uint256 tickDebtAfter = tickDebt - liquidatedDebt;
+    uint256 collRatio = (tickCollAfter * E60) / tickColl;
+    uint256 debtRatio = (tickDebtAfter * E60) / tickDebt;
 
     // update metadata
     metadata = metadata.insertUint(collRatio, 48, 64);
     metadata = metadata.insertUint(debtRatio, 112, 64);
 
-    if (tickDebt > 0) {
+    if (tickDebtAfter > 0) {
       // partial liquidated, move funds to another tick
       uint32 parentNode;
-      (nextTick, parentNode) = _addPositionToTick(tickColl, tickDebt, false);
+      (, parentNode) = _addPositionToTick(tickCollAfter, tickDebtAfter, false);
       metadata = metadata.insertUint(parentNode, 0, 32);
     } else {
-      // all liquidate
-      nextTick = tick - 1;
+      // full liquidated, update top tick here if it is liquidated.
+      int16 topTick = _getTopTick();
+      if (topTick == tick) {
+        while (topTick > type(int16).min) {
+          bool hasDebt;
+          (topTick, hasDebt) = tickBitmap.nextDebtPositionWithinOneWord(topTick - 1);
+          if (hasDebt) break;
+        }
+        _updateTopTick(topTick);
+      }
     }
     tickTreeData[node].metadata = metadata;
   }

@@ -33,29 +33,24 @@ contract StakedFxUSD is
   /// @dev Thrown when the deposited amount is zero.
   error ErrDepositZeroAmount();
 
-  /// @dev Thrown when the pool has been liquidated and not rebalanced.
-  error ErrHasLiquidation();
-
   /// @dev Thrown when the minted shares are not enough.
   error ErrInsufficientSharesOut();
-
-  /// @dev Thrown when the redeemed tokens are not enough.
-  error ErrInsufficientTokensOut();
 
   /// @dev Thrown the input token in invalid.
   error ErrInvalidTokenIn();
 
-  /// @dev Thrown the output token in invalid.
-  error ErrInvalidTokenOut();
-
   /// @dev Thrown when the redeemed shares is zero.
   error ErrRedeemZeroShares();
 
-  /// @dev Thrown when the caller is not `FxOmniVault` contract.
-  error ErrorCallerIsNotVault();
+  error ErrorCallerNotPegKeeper();
 
-  /// @dev Thrown when the caller is not `FxTransformer` contract.
-  error ErrorCallerIsNotTransformer();
+  error ErrorStableTokenDepeg();
+
+  error ErrorSwapExceedBalance();
+
+  error ErrorInsufficientOutput();
+
+  error ErrorInsufficientArbitrage();
 
   /*************
    * Constants *
@@ -118,10 +113,8 @@ contract StakedFxUSD is
   /// @inheritdoc IStakedFxUSD
   uint256 public totalStableToken;
 
+  /// @notice The depeg price for stable token.
   uint256 public stableDepegPrice;
-
-  /// @dev reserved slots.
-  uint256[50] private __gap;
 
   /*************
    * Modifiers *
@@ -135,7 +128,7 @@ contract StakedFxUSD is
   }
 
   modifier onlyPegKeeper() {
-    if (_msgSender() != pegKeeper) revert();
+    if (_msgSender() != pegKeeper) revert ErrorCallerNotPegKeeper();
     _;
   }
 
@@ -255,9 +248,9 @@ contract StakedFxUSD is
     uint256 amountTokenToDeposit,
     uint256 minSharesOut
   ) external override nonReentrant onlyValidToken(tokenIn) returns (uint256 amountSharesOut) {
-    _distributePendingReward();
-
     if (amountTokenToDeposit == 0) revert ErrDepositZeroAmount();
+
+    _distributePendingReward();
 
     // we are very sure every token is normal token, so no fot check here.
     IERC20Upgradeable(tokenIn).safeTransferFrom(_msgSender(), address(this), amountTokenToDeposit);
@@ -275,6 +268,8 @@ contract StakedFxUSD is
     address receiver,
     uint256 amountSharesToRedeem
   ) external nonReentrant returns (uint256 amountYieldOut, uint256 amountStableOut) {
+    if (amountSharesToRedeem == 0) revert ErrRedeemZeroShares();
+
     _distributePendingReward();
 
     uint256 cachedTotalYieldToken = totalYieldToken;
@@ -310,8 +305,7 @@ contract StakedFxUSD is
     uint256 maxAmount,
     uint256 minCollOut
   ) external onlyValidToken(tokenIn) nonReentrant returns (uint256 tokenUsed, uint256 colls) {
-    RebalanceMemoryVar memory op;
-    _beforeRebalanceOrLiquidate(tokenIn, maxAmount, op);
+    RebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(tokenIn, maxAmount);
     (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = IPoolManager(poolManager).rebalance(
       pool,
       _msgSender(),
@@ -331,8 +325,7 @@ contract StakedFxUSD is
     uint256 maxAmount,
     uint256 minCollOut
   ) external onlyValidToken(tokenIn) nonReentrant returns (uint256 tokenUsed, uint256 colls) {
-    RebalanceMemoryVar memory op;
-    _beforeRebalanceOrLiquidate(tokenIn, maxAmount, op);
+    RebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(tokenIn, maxAmount);
     (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = IPoolManager(poolManager).rebalance(
       pool,
       _msgSender(),
@@ -352,8 +345,7 @@ contract StakedFxUSD is
     uint256 maxAmount,
     uint256 minCollOut
   ) external onlyValidToken(tokenIn) nonReentrant returns (uint256 tokenUsed, uint256 colls) {
-    RebalanceMemoryVar memory op;
-    _beforeRebalanceOrLiquidate(tokenIn, maxAmount, op);
+    RebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(tokenIn, maxAmount);
     (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = IPoolManager(poolManager).liquidate(
       pool,
       _msgSender(),
@@ -365,6 +357,7 @@ contract StakedFxUSD is
     colls = op.colls;
   }
 
+  /// @inheritdoc IStakedFxUSD
   function arbitrage(
     address srcToken,
     uint256 amountIn,
@@ -380,8 +373,8 @@ contract StakedFxUSD is
       uint256 scaledPrice = price * stableTokenScale;
       if (srcToken == yieldToken) {
         // check if usdc depeg
-        if (price < stableDepegPrice) revert();
-        if (amountIn > cachedTotalYieldToken) revert();
+        if (price < stableDepegPrice) revert ErrorStableTokenDepeg();
+        if (amountIn > cachedTotalYieldToken) revert ErrorSwapExceedBalance();
         dstToken = stableToken;
         unchecked {
           // rounding up
@@ -390,7 +383,7 @@ contract StakedFxUSD is
           cachedTotalStableToken += expectedOut;
         }
       } else {
-        if (amountIn > cachedTotalStableToken) revert();
+        if (amountIn > cachedTotalStableToken) revert ErrorSwapExceedBalance();
         dstToken = yieldToken;
         unchecked {
           // rounding up
@@ -404,9 +397,9 @@ contract StakedFxUSD is
     amountOut = IPegKeeper(pegKeeper).onSwap(stableToken, dstToken, amountIn, data);
     actualOut = IERC20Upgradeable(dstToken).balanceOf(address(this)) - actualOut;
     // check actual fxUSD swapped in case peg keeper is hacked.
-    if (amountOut > actualOut) revert();
+    if (amountOut > actualOut) revert ErrorInsufficientOutput();
     // check swapped token has no loss
-    if (amountOut < expectedOut) revert();
+    if (amountOut < expectedOut) revert ErrorInsufficientArbitrage();
 
     totalYieldToken = cachedTotalYieldToken;
     totalStableToken = cachedTotalStableToken;
@@ -414,6 +407,18 @@ contract StakedFxUSD is
     if (bonusOut > 0) {
       IERC20Upgradeable(dstToken).safeTransfer(receiver, bonusOut);
     }
+
+    emit Arbitrage(_msgSender(), srcToken, amountIn, amountOut, bonusOut);
+  }
+
+  /************************
+   * Restricted Functions *
+   ************************/
+
+  /// @notice Update depeg price for stable token.
+  /// @param newPrice The new depeg price of stable token, multiplied by 1e18
+  function updateStableDepegPrice(uint256 newPrice) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateStableDepegPrice(newPrice);
   }
 
   /**********************
@@ -429,9 +434,13 @@ contract StakedFxUSD is
     }
   }
 
-  function _updateStableDepegPrice(uint256 _newPrice) internal {
-    stableDepegPrice = _newPrice;
-    // todo emit event
+  /// @dev Internal function to update depeg price for stable token.
+  /// @param newPrice The new depeg price of stable token, multiplied by 1e18
+  function _updateStableDepegPrice(uint256 newPrice) internal {
+    uint256 oldPrice = stableDepegPrice;
+    stableDepegPrice = newPrice;
+
+    emit UpdateStableDepegPrice(oldPrice, newPrice);
   }
 
   /// @dev mint shares based on the deposited base tokens
@@ -462,7 +471,13 @@ contract StakedFxUSD is
     }
   }
 
-  function _beforeRebalanceOrLiquidate(address tokenIn, uint256 maxAmount, RebalanceMemoryVar memory op) internal view {
+  /// @dev Internal hook function to prepare before rebalance or liquidate.
+  /// @param tokenIn The address of input token.
+  /// @param maxAmount The maximum amount of input tokens.
+  function _beforeRebalanceOrLiquidate(
+    address tokenIn,
+    uint256 maxAmount
+  ) internal view returns (RebalanceMemoryVar memory op) {
     op.stablePrice = getStableTokenPriceWithScale();
     op.totalYieldToken = totalYieldToken;
     op.totalStableToken = totalStableToken;
@@ -493,12 +508,17 @@ contract StakedFxUSD is
     op.stableTokenToUse = amountStableToken;
   }
 
+  /// @dev Internal hook function after rebalance or liquidate.
+  /// @param tokenIn The address of input token.
+  /// @param minCollOut The minimum expected collateral tokens.
+  /// @param op The memory variable for rebalance or liquidate.
+  /// @return tokenUsed The amount of input token used.
   function _afterRebalanceOrLiquidate(
     address tokenIn,
     uint256 minCollOut,
     RebalanceMemoryVar memory op
   ) internal returns (uint256 tokenUsed) {
-    if (op.colls < minCollOut) revert();
+    if (op.colls < minCollOut) revert ErrorInsufficientOutput();
 
     op.totalYieldToken -= op.yieldTokenUsed;
     op.totalStableToken -= op.stableTokenUsed;
@@ -515,5 +535,7 @@ contract StakedFxUSD is
 
     // transfer token from caller, the collateral is already transferred to caller.
     IERC20Upgradeable(tokenIn).safeTransferFrom(_msgSender(), address(this), tokenUsed);
+
+    emit Rebalance(_msgSender(), tokenIn, tokenUsed, op.colls, op.yieldTokenUsed, op.stableTokenUsed);
   }
 }

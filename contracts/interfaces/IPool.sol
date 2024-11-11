@@ -3,6 +3,46 @@
 pragma solidity ^0.8.0;
 
 interface IPool {
+  /**********
+   * Events *
+   **********/
+  
+  /// @notice Emitted when borrow status is updated.
+  /// @param status The updated borrow status.
+  event UpdateBorrowStatus(bool status);
+
+  /// @notice Emitted when redeem status is updated.
+  /// @param status The updated redeem status.
+  event UpdateRedeemStatus(bool status);
+  
+  /// @notice Emitted when debt ratio range is updated.
+  /// @param minDebtRatio The current value of minimum debt ratio, multiplied by 1e18.
+  /// @param maxDebtRatio The current value of maximum debt ratio, multiplied by 1e18.
+  event UpdateDebtRatioRange(uint256 minDebtRatio, uint256 maxDebtRatio);
+  
+  /// @notice Emitted when max redeem ratio per tick is updated.
+  /// @param ratio The current value of max redeem ratio per tick, multiplied by 1e9.
+  event UpdateMaxRedeemRatioPerTick(uint256 ratio);
+  
+  /// @notice Emitted when the rebalance ratio is updated.
+  /// @param debtRatio The current value of rebalance debt ratio, multiplied by 1e18.
+  /// @param bonusRatio The current value of rebalance bonus ratio, multiplied by 1e9.
+  event UpdateRebalanceRatios(uint256 debtRatio, uint256 bonusRatio);
+
+  /// @notice Emitted when the liquidate ratio is updated.
+  /// @param debtRatio The current value of liquidate debt ratio, multiplied by 1e18.
+  /// @param bonusRatio The current value of liquidate bonus ratio, multiplied by 1e9.
+  event UpdateLiquidateRatios(uint256 debtRatio, uint256 bonusRatio);
+
+  /***********
+   * Structs *
+   ***********/
+
+  /// @dev The result for liquidation.
+  /// @param rawColls The amount of collateral tokens liquidated.
+  /// @param rawDebts The amount of debt tokens liquidated.
+  /// @param bonusRawColls The amount of bonus collateral tokens given.
+  /// @param bonusFromReserve The amount of bonus collateral tokens coming from reserve pool.
   struct LiquidateResult {
     uint256 rawColls;
     uint256 rawDebts;
@@ -10,18 +50,55 @@ interface IPool {
     uint256 bonusFromReserve;
   }
 
+  /// @dev The result for rebalance.
+  /// @param rawColls The amount of collateral tokens rebalanced.
+  /// @param rawDebts The amount of debt tokens rebalanced.
+  /// @param bonusRawColls The amount of bonus collateral tokens given.
   struct RebalanceResult {
     uint256 rawColls;
     uint256 rawDebts;
     uint256 bonusRawColls;
   }
 
+  /*************************
+   * Public View Functions *
+   *************************/
+
+  /// @notice The address of fxUSD.
   function fxUSD() external view returns (address);
 
+  /// @notice The address of `PoolManager` contract.
+  function poolManager() external view returns (address);
+
+  /// @notice The address of `PegKeeper` contract.
+  function pegKeeper() external view returns (address);
+
+  /// @notice The address of collateral token.
   function collateralToken() external view returns (address);
 
+  /// @notice The address of price oracle.
+  function priceOracle() external view returns (address);
+
+  /// @notice Return the details of the given position.
+  /// @param rawColls The amount of collateral tokens supplied in this position.
+  /// @param rawDebts The amount of debt tokens borrowed in this position.
+  function getPosition(uint256 tokenId) external view returns (uint256 rawColls, uint256 rawDebts);
+
+  /// @notice The total amount of raw collateral tokens.
   function getTotalRawColls() external view returns (uint256);
 
+  /****************************
+   * Public Mutated Functions *
+   ****************************/
+
+  /// @notice Open a new position or operate on an old position.
+  /// @param positionId The id of the position. If `positionId=0`, it means we need to open a new position.
+  /// @param newRawColl The amount of collateral token to supply (positive value) or withdraw (negative value).
+  /// @param newRawColl The amount of debt token to borrow (positive value) or repay (negative value).
+  /// @param owner The address of position owner.
+  /// @return actualPositionId The id of this position.
+  /// @return actualRawColl The actual amount of collateral tokens supplied (positive value) or withdrawn (negative value).
+  /// @return actualRawDebt The actual amount of debt tokens borrowed (positive value) or repay (negative value).
   function operate(
     uint256 positionId,
     int256 newRawColl,
@@ -29,15 +106,31 @@ interface IPool {
     address owner
   ) external returns (uint256 actualPositionId, int256 actualRawColl, int256 actualRawDebt, uint256 protocolFees);
 
+  /// @notice Redeem debt tokens to get collateral tokens.
+  /// @param rawDebts The amount of debt tokens to redeem.
+  /// @return rawColls The amount of collateral tokens to redeemed.
   function redeem(uint256 rawDebts) external returns (uint256 rawColls);
 
+  /// @notice Rebalance all positions in the given tick.
+  /// @param tick The id of tick to rebalance.
+  /// @param maxRawDebts The maximum amount of debt tokens to rebalance.
+  /// @return result The result of rebalance.
   function rebalance(int16 tick, uint256 maxRawDebts) external returns (RebalanceResult memory result);
 
+  /// @notice Rebalance the given position.
+  /// @param positionId The id of position to rebalance.
+  /// @param maxRawDebts The maximum amount of debt tokens to rebalance.
+  /// @return result The result of rebalance.
   function rebalance(uint32 positionId, uint256 maxRawDebts) external returns (RebalanceResult memory result);
 
+  /// @notice Liquidate the given position.
+  /// @param positionId The id of position to liquidate.
+  /// @param maxRawDebts The maximum amount of debt tokens to liquidate.
+  /// @param reservedRawColls The amount of collateral tokens in reserve pool.
+  /// @return result The result of liquidate.
   function liquidate(
     uint256 positionId,
     uint256 maxRawDebts,
-    uint256 reservedRawDebts
+    uint256 reservedRawColls
   ) external returns (LiquidateResult memory result);
 }

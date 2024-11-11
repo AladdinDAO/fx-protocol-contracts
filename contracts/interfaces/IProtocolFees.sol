@@ -32,6 +32,11 @@ interface IProtocolFees {
   /// @param newRatio The value of the current ratio, multiplied by 1e9.
   event UpdateFlashLoanFeeRatio(uint256 oldRatio, uint256 newRatio);
 
+  /// @notice Emitted when the redeem fee ratio is updated.
+  /// @param oldRatio The value of the previous ratio, multiplied by 1e9.
+  /// @param newRatio The value of the current ratio, multiplied by 1e9.
+  event UpdateRedeemFeeRatio(uint256 oldRatio, uint256 newRatio);
+
   /*************************
    * Public View Functions *
    *************************/
@@ -47,6 +52,9 @@ interface IProtocolFees {
 
   /// @notice Return the flash loan fee ratio, multiplied by 1e9.
   function getFlashLoanFeeRatio() external view returns (uint256);
+
+  /// @notice Return the redeem fee ratio, multiplied by 1e9.
+  function getRedeemFeeRatio() external view returns (uint256);
 
   /// @notice Return the address of reserve pool.
   function reservePool() external view returns (address);

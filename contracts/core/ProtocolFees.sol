@@ -31,6 +31,9 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
   /// @dev Thrown when the flash loan fee ratio exceeds `MAX_FLASH_LOAN_FEE_RATIO`.
   error ErrorFlashLoanFeeRatioTooLarge();
 
+  /// @dev Thrown when the redeem fee ratio exceeds `MAX_REDEEM_FEE_RATIO`.
+  error ErrorRedeemFeeRatioTooLarge();
+
   /*************
    * Constants *
    *************/
@@ -44,6 +47,9 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
   /// @dev The maximum flash loan fee ratio.
   uint256 private constant MAX_FLASH_LOAN_FEE_RATIO = 1e8; // 10%
 
+  /// @dev The maximum redeem fee ratio.
+  uint256 private constant MAX_REDEEM_FEE_RATIO = 1e8; // 10%
+
   /// @dev The offset of expense ratio in `_miscData`.
   uint256 private constant EXPENSE_RATIO_OFFSET = 0;
 
@@ -52,6 +58,9 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
 
   /// @dev The offset of flash loan ratio in `_miscData`.
   uint256 private constant FLASH_LOAN_RATIO_OFFSET = 60;
+
+  /// @dev The offset of redeem fee ratio in `_miscData`.
+  uint256 private constant REDEEM_FEE_RATIO_OFFSET = 90;
 
   /// @dev The precision used to compute fees.
   uint256 internal constant FEE_PRECISION = 1e9;
@@ -72,9 +81,9 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
   /// - The *expense ratio* and *harvester ratio* are charged each time when harvester harvest the pool revenue.
   /// - The *withdraw fee percentage* is charged each time when user try to withdraw assets from the pool.
   ///
-  /// [ expense ratio | harvester ratio | flash loan ratio | available ]
-  /// [    30 bits    |     30 bits     |     30  bits     |  166 bits ]
-  /// [ MSB                                                        LSB ]
+  /// [ expense ratio | harvester ratio | flash loan ratio | redeem ratio | available ]
+  /// [    30 bits    |     30 bits     |     30  bits     |   30  bits   |  136 bits ]
+  /// [ MSB                                                                       LSB ]
   bytes32 internal _miscData;
 
   /// @inheritdoc IProtocolFees
@@ -128,6 +137,11 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
     return _miscData.decodeUint(FLASH_LOAN_RATIO_OFFSET, 30);
   }
 
+  /// @inheritdoc IProtocolFees
+  function getRedeemFeeRatio() public view returns (uint256) {
+    return _miscData.decodeUint(REDEEM_FEE_RATIO_OFFSET, 30);
+  }
+
   /****************************
    * Public Mutated Functions *
    ****************************/
@@ -171,6 +185,12 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
   /// @param newRatio The new ratio to update, multiplied by 1e9.
   function updateFlashLoanFeeRatio(uint32 newRatio) external onlyRole(DEFAULT_ADMIN_ROLE) {
     _updateFlashLoanFeeRatio(newRatio);
+  }
+
+  /// @notice Update the redeem fee ratio.
+  /// @param newRatio The new ratio to update, multiplied by 1e9.
+  function updateRedeemFeeRatio(uint32 newRatio) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateRedeemFeeRatio(newRatio);
   }
 
   /**********************
@@ -239,6 +259,20 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
     _miscData = _data.insertUint(newRatio, FLASH_LOAN_RATIO_OFFSET, 30);
 
     emit UpdateFlashLoanFeeRatio(_oldRatio, newRatio);
+  }
+
+  /// @dev Internal function to update the redeem fee ratio.
+  /// @param newRatio The new ratio to update, multiplied by 1e9.
+  function _updateRedeemFeeRatio(uint256 newRatio) private {
+    if (uint256(newRatio) > MAX_REDEEM_FEE_RATIO) {
+      revert ErrorRedeemFeeRatioTooLarge();
+    }
+
+    bytes32 _data = _miscData;
+    uint256 _oldRatio = _miscData.decodeUint(REDEEM_FEE_RATIO_OFFSET, 30);
+    _miscData = _data.insertUint(newRatio, REDEEM_FEE_RATIO_OFFSET, 30);
+
+    emit UpdateRedeemFeeRatio(_oldRatio, newRatio);
   }
 
   /// @dev Internal function to accumulate protocol fee for the given pool.

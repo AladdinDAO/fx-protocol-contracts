@@ -9,19 +9,36 @@ import { IWrappedEther } from "../../interfaces/IWrappedEther.sol";
 import { ITokenConverter } from "../interfaces/ITokenConverter.sol";
 import { IMultiPathConverter } from "../interfaces/IMultiPathConverter.sol";
 
-contract MultiPathConverter {
+contract MultiPathConverter is IMultiPathConverter {
   using SafeERC20 for IERC20;
+
+  /*************
+   * Constants *
+   *************/
+
+  /// @dev The address of WETH token.
+  address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+
+  /*************
+   * Variables *
+   *************/
 
   /// @notice The address of GeneralTokenConverter contract.
   address public immutable converter;
 
-  /// @dev The address of WETH token.
-  address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+  /***************
+   * Constructor *
+   ***************/
 
   constructor(address _converter) {
     converter = _converter;
   }
 
+  /*************************
+   * Public View Functions *
+   *************************/
+
+  /// @inheritdoc IMultiPathConverter
   function queryConvert(
     uint256 _amount,
     uint256 _encoding,
@@ -43,6 +60,11 @@ contract MultiPathConverter {
     }
   }
 
+  /****************************
+   * Public Mutated Functions *
+   ****************************/
+
+  /// @inheritdoc IMultiPathConverter
   function convert(
     address _tokenIn,
     uint256 _amount,
