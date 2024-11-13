@@ -214,7 +214,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
 
     address collateralToken = IPool(pool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
-    rawColls = _scaleUp(rawColls, scalingFactor);
+    rawColls = _scaleDown(rawColls, scalingFactor);
 
     _changePoolCollateral(pool, -int256(rawColls));
     _changePoolDebts(pool, -int256(rawDebts));
