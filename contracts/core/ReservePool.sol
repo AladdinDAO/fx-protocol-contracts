@@ -49,10 +49,10 @@ contract ReservePool is AccessControl, IReservePool {
    * Constructor *
    ***************/
 
-  constructor(address _poolManager) {
+  constructor(address admin, address _poolManager) {
     poolManager = _poolManager;
 
-    _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+    _grantRole(DEFAULT_ADMIN_ROLE, admin);
   }
 
   /*************************

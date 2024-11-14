@@ -150,6 +150,24 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     pegKeeper = _pegKeeper;
   }
 
+  function initialize(
+    address admin,
+    uint256 _expenseRatio,
+    uint256 _harvesterRatio,
+    uint256 _flashLoanFeeRatio,
+    address _platform,
+    address _reservePool
+  ) external initializer {
+    __Context_init();
+    __AccessControl_init();
+    __ERC165_init();
+
+    _grantRole(DEFAULT_ADMIN_ROLE, admin);
+
+    __ProtocolFees_init(_expenseRatio, _harvesterRatio, _flashLoanFeeRatio, _platform, _reservePool);
+    __FlashLoans_init();
+  }
+
   /****************************
    * Public Mutated Functions *
    ****************************/
@@ -352,14 +370,20 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
   /// @notice Register a new pool with reward splitter.
   /// @param pool The address of pool.
   /// @param splitter The address of reward splitter.
-  function registerPool(address pool, address splitter) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function registerPool(
+    address pool,
+    address splitter,
+    uint96 collateralCapacity,
+    uint96 debtCapacity
+  ) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (fxUSD != IPool(pool).fxUSD()) revert ErrorInvalidPool();
 
-    pools.add(pool);
-    rewardSplitter[pool] = splitter;
+    if (pools.add(pool)) {
+      emit RegisterPool(pool);
 
-    emit RegisterPool(pool);
-    emit UpdateRewardSplitter(pool, address(0), splitter);
+      _updateRewardSplitter(pool, splitter);
+      _updatePoolCapacity(pool, collateralCapacity, debtCapacity);
+    }
   }
 
   /// @notice Update rate provider for the given token.
@@ -379,15 +403,45 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     address pool,
     address newSplitter
   ) external onlyRole(DEFAULT_ADMIN_ROLE) onlyRegisteredPool(pool) {
+    _updateRewardSplitter(pool, newSplitter);
+  }
+
+  /// @notice Update the pool capacity.
+  /// @param pool The address of fx pool.
+  /// @param collateralCapacity The capacity for collateral token.
+  /// @param debtCapacity The capacity for debt token.
+  function updatePoolCapacity(
+    address pool,
+    uint96 collateralCapacity,
+    uint96 debtCapacity
+  ) external onlyRole(DEFAULT_ADMIN_ROLE) onlyRegisteredPool(pool) {
+    _updatePoolCapacity(pool, collateralCapacity, debtCapacity);
+  }
+
+  /**********************
+   * Internal Functions *
+   **********************/
+
+  /// @dev Internal function to update the address of reward splitter for the given pool.
+  /// @param pool The address of the pool.
+  /// @param newSplitter The address of reward splitter.
+  function _updateRewardSplitter(address pool, address newSplitter) internal {
     address oldSplitter = rewardSplitter[pool];
     rewardSplitter[pool] = newSplitter;
 
     emit UpdateRewardSplitter(pool, oldSplitter, newSplitter);
   }
 
-  /**********************
-   * Internal Functions *
-   **********************/
+  /// @dev Internal function to update the pool capacity.
+  /// @param pool The address of fx pool.
+  /// @param collateralCapacity The capacity for collateral token.
+  /// @param debtCapacity The capacity for debt token.
+  function _updatePoolCapacity(address pool, uint96 collateralCapacity, uint96 debtCapacity) internal {
+    poolInfo[pool].collateralData = poolInfo[pool].collateralData.insertUint(collateralCapacity, 0, 96);
+    poolInfo[pool].debtData = poolInfo[pool].debtData.insertUint(debtCapacity, 0, 96);
+
+    emit UpdatePoolCapacity(pool, collateralCapacity, debtCapacity);
+  }
 
   /// @dev Internal function to scaler up for `uint256`.
   function _scaleUp(uint256 value, uint256 scale) internal pure returns (uint256) {

@@ -49,6 +49,8 @@ abstract contract BasePool is TickLogic, PositionLogic {
    ***************/
 
   constructor(address _poolManager) {
+    _checkAddressNotZero(_poolManager);
+
     poolManager = _poolManager;
     fxUSD = IPoolManager(_poolManager).fxUSD();
     pegKeeper = IPoolManager(_poolManager).pegKeeper();
@@ -157,6 +159,8 @@ abstract contract BasePool is TickLogic, PositionLogic {
       (uint256 minDebtRatio, uint256 maxDebtRatio) = _getDebtRatioRange();
       if (rawDebts * PRECISION * PRECISION > maxDebtRatio * rawColls * price) revert ErrorDebtRatioTooLarge();
       if (rawDebts * PRECISION * PRECISION < minDebtRatio * rawColls * price) revert ErrorDebtRatioTooSmall();
+
+      emit PositionSnapshot(positionId, rawColls, rawDebts, price);
 
       // if global debt ratio >= 1, only allow supply and repay
       rawColls = _convertToRawColl(op.globalColl, op.collIndex);
@@ -317,6 +321,13 @@ abstract contract BasePool is TickLogic, PositionLogic {
       (uint256 totalDebts, uint256 totalColls) = _getDebtAndCollateralShares();
       _updateDebtAndCollateralShares(totalDebts - debtShareToRebalance, totalColls - collShareToRebalance);
     }
+
+    emit PositionSnapshot(
+      positionId,
+      _convertToRawColl(position.colls, cachedCollIndex),
+      _convertToRawDebt(position.debts, cachedDebtIndex),
+      price
+    );
   }
 
   /// @inheritdoc IPool
@@ -383,6 +394,13 @@ abstract contract BasePool is TickLogic, PositionLogic {
       position.tick = int16(tick);
     }
     positionData[positionId] = position;
+
+    emit PositionSnapshot(
+      positionId,
+      _convertToRawColl(position.colls, cachedCollIndex),
+      _convertToRawDebt(position.debts, cachedDebtIndex),
+      price
+    );
   }
 
   /************************
@@ -424,6 +442,10 @@ abstract contract BasePool is TickLogic, PositionLogic {
     _updateLiquidateRatios(debtRatio, bonusRatio);
   }
 
+  function updatePriceOracle(address newOracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updatePriceOracle(newOracle);
+  }
+
   /**********************
    * Internal Functions *
    **********************/
@@ -453,12 +475,12 @@ abstract contract BasePool is TickLogic, PositionLogic {
       (debt * PRECISION * PRECISION - targetDebtRatio * price * coll) /
       (PRECISION * PRECISION - (PRECISION * targetDebtRatio * (FEE_PRECISION + incentiveRatio)) / FEE_PRECISION);
   }
-  
+
   /// @dev Internal function to update collateral and debt index.
   /// @return newCollIndex The updated collateral index.
   /// @return newDebtIndex The updated debt index.
   function _updateCollAndDebtIndex() internal virtual returns (uint256 newCollIndex, uint256 newDebtIndex);
-  
+
   /// @dev Internal function to compute the protocol fees.
   /// @param rawColl The amount of collateral tokens involved.
   /// @return fees The expected protocol fees.

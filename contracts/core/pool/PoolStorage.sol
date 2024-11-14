@@ -89,8 +89,8 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
 
   /// @dev `miscData` is a storage slot that can be used to store unrelated pieces of information.
   ///
-  /// - The *borrow flag* indicates whether borrow fxUSD is allowed.
-  /// - The *redeem flag* indicates whether redeem fxUSD is allowed.
+  /// - The *borrow flag* indicates whether borrow fxUSD is allowed, 1 means paused.
+  /// - The *redeem flag* indicates whether redeem fxUSD is allowed, 1 means paused.
   /// - The *top tick* is the largest tick with debts.
   /// - The *next position* is the next unassigned position id.
   /// - The *next node* is the next unassigned tree node id.
@@ -149,6 +149,17 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   /// @dev Mapping from tree node id to tree node data.
   mapping(uint256 => TickTreeNode) internal tickTreeData;
 
+  /***************
+   * Constructor *
+   ***************/
+
+  function __PoolStorage_init(address _collateralToken, address _priceOracle) internal onlyInitializing {
+    _checkAddressNotZero(_collateralToken);
+
+    collateralToken = _collateralToken;
+    _updatePriceOracle(_priceOracle);
+  }
+
   /*************************
    * Public View Functions *
    *************************/
@@ -158,6 +169,21 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
     bytes4 interfaceId
   ) public view virtual override(AccessControlUpgradeable, ERC721Upgradeable) returns (bool) {
     return super.supportsInterface(interfaceId);
+  }
+
+  /**********************
+   * Internal Functions *
+   **********************/
+
+  /// @dev Internal function to update price oracle.
+  /// @param newOracle The address of new price oracle;
+  function _updatePriceOracle(address newOracle) internal {
+    _checkAddressNotZero(newOracle);
+
+    address oldOracle = priceOracle;
+    priceOracle = newOracle;
+
+    emit UpdatePriceOracle(oldOracle, newOracle);
   }
 
   /*************************************

@@ -1,5 +1,14 @@
 {
+    "ts-node": {
+      // Do not forget to `npm i -D tsconfig-paths`
+      "require": ["tsconfig-paths/register"]
+    },
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/types/*": ["scripts/@types/*"],
+      "@/utils/*": ["scripts/utils/*"],
+    },
     "target": "es2020",
     "module": "commonjs",
     "esModuleInterop": true,

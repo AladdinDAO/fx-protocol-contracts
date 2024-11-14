@@ -22,6 +22,12 @@ interface IPoolManager {
   /// @param provider The address of token rate provider.
   event UpdateTokenRate(address indexed token, uint256 scalar, address provider);
 
+  /// @notice Emitted when pool capacity is updated.
+  /// @param pool The address of fx pool.
+  /// @param collateralCapacity The capacity for collateral token.
+  /// @param debtCapacity The capacity for debt token.
+  event UpdatePoolCapacity(address indexed pool, uint256 collateralCapacity, uint256 debtCapacity);
+
   /// @notice Emitted when position is updated.
   /// @param pool The address of pool where the position belongs to.
   /// @param position The id of the position.

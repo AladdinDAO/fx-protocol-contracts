@@ -92,12 +92,12 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     stable = IStakedFxUSD(_sfxUSD).stableToken();
   }
 
-  function initialize(address _converter) external initializer {
+  function initialize(address admin, address _converter) external initializer {
     __Context_init();
     __ERC165_init();
     __AccessControl_init();
 
-    _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+    _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
     _updateConverter(_converter);
     _updatePriceThreshold(995000000000000000); // 0.995

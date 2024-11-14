@@ -1,5 +1,10 @@
+import * as dotenv from "dotenv";
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+
+dotenv.config();
+
+const testAccounts = process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [];
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -16,9 +21,44 @@ const config: HardhatUserConfig = {
       },
     ],
   },
+  networks: {
+    mainnet: {
+      url: process.env.MAINNET_RPC_URL || "https://rpc.ankr.com/eth",
+      chainId: 1,
+      accounts: [process.env.PRIVATE_KEY_MAINNET!],
+    },
+    hermez: {
+      url: process.env.HERMEZ_RPC_URL || "https://zkevm-rpc.com",
+      chainId: 1101,
+      accounts: [process.env.PRIVATE_KEY_HERMEZ!],
+    },
+    sepolia: {
+      url: "https://sepolia.gateway.tenderly.co",
+      chainId: 11155111,
+      accounts: testAccounts,
+    },
+    phalcon: {
+      url: `https://rpc.phalcon.blocksec.com/${process.env.PHALCON_RPC_ID || ""}`,
+      chainId: parseInt(process.env.PHALCON_CHAIN_ID || "1"),
+      accounts: testAccounts,
+    },
+    tenderly: {
+      url: "https://virtual.mainnet.rpc.tenderly.co/f832d587-d739-4e37-9f9d-009ca9d3fd20", //`https://virtual.mainnet.rpc.tenderly.co/${process.env.TENDERLY_RPC_ID || ""}`,
+      chainId: parseInt(process.env.TENDERLY_CHAIN_ID || "1"),
+      accounts: testAccounts,
+      gas: 100000000,
+    },
+  },
   typechain: {
     outDir: "./scripts/@types",
     target: "ethers-v6",
+  },
+  ignition: {
+    blockPollingInterval: 1_000,
+    timeBeforeBumpingFees: 3 * 60 * 1_000,
+    maxFeeBumps: 4,
+    requiredConfirmations: 5,
+    disableFeeBumping: false,
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
@@ -27,8 +67,9 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       mainnet: process.env.ETHERSCAN_API_KEY || "",
-      hermez: process.env.ETHERSCAN_API_KEY || "",
+      hermez: process.env.POLYGON_SCAN_API_KEY || "",
       phalcon: process.env.PHALCON_FORK_ACCESS_KEY || "",
+      tenderly: process.env.TENDERLY_ACCESS_TOKEN || "",
     },
     customChains: [
       {
@@ -43,12 +84,16 @@ const config: HardhatUserConfig = {
         network: "phalcon",
         chainId: parseInt(process.env.PHALCON_CHAIN_ID || "1"),
         urls: {
-          apiURL: `https://api.phalcon.xyz/api/${
-            process.env.PHALCON_RPC_ID || ""
-          }`,
-          browserURL: `https://scan.phalcon.xyz/${
-            process.env.PHALCON_FORK_ID || ""
-          }`,
+          apiURL: `https://api.phalcon.xyz/api/${process.env.PHALCON_RPC_ID || ""}`,
+          browserURL: `https://scan.phalcon.xyz/${process.env.PHALCON_FORK_ID || ""}`,
+        },
+      },
+      {
+        network: "tenderly",
+        chainId: parseInt(process.env.TENDERLY_CHAIN_ID || "1"),
+        urls: {
+          apiURL: `https://virtual.mainnet.rpc.tenderly.co/${process.env.TENDERLY_RPC_ID || ""}/verify/etherscan`,
+          browserURL: `https://dashboard.tenderly.co/${process.env.TENDERLY_USERNAME}/${process.env.TENDERLY_PROJECT}/testnet/${process.env.TENDERLY_TESTNET_ID}/contract/virtual/`,
         },
       },
     ],

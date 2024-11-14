@@ -6,6 +6,9 @@ abstract contract PoolErrors {
   /**********
    * Errors *
    **********/
+  
+  /// @dev Thrown when the given address is zero.
+  error ErrorZeroAddress();
 
   /// @dev Thrown when the given value exceeds maximum value.
   error ErrorValueTooLarge();
@@ -58,5 +61,9 @@ abstract contract PoolErrors {
   /// @param upperBound The upper bound for the given value.
   function _checkValueTooLarge(uint256 value, uint256 upperBound) internal pure {
     if (value > upperBound) revert ErrorValueTooLarge();
+  }
+
+  function _checkAddressNotZero(address value) internal pure {
+    if (value == address(0)) revert ErrorZeroAddress();
   }
 }

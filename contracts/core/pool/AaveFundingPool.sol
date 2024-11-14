@@ -76,21 +76,31 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
    ***************/
 
   constructor(address _poolManager, address _lendingPool, address _baseAsset) BasePool(_poolManager) {
+    _checkAddressNotZero(_lendingPool);
+    _checkAddressNotZero(_baseAsset);
+
     lendingPool = _lendingPool;
     baseAsset = _baseAsset;
   }
 
-  function initialize(string memory name_, string memory symbol_) external initializer {
+  function initialize(
+    address admin,
+    string memory name_,
+    string memory symbol_,
+    address _collateralToken,
+    address _priceOracle
+  ) external initializer {
     __Context_init();
     __ERC165_init();
     __ERC721_init(name_, symbol_);
     __AccessControl_init();
 
+    __PoolStorage_init(_collateralToken, _priceOracle);
     __TickLogic_init();
     __PositionLogic_init();
     __BasePool_init();
 
-    _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+    _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
     _updateOpenRatio(1000000, 50000000000000000); // 0.1% and 5%
     _updateCloseRatio(1000000); // 0.1%

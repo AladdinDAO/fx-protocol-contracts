@@ -7,6 +7,11 @@ interface IPool {
    * Events *
    **********/
   
+  /// @notice Emitted when price oracle is updated.
+  /// @param oldOracle The previous address of price oracle.
+  /// @param newOracle The current address of price oracle.
+  event UpdatePriceOracle(address oldOracle, address newOracle);
+  
   /// @notice Emitted when borrow status is updated.
   /// @param status The updated borrow status.
   event UpdateBorrowStatus(bool status);
@@ -33,6 +38,13 @@ interface IPool {
   /// @param debtRatio The current value of liquidate debt ratio, multiplied by 1e18.
   /// @param bonusRatio The current value of liquidate bonus ratio, multiplied by 1e9.
   event UpdateLiquidateRatios(uint256 debtRatio, uint256 bonusRatio);
+  
+  /// @notice Emitted when position is updated.
+  /// @param position The index of this position.
+  /// @param colls The amount of collateral tokens in this position.
+  /// @param debts The amount of debt tokens in this position.
+  /// @param price The price used for this operation.
+  event PositionSnapshot(uint256 position, uint256 colls, uint256 debts, uint256 price);
 
   /***********
    * Structs *

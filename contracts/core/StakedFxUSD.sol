@@ -152,7 +152,7 @@ contract StakedFxUSD is
     stableTokenScale = 10 ** (18 - IERC20MetadataUpgradeable(_stableToken).decimals());
   }
 
-  function initialize(string memory _name, string memory _symbol, uint256 _stableDepegPrice) external initializer {
+  function initialize(address admin, string memory _name, string memory _symbol, uint256 _stableDepegPrice) external initializer {
     __Context_init();
     __ERC165_init();
     __AccessControl_init();
@@ -163,7 +163,7 @@ contract StakedFxUSD is
 
     __LinearRewardDistributor_init(yieldToken);
 
-    _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+    _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
     _updateStableDepegPrice(_stableDepegPrice);
   }

@@ -1,0 +1,16 @@
+{
+  "ProxyAdmin": {
+    "Fx": "0x9B54B7703551D9d0ced177A78367560a8B2eDDA4",
+    "Concentrator": "0x12b1326459d72F2Ab081116bf27ca46cD97762A0",
+    "CLever": "0x1F57286F7a8083fb363d87Bc8b1DCcD685dc87EE"
+  },
+  "EmptyContract": {
+    "address": "0x387568e1ea4Ff4D003B8147739dB69D87325E206"
+  },
+  "TokenConverter": {
+    "GeneralTokenConverter": "0x11C907b3aeDbD863e551c37f21DD3F36b28A6784"
+  },
+  "FxUSDProxy": {
+    "address": "0x085780639CC2cACd35E474e71f4d000e2405d8f6"
+  }
+}
