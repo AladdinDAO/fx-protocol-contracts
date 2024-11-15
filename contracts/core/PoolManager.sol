@@ -195,7 +195,11 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     newRawColl = _scaleDown(newRawColl, scalingFactor);
     protocolFees = _scaleDown(protocolFees, scalingFactor);
     _accumulatePoolFee(pool, protocolFees);
-    _changePoolCollateral(pool, newRawColl - int256(protocolFees));
+    if (newRawColl > 0) {
+      _changePoolCollateral(pool, newRawColl);
+    } else {
+      _changePoolCollateral(pool, newRawColl - int256(protocolFees));
+    }
     _changePoolDebts(pool, newRawDebt);
 
     if (newRawColl > 0) {
