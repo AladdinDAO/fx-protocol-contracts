@@ -1,6 +1,7 @@
 import * as dotenv from "dotenv";
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+import { ethers } from "ethers";
 
 dotenv.config();
 
@@ -26,6 +27,10 @@ const config: HardhatUserConfig = {
       url: process.env.MAINNET_RPC_URL || "https://rpc.ankr.com/eth",
       chainId: 1,
       accounts: [process.env.PRIVATE_KEY_MAINNET!],
+      ignition: {
+        maxPriorityFeePerGas: ethers.parseUnits("0.01", "gwei"),
+        maxFeePerGasLimit: ethers.parseUnits("20", "gwei"),
+      },
     },
     hermez: {
       url: process.env.HERMEZ_RPC_URL || "https://zkevm-rpc.com",
@@ -46,7 +51,9 @@ const config: HardhatUserConfig = {
       url: "https://virtual.mainnet.rpc.tenderly.co/f832d587-d739-4e37-9f9d-009ca9d3fd20", //`https://virtual.mainnet.rpc.tenderly.co/${process.env.TENDERLY_RPC_ID || ""}`,
       chainId: parseInt(process.env.TENDERLY_CHAIN_ID || "1"),
       accounts: testAccounts,
-      gas: 100000000,
+      ignition: {
+        maxPriorityFeePerGas: ethers.parseUnits("0.01", "gwei"),
+      },
     },
   },
   typechain: {
@@ -56,8 +63,7 @@ const config: HardhatUserConfig = {
   ignition: {
     blockPollingInterval: 1_000,
     timeBeforeBumpingFees: 3 * 60 * 1_000,
-    maxFeeBumps: 4,
-    requiredConfirmations: 5,
+    maxFeeBumps: 3,
     disableFeeBumping: false,
   },
   gasReporter: {
