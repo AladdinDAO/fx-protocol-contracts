@@ -114,7 +114,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
       op.positionColl += uint256(op.newColl);
       op.globalColl += uint256(op.newColl);
     } else if (newRawColl < 0) {
-      if (newRawColl == type(int256).max) {
+      if (newRawColl == type(int256).min) {
         // this is max withdraw
         newRawColl = -int256(_convertToRawColl(op.positionColl, op.collIndex));
         op.newColl = -int256(op.positionColl);
@@ -168,7 +168,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
       // if global debt ratio >= 1, only allow supply and repay
       rawColls = _convertToRawColl(op.globalColl, op.collIndex);
       rawDebts = _convertToRawDebt(op.globalDebt, op.debtIndex);
-      if (rawDebts * PRECISION >= rawColls * price) {
+      if (rawDebts > 0 && rawDebts * PRECISION >= rawColls * price) {
         if (newRawColl < 0 || newRawDebt > 0) revert ErrorPoolUnderCollateral();
       }
     }

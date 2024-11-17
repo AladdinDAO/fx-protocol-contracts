@@ -140,7 +140,10 @@ interface IPool {
   function getPosition(uint256 tokenId) external view returns (uint256 rawColls, uint256 rawDebts);
 
   /// @notice The total amount of raw collateral tokens.
-  function getTotalRawColls() external view returns (uint256);
+  function getTotalRawCollaterals() external view returns (uint256);
+
+  /// @notice The total amount of raw debt tokens.
+  function getTotalRawDebts() external view returns (uint256);
 
   /****************************
    * Public Mutated Functions *

@@ -182,7 +182,9 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     address collateralToken = IPool(pool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
 
-    newRawColl = _scaleUp(newRawColl, scalingFactor);
+    if (newRawColl != type(int256).min) {
+        newRawColl = _scaleUp(newRawColl, scalingFactor);
+    }
 
     uint256 protocolFees;
     // the `newRawColl` is the result without `protocolFees`
@@ -341,7 +343,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     // compute pending rewards
     address collateralToken = IPool(pool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
-    amountRewards = _scaleDown(IPool(pool).getTotalRawColls(), scalingFactor);
+    amountRewards = _scaleDown(IPool(pool).getTotalRawCollaterals(), scalingFactor);
     amountRewards = poolInfo[pool].collateralData.decodeUint(96, 96) - amountRewards;
     _changePoolCollateral(pool, -int256(amountRewards));
 

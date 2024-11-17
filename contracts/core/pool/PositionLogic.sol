@@ -38,10 +38,17 @@ abstract contract PositionLogic is TickLogic {
   }
 
   /// @inheritdoc IPool
-  function getTotalRawColls() external view returns (uint256) {
+  function getTotalRawCollaterals() external view returns (uint256) {
     (, uint256 totalColls) = _getDebtAndCollateralShares();
     (, uint256 collIndex) = _getDebtAndCollateralIndex();
     return _convertToRawColl(totalColls, collIndex);
+  }
+
+  /// @inheritdoc IPool
+  function getTotalRawDebts() external view returns (uint256) {
+    (uint256 totalDebts, ) = _getDebtAndCollateralShares();
+    (uint256 debtIndex, ) = _getDebtAndCollateralIndex();
+    return _convertToRawDebt(totalDebts, debtIndex);
   }
 
   /**********************

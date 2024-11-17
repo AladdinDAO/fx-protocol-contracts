@@ -8,8 +8,26 @@ interface IAaveFundingPool is IPool {
   /**********
    * Events *
    **********/
-   
-   event SnapshotAaveInterestRate(uint256 rate, uint256 timestamp);
+
+  /// @notice Emitted when interest snapshot is taken.
+  /// @param rate The current interest rate, multiplied by 1e18.
+  /// @param timestamp The timestamp when this snapshot is taken.
+  event SnapshotAaveInterestRate(uint256 rate, uint256 timestamp);
+
+  /// @notice Emitted when the open fee ratio related parameters are updated.
+  /// @param ratio The open ratio value, multiplied by 1e9.
+  /// @param step The open ratio step value, multiplied by 1e18.
+  event UpdateOpenRatio(uint256 ratio, uint256 step);
+
+  /// @notice Emitted when the open fee ratio is updated.
+  /// @param oldRatio The value of previous close fee ratio, multiplied by 1e9.
+  /// @param newRatio The value of current close fee ratio, multiplied by 1e9.
+  event UpdateCloseFeeRatio(uint256 oldRatio, uint256 newRatio);
+
+  /// @notice Emitted when the funding fee ratio is updated.
+  /// @param oldRatio The value of previous funding fee ratio, multiplied by 1e9.
+  /// @param newRatio The value of current funding fee ratio, multiplied by 1e9.
+  event UpdateFundingRatio(uint256 oldRatio, uint256 newRatio);
 
   /*************************
    * Public View Functions *

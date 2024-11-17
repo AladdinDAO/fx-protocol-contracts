@@ -1,8 +1,8 @@
 /* eslint-disable camelcase */
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { ZeroAddress } from "ethers";
-import { ethers } from "hardhat";
+import { MinInt256, ZeroAddress, ZeroHash } from "ethers";
+import { ethers, network } from "hardhat";
 
 import {
   AaveFundingPool,
@@ -180,7 +180,7 @@ describe("AaveFundingPool.spec", async () => {
       collateralToken.getAddress(),
       mockPriceOracle.getAddress()
     );
-    await pool.updateRebalanceRatios(ethers.parseEther("0.85"), ethers.parseUnits("0.025", 9));
+    await pool.updateRebalanceRatios(ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9));
     await pool.updateLiquidateRatios(ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9));
 
     sfxUSDRewarder = await SfxUSDRewarder.deploy(sfxUSD.getAddress());
@@ -212,11 +212,11 @@ describe("AaveFundingPool.spec", async () => {
       expect(await pool.getNextTreeNodeId()).to.eq(1);
       expect(await pool.getDebtRatioRange()).to.deep.eq([500000000000000000n, 857142857142857142n]);
       expect(await pool.getMaxRedeemRatioPerTick()).to.eq(ethers.parseUnits("0.2", 9));
-      expect(await pool.getRebalanceRatios()).to.deep.eq([ethers.parseEther("0.85"), ethers.parseUnits("0.025", 9)]);
+      expect(await pool.getRebalanceRatios()).to.deep.eq([ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9)]);
       expect(await pool.getLiquidateRatios()).to.deep.eq([ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9)]);
       expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([2n ** 96n, 2n ** 96n]);
       expect(await pool.getDebtAndCollateralShares()).to.deep.eq([0n, 0n]);
-      expect(await pool.getTotalRawColls()).to.eq(0n);
+      expect(await pool.getTotalRawCollaterals()).to.eq(0n);
       expect(await pool.getFundingRatio()).to.eq(0n);
       expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.001", 9));
       expect(await pool.getCloseFeeRatio()).to.eq(ethers.parseUnits("0.001", 9));
@@ -230,9 +230,253 @@ describe("AaveFundingPool.spec", async () => {
     });
   });
 
-  context("auth", async () => {});
+  context("auth", async () => {
+    context("updateBorrowAndRedeemStatus", async () => {
+      it("should revert, when caller is not admin", async () => {
+        await expect(pool.connect(deployer).updateBorrowAndRedeemStatus(false, false))
+          .to.revertedWithCustomError(pool, "AccessControlUnauthorizedAccount")
+          .withArgs(deployer.address, ZeroHash);
+      });
 
-  context("#operate", async () => {
+      it("should succeed", async () => {
+        expect(await pool.isBorrowPaused()).to.eq(false);
+        expect(await pool.isRedeemPaused()).to.eq(false);
+        await expect(pool.connect(admin).updateBorrowAndRedeemStatus(false, true))
+          .to.emit(pool, "UpdateBorrowStatus")
+          .withArgs(false)
+          .to.emit(pool, "UpdateRedeemStatus")
+          .withArgs(true);
+        expect(await pool.isBorrowPaused()).to.eq(false);
+        expect(await pool.isRedeemPaused()).to.eq(true);
+        await expect(pool.connect(admin).updateBorrowAndRedeemStatus(true, true))
+          .to.emit(pool, "UpdateBorrowStatus")
+          .withArgs(true)
+          .to.emit(pool, "UpdateRedeemStatus")
+          .withArgs(true);
+        expect(await pool.isBorrowPaused()).to.eq(true);
+        expect(await pool.isRedeemPaused()).to.eq(true);
+        await expect(pool.connect(admin).updateBorrowAndRedeemStatus(true, false))
+          .to.emit(pool, "UpdateBorrowStatus")
+          .withArgs(true)
+          .to.emit(pool, "UpdateRedeemStatus")
+          .withArgs(false);
+        expect(await pool.isBorrowPaused()).to.eq(true);
+        expect(await pool.isRedeemPaused()).to.eq(false);
+        await expect(pool.connect(admin).updateBorrowAndRedeemStatus(false, false))
+          .to.emit(pool, "UpdateBorrowStatus")
+          .withArgs(false)
+          .to.emit(pool, "UpdateRedeemStatus")
+          .withArgs(false);
+        expect(await pool.isBorrowPaused()).to.eq(false);
+        expect(await pool.isRedeemPaused()).to.eq(false);
+      });
+    });
+
+    context("updateDebtRatioRange", async () => {
+      it("should revert, when caller is not admin", async () => {
+        await expect(pool.connect(deployer).updateDebtRatioRange(0, 0))
+          .to.revertedWithCustomError(pool, "AccessControlUnauthorizedAccount")
+          .withArgs(deployer.address, ZeroHash);
+      });
+
+      it("should succeed", async () => {
+        await expect(pool.connect(admin).updateDebtRatioRange(1, 0)).to.revertedWithCustomError(
+          pool,
+          "ErrorValueTooLarge"
+        );
+        await expect(pool.connect(admin).updateDebtRatioRange(0, 10n ** 18n + 1n)).to.revertedWithCustomError(
+          pool,
+          "ErrorValueTooLarge"
+        );
+        expect(await pool.getDebtRatioRange()).to.deep.eq([500000000000000000n, 857142857142857142n]);
+        await expect(pool.connect(admin).updateDebtRatioRange(1n, 2n))
+          .to.emit(pool, "UpdateDebtRatioRange")
+          .withArgs(1n, 2n);
+        expect(await pool.getDebtRatioRange()).to.deep.eq([1n, 2n]);
+      });
+    });
+
+    context("updateMaxRedeemRatioPerTick", async () => {
+      it("should revert, when caller is not admin", async () => {
+        await expect(pool.connect(deployer).updateMaxRedeemRatioPerTick(0))
+          .to.revertedWithCustomError(pool, "AccessControlUnauthorizedAccount")
+          .withArgs(deployer.address, ZeroHash);
+      });
+
+      it("should succeed", async () => {
+        await expect(pool.connect(admin).updateMaxRedeemRatioPerTick(10n ** 9n + 1n)).to.revertedWithCustomError(
+          pool,
+          "ErrorValueTooLarge"
+        );
+        expect(await pool.getMaxRedeemRatioPerTick()).to.eq(ethers.parseUnits("0.2", 9));
+        await expect(pool.connect(admin).updateMaxRedeemRatioPerTick(1n))
+          .to.emit(pool, "UpdateMaxRedeemRatioPerTick")
+          .withArgs(1n);
+        expect(await pool.getMaxRedeemRatioPerTick()).to.eq(1n);
+      });
+    });
+
+    context("updateRebalanceRatios", async () => {
+      it("should revert, when caller is not admin", async () => {
+        await expect(pool.connect(deployer).updateRebalanceRatios(0, 0))
+          .to.revertedWithCustomError(pool, "AccessControlUnauthorizedAccount")
+          .withArgs(deployer.address, ZeroHash);
+      });
+
+      it("should succeed", async () => {
+        await expect(pool.connect(admin).updateRebalanceRatios(10n ** 18n + 1n, 0)).to.revertedWithCustomError(
+          pool,
+          "ErrorValueTooLarge"
+        );
+        await expect(pool.connect(admin).updateRebalanceRatios(0, 10n ** 9n + 1n)).to.revertedWithCustomError(
+          pool,
+          "ErrorValueTooLarge"
+        );
+        expect(await pool.getRebalanceRatios()).to.deep.eq([ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9)]);
+        await expect(pool.connect(admin).updateRebalanceRatios(1n, 2n))
+          .to.emit(pool, "UpdateRebalanceRatios")
+          .withArgs(1n, 2n);
+        expect(await pool.getRebalanceRatios()).to.deep.eq([1n, 2n]);
+      });
+    });
+
+    context("updateLiquidateRatios", async () => {
+      it("should revert, when caller is not admin", async () => {
+        await expect(pool.connect(deployer).updateLiquidateRatios(0, 0))
+          .to.revertedWithCustomError(pool, "AccessControlUnauthorizedAccount")
+          .withArgs(deployer.address, ZeroHash);
+      });
+
+      it("should succeed", async () => {
+        await expect(pool.connect(admin).updateLiquidateRatios(10n ** 18n + 1n, 0)).to.revertedWithCustomError(
+          pool,
+          "ErrorValueTooLarge"
+        );
+        await expect(pool.connect(admin).updateLiquidateRatios(0, 10n ** 9n + 1n)).to.revertedWithCustomError(
+          pool,
+          "ErrorValueTooLarge"
+        );
+        expect(await pool.getLiquidateRatios()).to.deep.eq([ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9)]);
+        await expect(pool.connect(admin).updateLiquidateRatios(1n, 2n))
+          .to.emit(pool, "UpdateLiquidateRatios")
+          .withArgs(1n, 2n);
+        expect(await pool.getLiquidateRatios()).to.deep.eq([1n, 2n]);
+      });
+    });
+
+    context("updatePriceOracle", async () => {
+      it("should revert, when caller is not admin", async () => {
+        await expect(pool.connect(deployer).updatePriceOracle(ZeroAddress))
+          .to.revertedWithCustomError(pool, "AccessControlUnauthorizedAccount")
+          .withArgs(deployer.address, ZeroHash);
+      });
+
+      it("should succeed", async () => {
+        await expect(pool.connect(admin).updatePriceOracle(ZeroAddress)).to.revertedWithCustomError(
+          pool,
+          "ErrorZeroAddress"
+        );
+
+        expect(await pool.priceOracle()).to.eq(await mockPriceOracle.getAddress());
+        await expect(pool.connect(admin).updatePriceOracle(deployer.address))
+          .to.emit(pool, "UpdatePriceOracle")
+          .withArgs(await mockPriceOracle.getAddress(), deployer.address);
+        expect(await pool.priceOracle()).to.eq(deployer.address);
+      });
+    });
+
+    context("updateOpenRatio", async () => {
+      it("should revert, when caller is not admin", async () => {
+        await expect(pool.connect(deployer).updateOpenRatio(0, 0))
+          .to.revertedWithCustomError(pool, "AccessControlUnauthorizedAccount")
+          .withArgs(deployer.address, ZeroHash);
+      });
+
+      it("should succeed", async () => {
+        await expect(pool.connect(admin).updateOpenRatio(10n ** 9n + 1n, 0)).to.revertedWithCustomError(
+          pool,
+          "ErrorValueTooLarge"
+        );
+        await expect(pool.connect(admin).updateOpenRatio(0, 10n ** 18n + 1n)).to.revertedWithCustomError(
+          pool,
+          "ErrorValueTooLarge"
+        );
+        expect(await pool.getOpenRatio()).to.deep.eq([ethers.parseUnits("0.001", 9), ethers.parseEther("0.05")]);
+        await expect(pool.connect(admin).updateOpenRatio(1n, 2n)).to.emit(pool, "UpdateOpenRatio").withArgs(1n, 2n);
+        expect(await pool.getOpenRatio()).to.deep.eq([1n, 2n]);
+      });
+
+      it("should succeed for getOpenFeeRatio", async () => {
+        await unlockAccounts([await poolManager.getAddress()]);
+        const signer = await ethers.getSigner(await poolManager.getAddress());
+        await mockETHBalance(signer.address, ethers.parseEther("100"));
+
+        await pool.updateOpenRatio(ethers.parseUnits("0.001", 9), ethers.parseEther("0.05"));
+        await mockAaveV3Pool.setVariableBorrowRate(ethers.parseUnits("0.01", 27));
+        await pool.connect(signer).operate(0, ethers.parseEther("1"), ethers.parseEther("2000"), deployer.address);
+        expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.001", 9));
+        await mockAaveV3Pool.setVariableBorrowRate(ethers.parseUnits("0.06", 27));
+        await pool.connect(signer).operate(0, ethers.parseEther("1"), ethers.parseEther("2000"), deployer.address);
+        expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.001", 9));
+        await mockAaveV3Pool.setVariableBorrowRate(ethers.parseUnits("0.1", 27));
+        await pool.connect(signer).operate(0, ethers.parseEther("1"), ethers.parseEther("2000"), deployer.address);
+        expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.001", 9));
+        await mockAaveV3Pool.setVariableBorrowRate(ethers.parseUnits("0.11", 27));
+        await pool.connect(signer).operate(0, ethers.parseEther("1"), ethers.parseEther("2000"), deployer.address);
+        expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.001", 9) * 2n);
+        await mockAaveV3Pool.setVariableBorrowRate(ethers.parseUnits("0.16", 27));
+        await pool.connect(signer).operate(0, ethers.parseEther("1"), ethers.parseEther("2000"), deployer.address);
+        expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.001", 9) * 3n);
+        await pool.updateOpenRatio(ethers.parseUnits("0.000001", 9), ethers.parseEther("0.05"));
+        await mockAaveV3Pool.setVariableBorrowRate(295147905179352825855000000000n);
+        await pool.connect(signer).operate(0, ethers.parseEther("1"), ethers.parseEther("2000"), deployer.address);
+        expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.000001", 9) * 5902n);
+        await mockAaveV3Pool.setVariableBorrowRate(395147905179352825855000000000n);
+        await pool.connect(signer).operate(0, ethers.parseEther("1"), ethers.parseEther("2000"), deployer.address);
+        expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.000001", 9) * 5902n);
+      });
+    });
+
+    context("updateCloseFeeRatio", async () => {
+      it("should revert, when caller is not admin", async () => {
+        await expect(pool.connect(deployer).updateCloseFeeRatio(0))
+          .to.revertedWithCustomError(pool, "AccessControlUnauthorizedAccount")
+          .withArgs(deployer.address, ZeroHash);
+      });
+
+      it("should succeed", async () => {
+        await expect(pool.connect(admin).updateCloseFeeRatio(10n ** 9n + 1n)).to.revertedWithCustomError(
+          pool,
+          "ErrorValueTooLarge"
+        );
+        expect(await pool.getCloseFeeRatio()).to.eq(ethers.parseUnits("0.001", 9));
+        await expect(pool.connect(admin).updateCloseFeeRatio(1n))
+          .to.emit(pool, "UpdateCloseFeeRatio")
+          .withArgs(ethers.parseUnits("0.001", 9), 1n);
+        expect(await pool.getCloseFeeRatio()).to.eq(1n);
+      });
+    });
+
+    context("updateFundingRatio", async () => {
+      it("should revert, when caller is not admin", async () => {
+        await expect(pool.connect(deployer).updateFundingRatio(0))
+          .to.revertedWithCustomError(pool, "AccessControlUnauthorizedAccount")
+          .withArgs(deployer.address, ZeroHash);
+      });
+
+      it("should succeed", async () => {
+        await expect(pool.connect(admin).updateFundingRatio(4294967295n + 1n)).to.revertedWithCustomError(
+          pool,
+          "ErrorValueTooLarge"
+        );
+        expect(await pool.getFundingRatio()).to.eq(0n);
+        await expect(pool.connect(admin).updateFundingRatio(1n)).to.emit(pool, "UpdateFundingRatio").withArgs(0n, 1n);
+        expect(await pool.getFundingRatio()).to.eq(1n);
+      });
+    });
+  });
+
+  context("operate", async () => {
     let signer: HardhatEthersSigner;
 
     beforeEach(async () => {
@@ -346,10 +590,58 @@ describe("AaveFundingPool.spec", async () => {
         ethers.parseEther("2000") + 1n,
         newRawColl - protocolFees,
       ]);
+      expect(await pool.getTopTick()).to.eq((await pool.positionData(1)).tick);
 
       await expect(
         pool.connect(signer).operate(1, newRawColl - protocolFees, ethers.parseEther("2000"), signer.address)
       ).to.revertedWithCustomError(pool, "ErrorNotPositionOwner");
+    });
+
+    it("should succeed, operate on multiple new positions", async () => {});
+
+    context("funding costs", async () => {
+      const InitialRawCollateral = ethers.parseEther("1.23") - ethers.parseEther("1.23") / 1000n;
+      beforeEach(async () => {
+        expect(
+          await pool.connect(signer).operate(0, ethers.parseEther("1.23"), ethers.parseEther("2000"), deployer.address)
+        ).to.to.emit(pool, "PositionSnapshot");
+      });
+
+      it("should charge no funding, when not enable", async () => {
+        expect(await pegKeeper.isFundingEnabled()).to.eq(false);
+        expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([2n ** 96n, 2n ** 96n]);
+        await pool.connect(signer).operate(0, ethers.parseEther("1.23"), ethers.parseEther("2000"), deployer.address);
+        expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([2n ** 96n, 2n ** 96n]);
+      });
+
+      it("should charge funding fee, when enabled and funding ratio is zero", async () => {
+        const [, startTime] = await pool.getInterestRateSnapshot();
+        await network.provider.send("evm_setNextBlockTimestamp", [Number(startTime) + 86400 * 7]);
+        await mockCurveStableSwapNG.setPriceOracle(0, ethers.parseEther("0.8"));
+        expect(await pegKeeper.isFundingEnabled()).to.eq(true);
+        expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([2n ** 96n, 2n ** 96n]);
+        await pool.connect(signer).operate(1, ethers.parseEther("0.01"), 0n, deployer.address);
+        expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([2n ** 96n, 2n ** 96n]);
+      });
+
+      it("should charge funding fee, when enable", async () => {
+        expect(await pool.getTotalRawCollaterals()).to.eq(InitialRawCollateral);
+        await pool.updateFundingRatio(ethers.parseUnits("0.1", 9));
+        const [rate, startTime] = await pool.getInterestRateSnapshot();
+        await mockCurveStableSwapNG.setPriceOracle(0, ethers.parseEther("0.8"));
+        expect(await pegKeeper.isFundingEnabled()).to.eq(true);
+        expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([2n ** 96n, 2n ** 96n]);
+        await network.provider.send("evm_setNextBlockTimestamp", [Number(startTime) + 86400 * 7]);
+        await pool.connect(signer).operate(1, ethers.parseEther("0.01"), 0n, deployer.address);
+        const timestamp = (await ethers.provider.getBlock("latest"))!.timestamp;
+        const funding =
+          (InitialRawCollateral * rate * (BigInt(timestamp) - startTime)) / (86400n * 365n * 10n ** 18n) / 10n;
+        // 1.22877 * 0.05 * 7 / 365 * 0.1 = 0.000117827260273972
+        expect(funding).to.eq(ethers.parseEther(".000117827260273972"));
+        // 1.23 - 1.23 / 1000 + 0.01 - 0.01 / 1000 - 0.000117827260273972 = 1.238642172739726028
+        expect(await pool.getTotalRawCollaterals()).to.closeTo(ethers.parseEther("1.238642172739726028"), 10);
+        expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([2n ** 96n, 79235760463897862007198239823n]);
+      });
     });
 
     context("operate on old position", async () => {
@@ -403,6 +695,25 @@ describe("AaveFundingPool.spec", async () => {
       it("should succeed to repay debt", async () => {
         await pool.connect(signer).operate(1, 0n, -ethers.parseEther("0.1"), deployer.address);
       });
+
+      it("should succeed close entire position", async () => {
+        // open another one to avoid ErrorPoolUnderCollateral
+        await pool.connect(signer).operate(0, ethers.parseEther("1.23"), ethers.parseEther("2000"), deployer.address);
+        await pool.connect(signer).operate(1, MinInt256, MinInt256, deployer.address);
+        expect(await pool.getPosition(1)).to.deep.eq([0n, 0n]);
+      });
     });
+
+    context("operate after redeem", async () => {});
+
+    context("operate after rebalance", async () => {});
   });
+
+  context("redeem", async () => {});
+
+  context("rebalance on tick", async () => {});
+
+  context("rebalance on position", async () => {});
+
+  context("liquidate on position", async () => {});
 });
