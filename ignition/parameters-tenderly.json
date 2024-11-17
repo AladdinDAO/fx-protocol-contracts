@@ -27,6 +27,10 @@
     "Symbol": "xstETH",
     "CollateralCapacity": "10000000000000000000000",
     "DebtCapacity": "10000000000000000000000000",
-    "RateProvider": "0x81A777c4aB65229d1Bf64DaE4c831bDf628Ccc7f"
+    "RateProvider": "0x81A777c4aB65229d1Bf64DaE4c831bDf628Ccc7f",
+    "RebalanceDebtRatio": "880000000000000000",
+    "RebalanceBonusRatio": "25000000",
+    "LiquidateDebtRatio": "920000000000000000",
+    "LiquidateBonusRatio": "50000000"
   }
 }

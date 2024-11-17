@@ -76,22 +76,22 @@ abstract contract PositionLogic is TickLogic {
 
   /// @dev Internal function to convert raw collateral amounts to collateral shares.
   function _convertToCollShares(uint256 raw, uint256 index) internal pure returns (uint256 shares) {
-    shares = (raw * index) / E128;
+    shares = (raw * index) / E96;
   }
 
   /// @dev Internal function to convert raw debt amounts to debt shares.
   function _convertToDebtShares(uint256 raw, uint256 index) internal pure returns (uint256 shares) {
-    shares = (raw * E128) / index;
+    shares = (raw * E96) / index;
   }
 
   /// @dev Internal function to convert raw collateral shares to collateral amounts.
   function _convertToRawColl(uint256 shares, uint256 index) internal pure returns (uint256 raw) {
-    raw = (shares * E128) / index;
+    raw = (shares * E96) / index;
   }
 
   /// @dev Internal function to convert raw debt shares to debt amounts.
   function _convertToRawDebt(uint256 shares, uint256 index) internal pure returns (uint256 raw) {
-    raw = (shares * index) / E128;
+    raw = (shares * index) / E96;
   }
 
   /**

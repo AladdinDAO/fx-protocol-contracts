@@ -185,6 +185,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     newRawColl = _scaleUp(newRawColl, scalingFactor);
 
     uint256 protocolFees;
+    // the `newRawColl` is the result without `protocolFees`
     (positionId, newRawColl, newRawDebt, protocolFees) = IPool(pool).operate(
       positionId,
       newRawColl,
@@ -195,20 +196,16 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     newRawColl = _scaleDown(newRawColl, scalingFactor);
     protocolFees = _scaleDown(protocolFees, scalingFactor);
     _accumulatePoolFee(pool, protocolFees);
+    _changePoolDebts(pool, newRawDebt);
     if (newRawColl > 0) {
       _changePoolCollateral(pool, newRawColl);
-    } else {
-      _changePoolCollateral(pool, newRawColl - int256(protocolFees));
-    }
-    _changePoolDebts(pool, newRawDebt);
-
-    if (newRawColl > 0) {
       IERC20Upgradeable(collateralToken).safeTransferFrom(
         _msgSender(),
         address(this),
         uint256(newRawColl) + protocolFees
       );
     } else if (newRawColl < 0) {
+      _changePoolCollateral(pool, newRawColl - int256(protocolFees));
       IERC20Upgradeable(collateralToken).safeTransfer(_msgSender(), uint256(-newRawColl));
     }
 

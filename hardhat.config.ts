@@ -48,7 +48,7 @@ const config: HardhatUserConfig = {
       accounts: testAccounts,
     },
     tenderly: {
-      url: "https://virtual.mainnet.rpc.tenderly.co/f832d587-d739-4e37-9f9d-009ca9d3fd20", //`https://virtual.mainnet.rpc.tenderly.co/${process.env.TENDERLY_RPC_ID || ""}`,
+      url: `https://virtual.mainnet.rpc.tenderly.co/${process.env.TENDERLY_RPC_ID || ""}`,
       chainId: parseInt(process.env.TENDERLY_CHAIN_ID || "1"),
       accounts: testAccounts,
       ignition: {
@@ -57,7 +57,7 @@ const config: HardhatUserConfig = {
     },
   },
   typechain: {
-    outDir: "./scripts/@types",
+    outDir: "./src/@types",
     target: "ethers-v6",
   },
   ignition: {

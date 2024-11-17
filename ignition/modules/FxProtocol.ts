@@ -1,9 +1,7 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 import { ethers, ZeroAddress } from "ethers";
 
-import { encodeChainlinkPriceFeed } from "@/utils/codec";
-import { ChainlinkPriceFeed } from "@/utils/oracle";
-import { EthereumTokens } from "@/utils/tokens";
+import { Addresses, ChainlinkPriceFeed, encodeChainlinkPriceFeed, EthereumTokens } from "@/utils/index";
 
 import EmptyContractModule from "./EmptyContract";
 import ProxyAdminModule from "./ProxyAdmin";
@@ -63,14 +61,11 @@ export default buildModule("FxProtocol", (m) => {
       PegKeeperProxy,
       FxUSDProxy,
       EthereumTokens.USDC.address,
-      "0x" +
-        encodeChainlinkPriceFeed(
-          ChainlinkPriceFeed.ethereum["USDC-USD"].feed,
-          10n ** 10n,
-          ChainlinkPriceFeed.ethereum["USDC-USD"].heartbeat
-        )
-          .toString(16)
-          .padStart(64, "0"),
+      encodeChainlinkPriceFeed(
+        ChainlinkPriceFeed.ethereum["USDC-USD"].feed,
+        ChainlinkPriceFeed.ethereum["USDC-USD"].scale,
+        ChainlinkPriceFeed.ethereum["USDC-USD"].heartbeat
+      ),
     ],
     { id: "StakedFxUSDImplementation" }
   );
@@ -94,7 +89,11 @@ export default buildModule("FxProtocol", (m) => {
     id: "PegKeeperImplementation",
     after: [StakedFxUSDProxyUpgradeAndInitializeCall],
   });
-  const PegKeeperInitializer = m.encodeFunctionCall(PegKeeperImplementation, "initialize", [admin, MultiPathConverter]);
+  const PegKeeperInitializer = m.encodeFunctionCall(PegKeeperImplementation, "initialize", [
+    admin,
+    MultiPathConverter,
+    Addresses["CRV_S_NG_USDC/fxUSD_193"],
+  ]);
   m.call(ProxyAdmin, "upgradeAndCall", [PegKeeperProxy, PegKeeperImplementation, PegKeeperInitializer], {
     id: "PegKeeperProxy_upgradeAndCall",
   });

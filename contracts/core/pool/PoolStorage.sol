@@ -5,6 +5,8 @@ pragma solidity ^0.8.26;
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { ERC721Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 
+import { IPool } from "../../interfaces/IPool.sol";
+
 import { WordCodec } from "../../common/codec/WordCodec.sol";
 import { PoolConstant } from "./PoolConstant.sol";
 import { PoolErrors } from "./PoolErrors.sol";
@@ -81,10 +83,10 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
    * Storage Variables *
    *********************/
 
-  /// @notice The address of collateral token.
+  /// @inheritdoc IPool
   address public collateralToken;
 
-  /// @notice The address of price oracle.
+  /// @inheritdoc IPool
   address public priceOracle;
 
   /// @dev `miscData` is a storage slot that can be used to store unrelated pieces of information.
@@ -117,8 +119,8 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
 
   /// @dev `indexData` is a storage slot used to store debt/collateral index.
   ///
-  /// - The *debt index* is the index for each debt shares, only increasing, starting from 2^128.
-  /// - The *collateral index* is the index for each collateral shares, only increasing, starting from 2^128.
+  /// - The *debt index* is the index for each debt shares, only increasing, starting from 2^96, max 2^128-1.
+  /// - The *collateral index* is the index for each collateral shares, only increasing, starting from 2^96, max 2^128-1
   ///
   /// [ debt index | collateral index ]
   /// [  128  bit  |     128  bit     ]
@@ -138,16 +140,16 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   bytes32 private sharesData;
 
   /// @dev Mapping from position id to position information.
-  mapping(uint256 => PositionInfo) internal positionData;
+  mapping(uint256 => PositionInfo) public positionData;
 
   /// @dev The bitmap for ticks with debts.
-  mapping(int8 => uint256) internal tickBitmap;
+  mapping(int8 => uint256) public tickBitmap;
 
   /// @dev Mapping from tick to tree node id.
-  mapping(int256 => uint32) internal tickData;
+  mapping(int256 => uint32) public tickData;
 
   /// @dev Mapping from tree node id to tree node data.
-  mapping(uint256 => TickTreeNode) internal tickTreeData;
+  mapping(uint256 => TickTreeNode) public tickTreeData;
 
   /***************
    * Constructor *
@@ -169,6 +171,61 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
     bytes4 interfaceId
   ) public view virtual override(AccessControlUpgradeable, ERC721Upgradeable) returns (bool) {
     return super.supportsInterface(interfaceId);
+  }
+
+  /// @inheritdoc IPool
+  function isBorrowPaused() external view returns (bool) {
+    return _isBorrowPaused();
+  }
+
+  /// @inheritdoc IPool
+  function isRedeemPaused() external view returns (bool) {
+    return _isRedeemPaused();
+  }
+
+  /// @inheritdoc IPool
+  function getTopTick() external view returns (int16) {
+    return _getTopTick();
+  }
+
+  /// @inheritdoc IPool
+  function getNextPositionId() external view returns (uint256) {
+    return _getNextPositionId();
+  }
+
+  /// @inheritdoc IPool
+  function getNextTreeNodeId() external view returns (uint256) {
+    return _getNextTreeNodeId();
+  }
+
+  /// @inheritdoc IPool
+  function getDebtRatioRange() external view returns (uint256, uint256) {
+    return _getDebtRatioRange();
+  }
+
+  /// @inheritdoc IPool
+  function getMaxRedeemRatioPerTick() external view returns (uint256) {
+    return _getMaxRedeemRatioPerTick();
+  }
+
+  /// @inheritdoc IPool
+  function getRebalanceRatios() external view returns (uint256, uint256) {
+    return _getRebalanceRatios();
+  }
+
+  /// @inheritdoc IPool
+  function getLiquidateRatios() external view returns (uint256, uint256) {
+    return _getLiquidateRatios();
+  }
+
+  /// @inheritdoc IPool
+  function getDebtAndCollateralIndex() external view returns (uint256, uint256) {
+    return _getDebtAndCollateralIndex();
+  }
+
+  /// @inheritdoc IPool
+  function getDebtAndCollateralShares() external view returns (uint256, uint256) {
+    return _getDebtAndCollateralShares();
   }
 
   /**********************
@@ -340,8 +397,8 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
    **************************************/
 
   /// @dev Internal function to get debt and collateral index.
-  /// @param debtIndex The index for debt shares.
-  /// @param collIndex The index for collateral shares.
+  /// @return debtIndex The index for debt shares.
+  /// @return collIndex The index for collateral shares.
   function _getDebtAndCollateralIndex() internal view returns (uint256 debtIndex, uint256 collIndex) {
     bytes32 data = indexData;
     debtIndex = data.decodeUint(DEBT_INDEX_OFFSET, 128);
@@ -365,8 +422,8 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
    **************************************/
 
   /// @dev Internal function to get debt and collateral shares.
-  /// @param debtShares The total number of debt shares.
-  /// @param collShares The total number of collateral shares.
+  /// @return debtShares The total number of debt shares.
+  /// @return collShares The total number of collateral shares.
   function _getDebtAndCollateralShares() internal view returns (uint256 debtShares, uint256 collShares) {
     bytes32 data = sharesData;
     debtShares = data.decodeUint(DEBT_SHARES_OFFSET, 128);

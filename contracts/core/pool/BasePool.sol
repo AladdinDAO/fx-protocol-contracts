@@ -57,9 +57,9 @@ abstract contract BasePool is TickLogic, PositionLogic {
   }
 
   function __BasePool_init() internal onlyInitializing {
-    _updateDebtIndex(E128);
-    _updateCollateralIndex(E128);
-    _updateDebtRatioRange(142857142857142857, 500000000000000000); // 1/7 ~ 1/2
+    _updateDebtIndex(E96);
+    _updateCollateralIndex(E96);
+    _updateDebtRatioRange(500000000000000000, 857142857142857142); // 1/2 ~ 6/7
     _updateMaxRedeemRatioPerTick(200000000); // 20%
   }
 
@@ -105,9 +105,11 @@ abstract contract BasePool is TickLogic, PositionLogic {
 
     (op.collIndex, op.debtIndex) = _updateCollAndDebtIndex();
     uint256 protocolFees;
+
     // supply or withdraw
     if (newRawColl > 0) {
       protocolFees = _deductProtocolFees(newRawColl);
+      newRawColl -= int256(protocolFees);
       op.newColl = int256(_convertToCollShares(uint256(newRawColl), op.collIndex));
       op.positionColl += uint256(op.newColl);
       op.globalColl += uint256(op.newColl);
@@ -126,6 +128,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
         op.globalColl -= uint256(-op.newColl);
       }
       protocolFees = _deductProtocolFees(newRawColl);
+      newRawColl += int256(protocolFees);
     }
 
     // borrow or repay
@@ -150,7 +153,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
 
     // debt ratio check
     {
-      // price precision and ratio precision are both 1e18
+      // price precision and ratio precision are both 1e18, use min price here
       (, uint256 price, ) = IPriceOracle(priceOracle).getPrice();
 
       // check position debt ratio is between `minDebtRatio` and `maxDebtRatio`.
@@ -181,12 +184,6 @@ abstract contract BasePool is TickLogic, PositionLogic {
 
     // update global state to storage
     _updateDebtAndCollateralShares(op.globalDebt, op.globalColl);
-
-    if (newRawColl > 0) {
-      newRawColl -= int256(protocolFees);
-    } else if (newRawColl < 0) {
-      newRawColl += int256(protocolFees);
-    }
 
     return (positionId, newRawColl, newRawDebt, protocolFees);
   }
@@ -385,7 +382,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
       totalDebts -= position.debts;
       _updateDebtShares(totalDebts);
       uint256 rawBadDebt = _convertToRawDebt(position.debts, cachedDebtIndex);
-      _updateDebtIndex(cachedDebtIndex + (rawBadDebt * E128) / totalDebts);
+      _updateDebtIndex(cachedDebtIndex + (rawBadDebt * E96) / totalDebts);
       position.debts = 0;
     }
     {
@@ -441,7 +438,9 @@ abstract contract BasePool is TickLogic, PositionLogic {
   function updateLiquidateRatios(uint256 debtRatio, uint256 bonusRatio) external onlyRole(DEFAULT_ADMIN_ROLE) {
     _updateLiquidateRatios(debtRatio, bonusRatio);
   }
-
+  
+  /// @notice Update the address of price oracle.
+  /// @param newOracle The address of new price oracle.
   function updatePriceOracle(address newOracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
     _updatePriceOracle(newOracle);
   }

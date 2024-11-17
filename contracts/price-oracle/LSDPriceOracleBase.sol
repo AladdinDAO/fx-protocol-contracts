@@ -86,13 +86,14 @@ abstract contract LSDPriceOracleBase is SpotPriceOracleBase, IPriceOracle {
     anchorPrice = _getLSDUSDAnchorPrice();
     (minPrice, maxPrice) = _getLSDMinMaxPrice(anchorPrice);
 
+    uint256 cachedMaxPriceDeviation = maxPriceDeviation; // gas saving
     // use anchor price when the price deviation between anchor price and min price exceed threshold
-    if ((anchorPrice - minPrice) * PRECISION > maxPriceDeviation * minPrice) {
+    if ((anchorPrice - minPrice) * PRECISION > cachedMaxPriceDeviation * minPrice) {
       minPrice = anchorPrice;
     }
 
     // use anchor price when the price deviation between anchor price and max price exceed threshold
-    if ((maxPrice - anchorPrice) * PRECISION > maxPriceDeviation * anchorPrice) {
+    if ((maxPrice - anchorPrice) * PRECISION > cachedMaxPriceDeviation * anchorPrice) {
       maxPrice = anchorPrice;
     }
   }

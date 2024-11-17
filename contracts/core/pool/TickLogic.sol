@@ -54,9 +54,9 @@ abstract contract TickLogic is PoolStorage {
     bytes32 metadata = tickTreeData[node].metadata;
     uint256 parent = metadata.decodeUint(0, 32);
     collRatio = metadata.decodeUint(48, 64);
-    debtRatio = debtRatio * metadata.decodeUint(112, 64);
+    debtRatio = metadata.decodeUint(112, 64);
     if (parent == 0) {
-      root = parent;
+      root = node;
     } else {
       uint256 collRatioCompressed;
       uint256 debtRatioCompressed;
