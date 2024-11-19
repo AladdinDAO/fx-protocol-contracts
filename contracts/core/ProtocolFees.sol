@@ -2,9 +2,10 @@
 
 pragma solidity ^0.8.26;
 
-import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol";
-import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/IERC20Upgradeable.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 import { IPool } from "../interfaces/IPool.sol";
 import { IProtocolFees } from "../interfaces/IProtocolFees.sol";
@@ -12,7 +13,7 @@ import { IProtocolFees } from "../interfaces/IProtocolFees.sol";
 import { WordCodec } from "../common/codec/WordCodec.sol";
 
 abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
-  using SafeERC20Upgradeable for IERC20Upgradeable;
+  using SafeERC20 for IERC20;
   using WordCodec for bytes32;
 
   /**********
@@ -280,7 +281,7 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
   /// @param amount The amount of protocol fee.
   function _accumulatePoolFee(address pool, uint256 amount) internal {
     if (amount > 0) {
-        accumulatedPoolFees[pool] += amount;
+      accumulatedPoolFees[pool] += amount;
     }
   }
 
@@ -290,7 +291,7 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
     fees = accumulatedPoolFees[pool];
     if (fees > 0) {
       address collateralToken = IPool(pool).collateralToken();
-      IERC20Upgradeable(collateralToken).safeTransfer(platform, fees);
+      IERC20(collateralToken).safeTransfer(platform, fees);
 
       accumulatedPoolFees[pool] = 0;
     }

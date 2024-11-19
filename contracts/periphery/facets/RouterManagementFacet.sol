@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.20;
 
-import { EnumerableSet } from "@openzeppelin/contracts-v4/utils/structs/EnumerableSet.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import { LibDiamond } from "../../common/EIP2535/libraries/LibDiamond.sol";
 import { LibRouter } from "../libraries/LibRouter.sol";

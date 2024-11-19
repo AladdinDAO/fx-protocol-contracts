@@ -7,6 +7,7 @@ import { IAaveFundingPool } from "../../interfaces/IAaveFundingPool.sol";
 import { IPegKeeper } from "../../interfaces/IPegKeeper.sol";
 
 import { WordCodec } from "../../common/codec/WordCodec.sol";
+import { Math } from "../../libraries/Math.sol";
 import { BasePool } from "./BasePool.sol";
 
 contract AaveFundingPool is BasePool, IAaveFundingPool {
@@ -260,7 +261,7 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
     if (block.timestamp > snapshotTimestamp) {
       if (IPegKeeper(pegKeeper).isFundingEnabled()) {
         (, uint256 totalColls) = _getDebtAndCollateralShares();
-        uint256 totalRawColls = _convertToRawColl(totalColls, newCollIndex);
+        uint256 totalRawColls = _convertToRawColl(totalColls, newCollIndex, Math.Rounding.Down);
         uint256 funding = (totalRawColls * oldInterestRate * (block.timestamp - snapshotTimestamp)) /
           (365 * 86400 * PRECISION);
         funding = ((funding * _getFundingRatio()) / FEE_PRECISION);

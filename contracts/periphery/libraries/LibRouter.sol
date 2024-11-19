@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.0;
 
-import { EnumerableSet } from "@openzeppelin/contracts-v4/utils/structs/EnumerableSet.sol";
-import { SafeERC20 } from "@openzeppelin/contracts-v4/token/ERC20/utils/SafeERC20.sol";
-import { IERC20 } from "@openzeppelin/contracts-v4/token/ERC20/IERC20.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IMultiPathConverter } from "../../helpers/interfaces/IMultiPathConverter.sol";
 
@@ -153,8 +153,7 @@ library LibRouter {
       address _spender = $.spenders[params.target];
       if (_spender == address(0)) _spender = params.target;
 
-      IERC20(params.tokenIn).safeApprove(_spender, 0);
-      IERC20(params.tokenIn).safeApprove(_spender, params.amount);
+      approve(params.tokenIn, _spender, params.amount);
       (_success, ) = params.target.call(params.data);
     }
 
@@ -221,8 +220,8 @@ library LibRouter {
     }
   }
 
+  /// @dev Internal function to approve token.
   function approve(address token, address spender, uint256 amount) internal {
-    IERC20(token).safeApprove(spender, 0);
-    IERC20(token).safeApprove(spender, amount);
+    IERC20(token).forceApprove(spender, amount);
   }
 }

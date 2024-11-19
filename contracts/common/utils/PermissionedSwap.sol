@@ -2,15 +2,15 @@
 
 pragma solidity ^0.8.0;
 
-import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol";
-import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/IERC20Upgradeable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // solhint-disable avoid-low-level-calls
 // solhint-disable no-inline-assembly
 
 abstract contract PermissionedSwap is AccessControlUpgradeable {
-  using SafeERC20Upgradeable for IERC20Upgradeable;
+  using SafeERC20 for IERC20;
 
   /**********
    * Errors *
@@ -73,11 +73,10 @@ abstract contract PermissionedSwap is AccessControlUpgradeable {
     _checkRole(PERMISSIONED_ROUTER_ROLE, params.router);
 
     // approve to router
-    IERC20Upgradeable(srcToken).safeApprove(params.router, 0);
-    IERC20Upgradeable(srcToken).safeApprove(params.router, amountIn);
+    IERC20(srcToken).forceApprove(params.router, amountIn);
 
     // do trading
-    amountOut = IERC20Upgradeable(dstToken).balanceOf(address(this));
+    amountOut = IERC20(dstToken).balanceOf(address(this));
     (bool success, ) = params.router.call(params.data);
     if (!success) {
       // below lines will propagate inner error up
@@ -89,7 +88,7 @@ abstract contract PermissionedSwap is AccessControlUpgradeable {
       }
     }
 
-    amountOut = IERC20Upgradeable(dstToken).balanceOf(address(this)) - amountOut;
+    amountOut = IERC20(dstToken).balanceOf(address(this)) - amountOut;
     if (amountOut < params.minOut) {
       revert InsufficientOutputToken();
     }

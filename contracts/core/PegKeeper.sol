@@ -2,9 +2,10 @@
 
 pragma solidity ^0.8.26;
 
-import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol";
-import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/IERC20Upgradeable.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 import { IMultiPathConverter } from "../helpers/interfaces/IMultiPathConverter.sol";
 import { ICurveStableSwapNG } from "../interfaces/Curve/ICurveStableSwapNG.sol";
@@ -13,7 +14,7 @@ import { IPegKeeper } from "../interfaces/IPegKeeper.sol";
 import { IStakedFxUSD } from "../interfaces/IStakedFxUSD.sol";
 
 contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
-  using SafeERC20Upgradeable for IERC20Upgradeable;
+  using SafeERC20 for IERC20;
 
   /**********
    * Errors *
@@ -152,7 +153,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     if (context == CONTEXT_NO_CONTEXT) revert ErrorNotInCallbackContext();
 
     amountOut = _doSwap(srcToken, amountIn, data);
-    IERC20Upgradeable(targetToken).safeTransfer(_msgSender(), amountOut);
+    IERC20(targetToken).safeTransfer(_msgSender(), amountOut);
   }
 
   /************************
@@ -218,8 +219,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   /// @param data The callback data.
   /// @return amountOut The amount of token swapped.
   function _doSwap(address srcToken, uint256 amountIn, bytes calldata data) internal returns (uint256 amountOut) {
-    IERC20Upgradeable(srcToken).safeApprove(converter, 0);
-    IERC20Upgradeable(srcToken).safeApprove(converter, amountIn);
+    IERC20(srcToken).forceApprove(converter, amountIn);
 
     (uint256 minOut, uint256 encoding, uint256[] memory routes) = abi.decode(data, (uint256, uint256, uint256[]));
     amountOut = IMultiPathConverter(converter).convert(srcToken, amountIn, encoding, routes);

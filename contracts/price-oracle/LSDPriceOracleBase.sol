@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.20;
 
-import { Math } from "@openzeppelin/contracts-v4/utils/math/Math.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { SpotPriceOracleBase } from "./SpotPriceOracleBase.sol";
 

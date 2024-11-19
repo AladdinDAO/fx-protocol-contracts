@@ -161,6 +161,12 @@ abstract contract TickLogic is PoolStorage {
     if (newDebts == 0) {
       int16 tick = int16(tickTreeData[position.nodeId].metadata.decodeInt(32, 16));
       tickBitmap.flipTick(tick);
+
+      // top tick gone, update it to new one
+      int16 topTick = _getTopTick();
+      if (topTick == tick) {
+        _resetTopTick(topTick);
+      }
     }
   }
 
@@ -190,24 +196,30 @@ abstract contract TickLogic is PoolStorage {
     metadata = metadata.insertUint(collRatio, 48, 64);
     metadata = metadata.insertUint(debtRatio, 112, 64);
 
+    int256 newTick = type(int256).min;
     if (tickDebtAfter > 0) {
       // partial liquidated, move funds to another tick
       uint32 parentNode;
-      (, parentNode) = _addPositionToTick(tickCollAfter, tickDebtAfter, false);
+      (newTick, parentNode) = _addPositionToTick(tickCollAfter, tickDebtAfter, false);
       metadata = metadata.insertUint(parentNode, 0, 32);
-    } else {
-      // full liquidated, update top tick here if it is liquidated.
-      int16 topTick = _getTopTick();
-      if (topTick == tick) {
-        while (topTick > type(int16).min) {
-          bool hasDebt;
-          (topTick, hasDebt) = tickBitmap.nextDebtPositionWithinOneWord(topTick - 1);
-          if (hasDebt) break;
-        }
-        _updateTopTick(topTick);
-      }
+    }
+    // top tick liquidated, update it to new one
+    int16 topTick = _getTopTick();
+    if (topTick == tick && newTick != int256(tick)) {
+      _resetTopTick(topTick);
     }
     tickTreeData[node].metadata = metadata;
+  }
+  
+  /// @dev Internal function to reset top tick.
+  /// @param oldTopTick The previous value of top tick.
+  function _resetTopTick(int16 oldTopTick) internal {
+    while (oldTopTick > type(int16).min) {
+      bool hasDebt;
+      (oldTopTick, hasDebt) = tickBitmap.nextDebtPositionWithinOneWord(oldTopTick - 1);
+      if (hasDebt) break;
+    }
+    _updateTopTick(oldTopTick);
   }
 
   /**

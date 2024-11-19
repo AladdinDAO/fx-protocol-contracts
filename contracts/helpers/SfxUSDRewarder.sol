@@ -2,8 +2,8 @@
 
 pragma solidity ^0.8.26;
 
-import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/IERC20Upgradeable.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IRewardDistributor } from "../common/rewards/distributor/IRewardDistributor.sol";
 import { IRewardSplitter } from "../interfaces/IRewardSplitter.sol";
@@ -12,7 +12,7 @@ import { IStakedFxUSD } from "../interfaces/IStakedFxUSD.sol";
 import { PermissionedSwap } from "../common/utils/PermissionedSwap.sol";
 
 contract SfxUSDRewarder is PermissionedSwap, IRewardSplitter {
-  using SafeERC20Upgradeable for IERC20Upgradeable;
+  using SafeERC20 for IERC20;
 
   /***********************
    * Immutable Variables *
@@ -36,7 +36,7 @@ contract SfxUSDRewarder is PermissionedSwap, IRewardSplitter {
     sfxUSD = _sfxUSD;
     fxUSD = IStakedFxUSD(_sfxUSD).yieldToken();
 
-    IERC20Upgradeable(fxUSD).safeApprove(sfxUSD, type(uint256).max);
+    IERC20(fxUSD).forceApprove(sfxUSD, type(uint256).max);
 
     _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
   }
@@ -55,7 +55,7 @@ contract SfxUSDRewarder is PermissionedSwap, IRewardSplitter {
   /// @param params The parameters used for trading.
   /// @return amountOut The amount of fxUSD received.
   function swapAndDistribute(address baseToken, TradingParameter memory params) external returns (uint256 amountOut) {
-    uint256 amountIn = IERC20Upgradeable(baseToken).balanceOf(address(this));
+    uint256 amountIn = IERC20(baseToken).balanceOf(address(this));
 
     // swap base token to fxUSD
     amountOut = _doTrade(baseToken, fxUSD, amountIn, params);
@@ -72,7 +72,7 @@ contract SfxUSDRewarder is PermissionedSwap, IRewardSplitter {
   /// @dev This should be only used when we are retiring this contract.
   /// @param baseToken The address of base token.
   function withdraw(address baseToken, address recipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    uint256 amountIn = IERC20Upgradeable(baseToken).balanceOf(address(this));
-    IERC20Upgradeable(baseToken).safeTransfer(recipient, amountIn);
+    uint256 amountIn = IERC20(baseToken).balanceOf(address(this));
+    IERC20(baseToken).safeTransfer(recipient, amountIn);
   }
 }
