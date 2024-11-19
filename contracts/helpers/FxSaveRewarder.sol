@@ -7,11 +7,11 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IRewardDistributor } from "../common/rewards/distributor/IRewardDistributor.sol";
 import { IRewardSplitter } from "../interfaces/IRewardSplitter.sol";
-import { IStakedFxUSD } from "../interfaces/IStakedFxUSD.sol";
+import { IFxUSDSave } from "../interfaces/IFxUSDSave.sol";
 
 import { PermissionedSwap } from "../common/utils/PermissionedSwap.sol";
 
-contract SfxUSDRewarder is PermissionedSwap, IRewardSplitter {
+contract FxSaveRewarder is PermissionedSwap, IRewardSplitter {
   using SafeERC20 for IERC20;
 
   /***********************
@@ -21,7 +21,7 @@ contract SfxUSDRewarder is PermissionedSwap, IRewardSplitter {
   /// @notice The address of `FxUSD` contract.
   address public immutable fxUSD;
 
-  /// @notice The address of `StakedFxUSD` contract.
+  /// @notice The address of `FxUSDSave` contract.
   address public immutable sfxUSD;
 
   /***************
@@ -34,7 +34,7 @@ contract SfxUSDRewarder is PermissionedSwap, IRewardSplitter {
     __AccessControl_init();
 
     sfxUSD = _sfxUSD;
-    fxUSD = IStakedFxUSD(_sfxUSD).yieldToken();
+    fxUSD = IFxUSDSave(_sfxUSD).yieldToken();
 
     IERC20(fxUSD).forceApprove(sfxUSD, type(uint256).max);
 

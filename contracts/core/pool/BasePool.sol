@@ -91,8 +91,8 @@ abstract contract BasePool is TickLogic, PositionLogic {
     if (positionId == 0) {
       positionId = _mintPosition(owner);
     } else {
-      // checking owner only in case of withdraw or borrow
-      if ((newRawColl < 0 || newRawDebt > 0) && ownerOf(positionId) != owner) {
+      // make sure position is owned and check owner only in case of withdraw or borrow
+      if (ownerOf(positionId) != owner && (newRawColl < 0 || newRawDebt > 0)) {
         revert ErrorNotPositionOwner();
       }
       PositionInfo memory position = _getAndUpdatePosition(positionId);
@@ -283,6 +283,8 @@ abstract contract BasePool is TickLogic, PositionLogic {
     uint32 positionId,
     uint256 maxRawDebts
   ) external onlyPoolManager returns (RebalanceResult memory result) {
+    _requireOwned(positionId);
+
     (uint256 cachedCollIndex, uint256 cachedDebtIndex) = _updateCollAndDebtIndex();
     (, uint256 price, ) = IPriceOracle(priceOracle).getPrice(); // use min price
     PositionInfo memory position = _getAndUpdatePosition(positionId);
@@ -344,6 +346,8 @@ abstract contract BasePool is TickLogic, PositionLogic {
     uint256 maxRawDebts,
     uint256 reservedRawColls
   ) external onlyPoolManager returns (LiquidateResult memory result) {
+    _requireOwned(positionId);
+
     (uint256 cachedCollIndex, uint256 cachedDebtIndex) = _updateCollAndDebtIndex();
     (, uint256 price, ) = IPriceOracle(priceOracle).getPrice(); // use min price
     PositionInfo memory position = _getAndUpdatePosition(positionId);

@@ -11,7 +11,7 @@ import { IMultiPathConverter } from "../helpers/interfaces/IMultiPathConverter.s
 import { ICurveStableSwapNG } from "../interfaces/Curve/ICurveStableSwapNG.sol";
 import { IFxUSDRegeneracy } from "../interfaces/IFxUSDRegeneracy.sol";
 import { IPegKeeper } from "../interfaces/IPegKeeper.sol";
-import { IStakedFxUSD } from "../interfaces/IStakedFxUSD.sol";
+import { IFxUSDSave } from "../interfaces/IFxUSDSave.sol";
 
 contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   using SafeERC20 for IERC20;
@@ -89,8 +89,8 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
 
   constructor(address _sfxUSD) {
     sfxUSD = _sfxUSD;
-    fxUSD = IStakedFxUSD(_sfxUSD).yieldToken();
-    stable = IStakedFxUSD(_sfxUSD).stableToken();
+    fxUSD = IFxUSDSave(_sfxUSD).yieldToken();
+    stable = IFxUSDSave(_sfxUSD).stableToken();
   }
 
   function initialize(address admin, address _converter, address _curvePool) external initializer {
@@ -129,7 +129,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   function buyback(
     uint256 amountIn,
     bytes calldata data
-  ) external onlyRole(STABILIZE_ROLE) setContext(CONTEXT_BUYBACK) returns (uint256 amountOut, uint256 bonus) {
+  ) external onlyRole(BUYBACK_ROLE) setContext(CONTEXT_BUYBACK) returns (uint256 amountOut, uint256 bonus) {
     (amountOut, bonus) = IFxUSDRegeneracy(fxUSD).buyback(amountIn, _msgSender(), data);
   }
 
@@ -139,7 +139,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     uint256 amountIn,
     bytes calldata data
   ) external onlyRole(STABILIZE_ROLE) setContext(CONTEXT_STABILIZE) returns (uint256 amountOut, uint256 bonus) {
-    (amountOut, bonus) = IStakedFxUSD(sfxUSD).arbitrage(srcToken, amountIn, _msgSender(), data);
+    (amountOut, bonus) = IFxUSDSave(sfxUSD).arbitrage(srcToken, amountIn, _msgSender(), data);
   }
 
   /// @dev This function will be called in `buyback`, `stabilize`.

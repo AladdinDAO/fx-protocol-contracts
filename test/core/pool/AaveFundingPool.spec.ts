@@ -18,9 +18,9 @@ import {
   PoolManager__factory,
   ProxyAdmin,
   ReservePool,
-  SfxUSDRewarder,
-  StakedFxUSD,
-  StakedFxUSD__factory,
+  FxSaveRewarder,
+  FxUSDSave,
+  FxUSDSave__factory,
 } from "@/types/index";
 import { encodeChainlinkPriceFeed } from "@/utils/index";
 import { mockETHBalance, unlockAccounts } from "@/test/utils";
@@ -37,8 +37,8 @@ describe("AaveFundingPool.spec", async () => {
   let pegKeeper: PegKeeper;
   let poolManager: PoolManager;
   let reservePool: ReservePool;
-  let sfxUSD: StakedFxUSD;
-  let sfxUSDRewarder: SfxUSDRewarder;
+  let sfxUSD: FxUSDSave;
+  let sfxUSDRewarder: FxSaveRewarder;
 
   let mockAggregatorV3Interface: MockAggregatorV3Interface;
   let mockCurveStableSwapNG: MockCurveStableSwapNG;
@@ -71,9 +71,9 @@ describe("AaveFundingPool.spec", async () => {
     const FxUSDRegeneracy = await ethers.getContractFactory("FxUSDRegeneracy", deployer);
     const PegKeeper = await ethers.getContractFactory("PegKeeper", deployer);
     const PoolManager = await ethers.getContractFactory("PoolManager", deployer);
-    const StakedFxUSD = await ethers.getContractFactory("StakedFxUSD", deployer);
+    const FxUSDSave = await ethers.getContractFactory("FxUSDSave", deployer);
     const ReservePool = await ethers.getContractFactory("ReservePool", deployer);
-    const SfxUSDRewarder = await ethers.getContractFactory("SfxUSDRewarder", deployer);
+    const FxSaveRewarder = await ethers.getContractFactory("FxSaveRewarder", deployer);
     const MultiPathConverter = await ethers.getContractFactory("MultiPathConverter", deployer);
 
     const empty = await EmptyContract.deploy();
@@ -93,7 +93,7 @@ describe("AaveFundingPool.spec", async () => {
       proxyAdmin.getAddress(),
       "0x"
     );
-    const StakedFxUSDProxy = await TransparentUpgradeableProxy.deploy(
+    const FxUSDSaveProxy = await TransparentUpgradeableProxy.deploy(
       empty.getAddress(),
       proxyAdmin.getAddress(),
       "0x"
@@ -105,7 +105,7 @@ describe("AaveFundingPool.spec", async () => {
     // deploy PoolManager
     const PoolManagerImpl = await PoolManager.deploy(
       FxUSDRegeneracyProxy.getAddress(),
-      StakedFxUSDProxy.getAddress(),
+      FxUSDSaveProxy.getAddress(),
       PegKeeperProxy.getAddress()
     );
     await proxyAdmin.upgradeAndCall(
@@ -133,8 +133,8 @@ describe("AaveFundingPool.spec", async () => {
     await fxUSD.initialize("f(x) USD", "fxUSD");
     await fxUSD.initializeV2();
 
-    // deploy StakedFxUSD
-    const StakedFxUSDImpl = await StakedFxUSD.deploy(
+    // deploy FxUSDSave
+    const FxUSDSaveImpl = await FxUSDSave.deploy(
       PoolManagerProxy.getAddress(),
       PegKeeperProxy.getAddress(),
       FxUSDRegeneracyProxy.getAddress(),
@@ -142,16 +142,16 @@ describe("AaveFundingPool.spec", async () => {
       encodeChainlinkPriceFeed(await mockAggregatorV3Interface.getAddress(), 10n ** 10n, 1000000000)
     );
     await proxyAdmin.upgradeAndCall(
-      StakedFxUSDProxy.getAddress(),
-      StakedFxUSDImpl.getAddress(),
-      StakedFxUSD__factory.createInterface().encodeFunctionData("initialize", [
+      FxUSDSaveProxy.getAddress(),
+      FxUSDSaveImpl.getAddress(),
+      FxUSDSave__factory.createInterface().encodeFunctionData("initialize", [
         admin.address,
         "Staked f(x) USD",
         "sfxUSD",
         ethers.parseEther("0.995"),
       ])
     );
-    sfxUSD = await ethers.getContractAt("StakedFxUSD", await StakedFxUSDProxy.getAddress(), admin);
+    sfxUSD = await ethers.getContractAt("FxUSDSave", await FxUSDSaveProxy.getAddress(), admin);
 
     // deploy PegKeeper
     const PegKeeperImpl = await PegKeeper.deploy(sfxUSD.getAddress());
@@ -183,7 +183,7 @@ describe("AaveFundingPool.spec", async () => {
     await pool.updateRebalanceRatios(ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9));
     await pool.updateLiquidateRatios(ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9));
 
-    sfxUSDRewarder = await SfxUSDRewarder.deploy(sfxUSD.getAddress());
+    sfxUSDRewarder = await FxSaveRewarder.deploy(sfxUSD.getAddress());
     await sfxUSD.grantRole(await sfxUSD.REWARD_DEPOSITOR_ROLE(), sfxUSDRewarder.getAddress());
     await poolManager.registerPool(
       pool.getAddress(),

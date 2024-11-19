@@ -135,9 +135,15 @@ interface IPool {
   function getDebtAndCollateralShares() external view returns (uint256 debtShares, uint256 collShares);
 
   /// @notice Return the details of the given position.
-  /// @param rawColls The amount of collateral tokens supplied in this position.
-  /// @param rawDebts The amount of debt tokens borrowed in this position.
+  /// @param tokenId The id of position to query.
+  /// @return rawColls The amount of collateral tokens supplied in this position.
+  /// @return rawDebts The amount of debt tokens borrowed in this position.
   function getPosition(uint256 tokenId) external view returns (uint256 rawColls, uint256 rawDebts);
+
+  /// @notice Return the debt ratio of the given position.
+  /// @param tokenId The id of position to query.
+  /// @return debtRatio The debt ratio of this position.
+  function getPositionDebtRatio(uint256 tokenId) external view returns (uint256 debtRatio);
 
   /// @notice The total amount of raw collateral tokens.
   function getTotalRawCollaterals() external view returns (uint256);

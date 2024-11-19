@@ -10,12 +10,12 @@ import AaveFundingPoolModule from "./AaveFundingPool";
 export default buildModule("WstETHPool", (m) => {
   const admin = m.getAccount(0);
   const { fx: ProxyAdmin } = m.useModule(ProxyAdminModule);
-  const { AaveFundingPool } = m.useModule(AaveFundingPoolModule);
+  const { AaveFundingPoolImplementation } = m.useModule(AaveFundingPoolModule);
   const { StETHPriceOracle } = m.useModule(PriceOracleModule);
-  const { PoolManagerProxy, SfxUSDRewarder } = m.useModule(FxProtocolModule);
+  const { PoolManagerProxy, FxSaveRewarder } = m.useModule(FxProtocolModule);
 
   // deploy WstETHPool proxy
-  const WstETHPoolInitializer = m.encodeFunctionCall(AaveFundingPool, "initialize", [
+  const WstETHPoolInitializer = m.encodeFunctionCall(AaveFundingPoolImplementation, "initialize", [
     admin,
     m.getParameter("Name"),
     m.getParameter("Symbol"),
@@ -24,7 +24,7 @@ export default buildModule("WstETHPool", (m) => {
   ]);
   const WstETHPoolProxy = m.contract(
     "TransparentUpgradeableProxy",
-    [AaveFundingPool, ProxyAdmin, WstETHPoolInitializer],
+    [AaveFundingPoolImplementation, ProxyAdmin, WstETHPoolInitializer],
     { id: "WstETHPoolProxy" }
   );
   const WstETHPool = m.contractAt("AaveFundingPool", WstETHPoolProxy, { id: "WstETHPool" });
@@ -40,7 +40,7 @@ export default buildModule("WstETHPool", (m) => {
   // register to PoolManagerProxy
   m.call(PoolManagerProxy, "registerPool", [
     WstETHPoolProxy,
-    SfxUSDRewarder,
+    FxSaveRewarder,
     m.getParameter("CollateralCapacity"),
     m.getParameter("DebtCapacity"),
   ]);

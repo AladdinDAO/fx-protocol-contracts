@@ -12,7 +12,7 @@ import { IPool } from "../interfaces/IPool.sol";
 import { IPoolManager } from "../interfaces/IPoolManager.sol";
 import { IReservePool } from "../interfaces/IReservePool.sol";
 import { IRewardSplitter } from "../interfaces/IRewardSplitter.sol";
-import { IStakedFxUSD } from "../interfaces/IStakedFxUSD.sol";
+import { IFxUSDSave } from "../interfaces/IFxUSDSave.sol";
 import { IRateProvider } from "../rate-provider/interfaces/IRateProvider.sol";
 
 import { WordCodec } from "../common/codec/WordCodec.sol";
@@ -36,7 +36,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
 
   error ErrorInvalidPool();
 
-  error ErrorCallerNotStakedFxUSD();
+  error ErrorCallerNotFxUSDSave();
 
   error ErrorRedeemExceedBalance();
 
@@ -134,8 +134,8 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     _;
   }
 
-  modifier onlyStakedFxUSD() {
-    if (_msgSender() != sfxUSD) revert ErrorCallerNotStakedFxUSD();
+  modifier onlyFxUSDSave() {
+    if (_msgSender() != sfxUSD) revert ErrorCallerNotFxUSDSave();
     _;
   }
 
@@ -281,7 +281,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     external
     onlyRegisteredPool(pool)
     nonReentrant
-    onlyStakedFxUSD
+    onlyFxUSDSave
     returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
   {
     LiquidateOrRebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(pool);
@@ -304,7 +304,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     external
     onlyRegisteredPool(pool)
     nonReentrant
-    onlyStakedFxUSD
+    onlyFxUSDSave
     returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
   {
     LiquidateOrRebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(pool);
@@ -330,7 +330,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     external
     onlyRegisteredPool(pool)
     nonReentrant
-    onlyStakedFxUSD
+    onlyFxUSDSave
     returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
   {
     LiquidateOrRebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(pool);
@@ -489,7 +489,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
   /// @dev Internal function to prepare variables before rebalance or liquidate.
   /// @param pool The address of pool to liquidate or rebalance.
   function _beforeRebalanceOrLiquidate(address pool) internal view returns (LiquidateOrRebalanceMemoryVar memory op) {
-    op.stablePrice = IStakedFxUSD(sfxUSD).getStableTokenPriceWithScale();
+    op.stablePrice = IFxUSDSave(sfxUSD).getStableTokenPriceWithScale();
     op.collateralToken = IPool(pool).collateralToken();
     op.scalingFactor = _getTokenScalingFactor(op.collateralToken);
   }
@@ -522,7 +522,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
       IFxUSDRegeneracy(fxUSD).burn(_msgSender(), fxUSDUsed);
     }
     if (stableUsed > 0) {
-      IERC20(IStakedFxUSD(sfxUSD).stableToken()).safeTransferFrom(_msgSender(), fxUSD, stableUsed);
+      IERC20(IFxUSDSave(sfxUSD).stableToken()).safeTransferFrom(_msgSender(), fxUSD, stableUsed);
       IFxUSDRegeneracy(fxUSD).onRebalanceWithStable(stableUsed, op.rawDebts - maxFxUSD);
     }
 

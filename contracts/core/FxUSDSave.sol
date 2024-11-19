@@ -6,7 +6,6 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { ERC20PermitUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
@@ -14,16 +13,15 @@ import { AggregatorV3Interface } from "../interfaces/Chainlink/AggregatorV3Inter
 import { IPegKeeper } from "../interfaces/IPegKeeper.sol";
 import { IPool } from "../interfaces/IPool.sol";
 import { IPoolManager } from "../interfaces/IPoolManager.sol";
-import { IStakedFxUSD } from "../interfaces/IStakedFxUSD.sol";
+import { IFxUSDSave } from "../interfaces/IFxUSDSave.sol";
 
 import { LinearRewardDistributor } from "../common/rewards/distributor/LinearRewardDistributor.sol";
 
-contract StakedFxUSD is
-  AccessControlUpgradeable,
+contract FxUSDSave is
   ERC20PermitUpgradeable,
   ReentrancyGuardUpgradeable,
   LinearRewardDistributor,
-  IStakedFxUSD
+  IFxUSDSave
 {
   using SafeERC20 for IERC20;
 
@@ -70,11 +68,11 @@ contract StakedFxUSD is
   /// @notice The address of `PegKeeper` contract.
   address public immutable pegKeeper;
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   /// @dev This is also the address of FxUSD token.
   address public immutable yieldToken;
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   /// @dev The address of USDC token.
   address public immutable stableToken;
 
@@ -108,10 +106,10 @@ contract StakedFxUSD is
    * Variables *
    *************/
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   uint256 public totalYieldToken;
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   uint256 public totalStableToken;
 
   /// @notice The depeg price for stable token.
@@ -182,7 +180,7 @@ contract StakedFxUSD is
    * Public View Functions *
    *************************/
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   function previewDeposit(
     address tokenIn,
     uint256 amountTokenToDeposit
@@ -202,7 +200,7 @@ contract StakedFxUSD is
     }
   }
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   function previewRedeem(
     uint256 amountSharesToRedeem
   ) external view returns (uint256 amountYieldOut, uint256 amountStableOut) {
@@ -213,7 +211,7 @@ contract StakedFxUSD is
     amountStableOut = (amountSharesToRedeem * cachedTotalStableToken) / cachedTotalSupply;
   }
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   function nav() external view returns (uint256) {
     uint256 _totalSupply = totalSupply();
     if (_totalSupply == 0) {
@@ -225,7 +223,7 @@ contract StakedFxUSD is
     }
   }
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   function getStableTokenPrice() public view returns (uint256) {
     bytes32 encoding = Chainlink_USDC_USD_Spot;
     address aggregator;
@@ -242,7 +240,7 @@ contract StakedFxUSD is
     return uint256(answer) * scale;
   }
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   function getStableTokenPriceWithScale() public view returns (uint256) {
     return getStableTokenPrice() * stableTokenScale;
   }
@@ -251,7 +249,7 @@ contract StakedFxUSD is
    * Public Mutated Functions *
    ****************************/
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   function deposit(
     address receiver,
     address tokenIn,
@@ -273,7 +271,7 @@ contract StakedFxUSD is
     emit Deposit(_msgSender(), receiver, tokenIn, amountTokenToDeposit, amountSharesOut);
   }
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   function redeem(
     address receiver,
     uint256 amountSharesToRedeem
@@ -307,7 +305,7 @@ contract StakedFxUSD is
     emit Redeem(_msgSender(), receiver, amountSharesToRedeem, amountYieldOut, amountStableOut);
   }
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   function rebalance(
     address pool,
     int16 tickId,
@@ -327,7 +325,7 @@ contract StakedFxUSD is
     colls = op.colls;
   }
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   function rebalance(
     address pool,
     uint32 positionId,
@@ -347,7 +345,7 @@ contract StakedFxUSD is
     colls = op.colls;
   }
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   function liquidate(
     address pool,
     uint32 positionId,
@@ -367,7 +365,7 @@ contract StakedFxUSD is
     colls = op.colls;
   }
 
-  /// @inheritdoc IStakedFxUSD
+  /// @inheritdoc IFxUSDSave
   function arbitrage(
     address srcToken,
     uint256 amountIn,
@@ -459,6 +457,8 @@ contract StakedFxUSD is
   /// @return amountSharesOut amount of shares minted
   function _deposit(address tokenIn, uint256 amountDeposited) internal virtual returns (uint256 amountSharesOut) {
     uint256 price = getStableTokenPriceWithScale();
+    if (price < stableDepegPrice * stableTokenScale) revert ErrorStableTokenDepeg();
+
     uint256 amountUSD = amountDeposited;
     if (tokenIn == stableToken) {
       amountUSD = (amountUSD * price) / PRECISION;

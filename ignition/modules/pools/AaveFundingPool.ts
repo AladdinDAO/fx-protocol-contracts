@@ -4,11 +4,11 @@ import FxProtocolModule from "../FxProtocol";
 
 export default buildModule("AaveFundingPool", (m) => {
   const { PoolManagerProxy } = m.useModule(FxProtocolModule);
-  const AaveFundingPool = m.contract("AaveFundingPool", [
-    PoolManagerProxy,
-    m.getParameter("LendingPool"),
-    m.getParameter("BaseAsset"),
-  ]);
+  const AaveFundingPoolImplementation = m.contract(
+    "AaveFundingPool",
+    [PoolManagerProxy, m.getParameter("LendingPool"), m.getParameter("BaseAsset")],
+    { id: "AaveFundingPoolImplementation" }
+  );
 
-  return { AaveFundingPool };
+  return { AaveFundingPoolImplementation };
 });

@@ -1,5 +1,5 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-import { ethers, ZeroAddress } from "ethers";
+import { ethers, id, ZeroAddress } from "ethers";
 
 import { Addresses, ChainlinkPriceFeed, encodeChainlinkPriceFeed, EthereumTokens } from "@/utils/index";
 
@@ -21,9 +21,9 @@ export default buildModule("FxProtocol", (m) => {
   const PegKeeperProxy = m.contract("TransparentUpgradeableProxy", [EmptyContract, ProxyAdmin, "0x"], {
     id: "PegKeeperProxy",
   });
-  // deploy StakedFxUSDProxy
-  const StakedFxUSDProxy = m.contract("TransparentUpgradeableProxy", [EmptyContract, ProxyAdmin, "0x"], {
-    id: "StakedFxUSDProxy",
+  // deploy FxUSDSaveProxy
+  const FxUSDSaveProxy = m.contract("TransparentUpgradeableProxy", [EmptyContract, ProxyAdmin, "0x"], {
+    id: "FxUSDSaveProxy",
   });
   // deploy or get FxUSDProxy
   let FxUSDProxy;
@@ -38,7 +38,7 @@ export default buildModule("FxProtocol", (m) => {
   const ReservePool = m.contract("ReservePool", [admin, PoolManagerProxy]);
 
   // deploy PoolManager implementation and initialize PoolManager proxy
-  const PoolManagerImplementation = m.contract("PoolManager", [FxUSDProxy, StakedFxUSDProxy, PegKeeperProxy], {
+  const PoolManagerImplementation = m.contract("PoolManager", [FxUSDProxy, FxUSDSaveProxy, PegKeeperProxy], {
     id: "PoolManagerImplementation",
   });
   const PoolManagerInitializer = m.encodeFunctionCall(PoolManagerImplementation, "initialize", [
@@ -53,9 +53,9 @@ export default buildModule("FxProtocol", (m) => {
     id: "PoolManagerProxy_upgradeAndCall",
   });
 
-  // deploy StakedFxUSD implementation and initialize StakedFxUSD proxy
-  const StakedFxUSDImplementation = m.contract(
-    "StakedFxUSD",
+  // deploy FxUSDSave implementation and initialize FxUSDSave proxy
+  const FxUSDSaveImplementation = m.contract(
+    "FxUSDSave",
     [
       PoolManagerProxy,
       PegKeeperProxy,
@@ -67,32 +67,32 @@ export default buildModule("FxProtocol", (m) => {
         ChainlinkPriceFeed.ethereum["USDC-USD"].heartbeat
       ),
     ],
-    { id: "StakedFxUSDImplementation" }
+    { id: "FxUSDSaveImplementation" }
   );
-  const StakedFxUSDInitializer = m.encodeFunctionCall(StakedFxUSDImplementation, "initialize", [
+  const FxUSDSaveInitializer = m.encodeFunctionCall(FxUSDSaveImplementation, "initialize", [
     admin,
-    "Staked FxUSD",
-    "sfxUSD",
+    "fxUSD Save",
+    "fxSAVE",
     ethers.parseEther("0.995"),
   ]);
-  const StakedFxUSDProxyUpgradeAndInitializeCall = m.call(
+  const FxUSDSaveProxyUpgradeAndInitializeCall = m.call(
     ProxyAdmin,
     "upgradeAndCall",
-    [StakedFxUSDProxy, StakedFxUSDImplementation, StakedFxUSDInitializer],
+    [FxUSDSaveProxy, FxUSDSaveImplementation, FxUSDSaveInitializer],
     {
-      id: "StakedFxUSDProxy_upgradeAndCall",
+      id: "FxUSDSaveProxy_upgradeAndCall",
     }
   );
 
   // deploy PegKeeper implementation and initialize PegKeeper proxy
-  const PegKeeperImplementation = m.contract("PegKeeper", [StakedFxUSDProxy], {
+  const PegKeeperImplementation = m.contract("PegKeeper", [FxUSDSaveProxy], {
     id: "PegKeeperImplementation",
-    after: [StakedFxUSDProxyUpgradeAndInitializeCall],
+    after: [FxUSDSaveProxyUpgradeAndInitializeCall],
   });
   const PegKeeperInitializer = m.encodeFunctionCall(PegKeeperImplementation, "initialize", [
     admin,
     MultiPathConverter,
-    Addresses["CRV_S_NG_USDC/fxUSD_193"],
+    Addresses["CRV_SN_USDC/fxUSD_193"],
   ]);
   m.call(ProxyAdmin, "upgradeAndCall", [PegKeeperProxy, PegKeeperImplementation, PegKeeperInitializer], {
     id: "PegKeeperProxy_upgradeAndCall",
@@ -109,21 +109,24 @@ export default buildModule("FxProtocol", (m) => {
     id: "FxUSDProxy_upgradeAndCall",
   });
 
-  // deploy SfxUSDRewarder
-  const SfxUSDRewarder = m.contract("SfxUSDRewarder", [StakedFxUSDProxy], {
-    after: [StakedFxUSDProxyUpgradeAndInitializeCall],
+  // deploy FxSaveRewarder
+  const FxSaveRewarder = m.contract("FxSaveRewarder", [FxUSDSaveProxy], {
+    after: [FxUSDSaveProxyUpgradeAndInitializeCall],
   });
+
+  const FxUSDSave = m.contractAt("FxUSDSave", FxUSDSaveProxy, { id: "FxUSDSave" });
+  m.call(FxUSDSave, "grantRole", [id("REWARD_DEPOSITOR_ROLE"), FxSaveRewarder]);
 
   return {
     ReservePool,
     PoolManagerProxy: m.contractAt("PoolManager", PoolManagerProxy, { id: "PoolManager" }),
     PoolManagerImplementation,
-    StakedFxUSDProxy: m.contractAt("StakedFxUSD", StakedFxUSDProxy, { id: "StakedFxUSD" }),
-    StakedFxUSDImplementation,
+    FxUSDSaveProxy: FxUSDSave,
+    FxUSDSaveImplementation,
     PegKeeperProxy: m.contractAt("PegKeeper", PegKeeperProxy, { id: "PegKeeper" }),
     PegKeeperImplementation,
     FxUSDProxy: m.contractAt("FxUSDRegeneracy", FxUSDProxy, { id: "FxUSD" }),
     FxUSDImplementation,
-    SfxUSDRewarder,
+    FxSaveRewarder,
   };
 });

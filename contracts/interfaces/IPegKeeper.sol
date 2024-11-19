@@ -36,7 +36,7 @@ interface IPegKeeper {
    * Public Mutated Functions *
    ****************************/
 
-  /// @notice Buyback fxUSD with stable reserve in StakedFxUSD.
+  /// @notice Buyback fxUSD with stable reserve in FxUSDSave.
   /// @param amountIn the amount of stable token to use.
   /// @param data The hook data to `onSwap`.
   /// @return amountOut The amount of fxUSD swapped.

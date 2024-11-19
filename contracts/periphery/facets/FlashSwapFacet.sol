@@ -11,10 +11,12 @@ import { IBalancerVault } from "../../interfaces/Balancer/IBalancerVault.sol";
 import { IPoolManager } from "../../interfaces/IPoolManager.sol";
 import { IPool } from "../../interfaces/IPool.sol";
 
+import { WordCodec } from "../../common/codec/WordCodec.sol";
 import { LibRouter } from "../libraries/LibRouter.sol";
 
 contract FlashSwapFacet {
   using SafeERC20 for IERC20;
+  using WordCodec for bytes32;
 
   /**********
    * Errors *
@@ -25,6 +27,8 @@ contract FlashSwapFacet {
 
   /// @dev Thrown when the amount of tokens swapped are not enough.
   error ErrorInsufficientAmountSwapped();
+
+  error ErrorDebtRatioOutOfRange();
 
   /*************
    * Constants *
@@ -138,9 +142,9 @@ contract FlashSwapFacet {
     address recipient,
     bytes memory data
   ) external onlySelf {
-    (uint256 fxUSDAmount, uint256 swapEncoding, uint256[] memory swapRoutes) = abi.decode(
+    (bytes32 miscData, uint256 fxUSDAmount, uint256 swapEncoding, uint256[] memory swapRoutes) = abi.decode(
       data,
-      (uint256, uint256, uint256[])
+      (bytes32, uint256, uint256, uint256[])
     );
 
     // open or add collateral to position
@@ -149,6 +153,7 @@ contract FlashSwapFacet {
     }
     LibRouter.approve(IPool(pool).collateralToken(), poolManager, amount);
     position = IPoolManager(poolManager).operate(pool, position, int256(amount), int256(fxUSDAmount));
+    _checkPositionDebtRatio(pool, position, miscData);
     IERC721(pool).transferFrom(address(this), recipient, position);
 
     // swap fxUSD to collateral token
@@ -163,9 +168,9 @@ contract FlashSwapFacet {
     address recipient,
     bytes memory data
   ) external onlySelf {
-    (uint256 fxUSDAmount, uint256 swapEncoding, uint256[] memory swapRoutes) = abi.decode(
+    (bytes32 miscData, uint256 fxUSDAmount, uint256 swapEncoding, uint256[] memory swapRoutes) = abi.decode(
       data,
-      (uint256, uint256, uint256[])
+      (bytes32, uint256, uint256, uint256[])
     );
 
     // swap collateral token to fxUSD
@@ -174,6 +179,7 @@ contract FlashSwapFacet {
     // close or remove collateral from position
     IERC721(pool).transferFrom(recipient, address(this), position);
     IPoolManager(poolManager).operate(pool, position, -int256(amount), -int256(fxUSDAmount));
+    _checkPositionDebtRatio(pool, position, miscData);
     IERC721(pool).transferFrom(address(this), recipient, position);
   }
 
@@ -187,5 +193,14 @@ contract FlashSwapFacet {
     LibRouter.approve(token, converter, amountIn);
     amountOut = IMultiPathConverter(converter).convert(token, amountIn, encoding, routes);
     if (amountOut < minOut) revert ErrorInsufficientAmountSwapped();
+  }
+
+  function _checkPositionDebtRatio(address pool, uint256 positionId, bytes32 miscData) internal view {
+    uint256 debtRatio = IPool(pool).getPositionDebtRatio(positionId);
+    uint256 minDebtRatio = miscData.decodeUint(0, 60);
+    uint256 maxDebtRatio = miscData.decodeUint(60, 60);
+    if (debtRatio < minDebtRatio || debtRatio > maxDebtRatio) {
+      revert ErrorDebtRatioOutOfRange();
+    }
   }
 }

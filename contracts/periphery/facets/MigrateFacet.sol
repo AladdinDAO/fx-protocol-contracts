@@ -8,14 +8,17 @@ import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import { IMultiPathConverter } from "../../helpers/interfaces/IMultiPathConverter.sol";
 import { IBalancerVault } from "../../interfaces/Balancer/IBalancerVault.sol";
+import { IPool } from "../../interfaces/IPool.sol";
 import { IPoolManager } from "../../interfaces/IPoolManager.sol";
 import { IFxMarketV2 } from "../../v2/interfaces/IFxMarketV2.sol";
 import { IFxUSD } from "../../v2/interfaces/IFxUSD.sol";
 
+import { WordCodec } from "../../common/codec/WordCodec.sol";
 import { LibRouter } from "../libraries/LibRouter.sol";
 
 contract MigrateFacet {
   using SafeERC20 for IERC20;
+  using WordCodec for bytes32;
 
   /**********
    * Errors *
@@ -27,9 +30,14 @@ contract MigrateFacet {
   /// @dev Thrown when the amount of tokens swapped are not enough.
   error ErrorInsufficientAmountSwapped();
 
+  error ErrorDebtRatioOutOfRange();
+
   /*************
    * Constants *
    *************/
+
+  /// @dev The precision used for various calculation.
+  uint256 internal constant PRECISION = 1e18;
 
   address private constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
@@ -88,11 +96,15 @@ contract MigrateFacet {
 
   function migrateXstETHPosition(
     address pool,
+    uint256 positionId,
     uint256 xTokenAmount,
     uint256 borrowAmount,
     bytes calldata data
   ) external onFlashLoan {
     IERC20(xstETH).safeTransferFrom(msg.sender, address(this), xTokenAmount);
+    if (positionId > 0) {
+      IERC721(pool).transferFrom(msg.sender, address(this), positionId);
+    }
 
     address[] memory tokens = new address[](1);
     uint256[] memory amounts = new uint256[](1);
@@ -102,7 +114,10 @@ contract MigrateFacet {
       address(this),
       tokens,
       amounts,
-      abi.encodeCall(MigrateFacet.onMigrateXstETHPosition, (pool, xTokenAmount, borrowAmount, msg.sender, data))
+      abi.encodeCall(
+        MigrateFacet.onMigrateXstETHPosition,
+        (pool, positionId, xTokenAmount, borrowAmount, msg.sender, data)
+      )
     );
 
     // refund USDC to caller
@@ -111,11 +126,15 @@ contract MigrateFacet {
 
   function migrateXfrxETHPosition(
     address pool,
+    uint256 positionId,
     uint256 xTokenAmount,
     uint256 borrowAmount,
     bytes calldata data
   ) external onFlashLoan {
     IERC20(xfrxETH).safeTransferFrom(msg.sender, address(this), xTokenAmount);
+    if (positionId > 0) {
+      IERC721(pool).transferFrom(msg.sender, address(this), positionId);
+    }
 
     address[] memory tokens = new address[](1);
     uint256[] memory amounts = new uint256[](1);
@@ -125,7 +144,10 @@ contract MigrateFacet {
       address(this),
       tokens,
       amounts,
-      abi.encodeCall(MigrateFacet.onMigrateXfrxETHPosition, (pool, xTokenAmount, borrowAmount, msg.sender, data))
+      abi.encodeCall(
+        MigrateFacet.onMigrateXfrxETHPosition,
+        (pool, positionId, xTokenAmount, borrowAmount, msg.sender, data)
+      )
     );
 
     // refund USDC to caller
@@ -134,6 +156,7 @@ contract MigrateFacet {
 
   function onMigrateXstETHPosition(
     address pool,
+    uint256 positionId,
     uint256 xTokenAmount,
     uint256 borrowAmount,
     address recipient,
@@ -158,8 +181,9 @@ contract MigrateFacet {
     fTokenAmount = (fTokenAmount * 1005) / 1000;
 
     LibRouter.approve(wstETH, poolManager, wstETHAmount);
-    uint256 position = IPoolManager(poolManager).operate(pool, 0, int256(wstETHAmount), int256(fTokenAmount));
-    IERC721(pool).transferFrom(address(this), recipient, position);
+    positionId = IPoolManager(poolManager).operate(pool, positionId, int256(wstETHAmount), int256(fTokenAmount));
+    _checkPositionDebtRatio(pool, positionId, abi.decode(data, (bytes32)));
+    IERC721(pool).transferFrom(address(this), recipient, positionId);
 
     // swap fxUSD to USDC and pay debts
     _swapFxUSDToUSDC(IERC20(fxUSD).balanceOf(address(this)), borrowAmount, data);
@@ -167,6 +191,7 @@ contract MigrateFacet {
 
   function onMigrateXfrxETHPosition(
     address pool,
+    uint256 positionId,
     uint256 xTokenAmount,
     uint256 borrowAmount,
     address recipient,
@@ -194,8 +219,9 @@ contract MigrateFacet {
     fTokenAmount = (fTokenAmount * 1005) / 1000;
 
     LibRouter.approve(wstETH, poolManager, wstETHAmount);
-    uint256 position = IPoolManager(poolManager).operate(pool, 0, int256(wstETHAmount), int256(fTokenAmount));
-    IERC721(pool).transferFrom(address(this), recipient, position);
+    positionId = IPoolManager(poolManager).operate(pool, positionId, int256(wstETHAmount), int256(fTokenAmount));
+    _checkPositionDebtRatio(pool, positionId, abi.decode(data, (bytes32)));
+    IERC721(pool).transferFrom(address(this), recipient, positionId);
 
     // swap fxUSD to USDC and pay debts
     _swapFxUSDToUSDC(IERC20(fxUSD).balanceOf(address(this)), borrowAmount, data);
@@ -206,7 +232,7 @@ contract MigrateFacet {
     uint256 minFxUSD,
     bytes memory data
   ) internal returns (uint256 amountFxUSD) {
-    (uint256 swapEncoding, uint256[] memory swapRoutes) = abi.decode(data, (uint256, uint256[]));
+    (, uint256 swapEncoding, uint256[] memory swapRoutes) = abi.decode(data, (bytes32, uint256, uint256[]));
     return _swap(USDC, amountUSDC, minFxUSD, swapEncoding, swapRoutes);
   }
 
@@ -215,9 +241,9 @@ contract MigrateFacet {
     uint256 minUSDC,
     bytes memory data
   ) internal returns (uint256 amountUSDC) {
-    (, , uint256 swapEncoding, uint256[] memory swapRoutes) = abi.decode(
+    (, , , uint256 swapEncoding, uint256[] memory swapRoutes) = abi.decode(
       data,
-      (uint256, uint256[], uint256, uint256[])
+      (bytes32, uint256, uint256[], uint256, uint256[])
     );
     return _swap(fxUSD, amountFxUSD, minUSDC, swapEncoding, swapRoutes);
   }
@@ -227,9 +253,9 @@ contract MigrateFacet {
     uint256 minWstETH,
     bytes memory data
   ) internal returns (uint256 amountWstETH) {
-    (, , , , uint256 swapEncoding, uint256[] memory swapRoutes) = abi.decode(
+    (, , , , , uint256 swapEncoding, uint256[] memory swapRoutes) = abi.decode(
       data,
-      (uint256, uint256[], uint256, uint256[], uint256, uint256[])
+      (bytes32, uint256, uint256[], uint256, uint256[], uint256, uint256[])
     );
     return _swap(sfrxETH, amountSfrxETH, minWstETH, swapEncoding, swapRoutes);
   }
@@ -244,5 +270,14 @@ contract MigrateFacet {
     LibRouter.approve(token, converter, amountIn);
     amountOut = IMultiPathConverter(converter).convert(token, amountIn, encoding, routes);
     if (amountOut < minOut) revert ErrorInsufficientAmountSwapped();
+  }
+
+  function _checkPositionDebtRatio(address pool, uint256 positionId, bytes32 miscData) internal view {
+    uint256 debtRatio = IPool(pool).getPositionDebtRatio(positionId);
+    uint256 minDebtRatio = miscData.decodeUint(0, 60);
+    uint256 maxDebtRatio = miscData.decodeUint(60, 60);
+    if (debtRatio < minDebtRatio || debtRatio > maxDebtRatio) {
+      revert ErrorDebtRatioOutOfRange();
+    }
   }
 }

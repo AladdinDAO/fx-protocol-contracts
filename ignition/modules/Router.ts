@@ -1,17 +1,17 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-import { Interface, ZeroAddress } from "ethers";
+import { id, Interface, ZeroAddress } from "ethers";
 
 import {
   DiamondCutFacet__factory,
   DiamondLoupeFacet__factory,
   FlashLoanCallbackFacet__factory,
   FlashSwapFacet__factory,
+  MigrateFacet__factory,
   OwnershipFacet__factory,
   RouterManagementFacet__factory,
 } from "@/types/index";
 
 import ERC2535Module from "./ERC2535";
-import FxProtocolModule from "./FxProtocol";
 
 const getAllSignatures = (e: Interface): string[] => {
   const sigs: string[] = [];
@@ -24,7 +24,6 @@ const getAllSignatures = (e: Interface): string[] => {
 export default buildModule("Router", (m) => {
   const owner = m.getAccount(0);
   const facets = m.useModule(ERC2535Module);
-  const { FxUSDProxy } = m.useModule(FxProtocolModule);
 
   const diamondCuts = [
     {
@@ -57,6 +56,11 @@ export default buildModule("Router", (m) => {
       action: 0,
       functionSelectors: getAllSignatures(FlashSwapFacet__factory.createInterface()),
     },
+    {
+      facetAddress: facets.MigrateFacet,
+      action: 0,
+      functionSelectors: getAllSignatures(MigrateFacet__factory.createInterface()),
+    },
   ];
 
   const Router = m.contract("Diamond", [
@@ -67,9 +71,6 @@ export default buildModule("Router", (m) => {
       initCalldata: "0x",
     },
   ]);
-
-  const MIGRATOR_ROLE = m.staticCall(FxUSDProxy, "MIGRATOR_ROLE");
-  m.call(FxUSDProxy, "grantRole", [MIGRATOR_ROLE, Router]);
 
   return { Router };
 });

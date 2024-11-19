@@ -93,7 +93,7 @@ interface IPoolManager {
   /// @notice The address of fxUSD.
   function fxUSD() external view returns (address);
 
-  /// @notice The address of StakedFxUSD.
+  /// @notice The address of FxUSDSave.
   function sfxUSD() external view returns (address);
 
   /// @notice The address of `PegKeeper`.

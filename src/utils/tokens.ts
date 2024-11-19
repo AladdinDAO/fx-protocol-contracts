@@ -146,50 +146,50 @@ export const EthereumTokens: { [symbol: string]: { address: string; decimals: nu
 // eslint-disable-next-line no-lone-blocks
 {
 // Curve Base LP
-EthereumTokens["CRV_B_DAI/USDC/USDT"] = { decimals: 18, address: "0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490" };
-EthereumTokens["CRV_B_ETH/stETH"] = { decimals: 18, address: "0x06325440D014e39736583c165C2963BA99fAf14E" };
-EthereumTokens["CRV_B_ETH/frxETH"] = { decimals: 18, address: "0xf43211935C781D5ca1a41d2041F397B8A7366C7A" };
+EthereumTokens["CRV_SB_DAI/USDC/USDT"] = { decimals: 18, address: "0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490" };
+EthereumTokens["CRV_SB_ETH/stETH"] = { decimals: 18, address: "0x06325440D014e39736583c165C2963BA99fAf14E" };
+EthereumTokens["CRV_SB_ETH/frxETH"] = { decimals: 18, address: "0xf43211935C781D5ca1a41d2041F397B8A7366C7A" };
 // Curve Plain Factory LP, including
 // 1. old factory: 0xB9fC157394Af804a3578134A6585C0dc9cc990d4
 // 2. crvUSD factory: 0x4F8846Ae9380B90d2E71D5e3D042dff3E7ebb40d
 // 3. stable-ng factory: 0x6A8cbed756804B16E05E741eDaBd5cB544AE21bf
-EthereumTokens["CRV_P_WETH/stETH_117"] = { decimals: 18, address: "0x828b154032950C8ff7CF8085D841723Db2696056" };
-EthereumTokens["CRV_P_stETH/frxETH_274"] = { decimals: 18, address: "0x4d9f9D15101EEC665F77210cB999639f760F831E" };
-EthereumTokens["CRV_P_CRV/cvxCRV_283"] = { decimals: 18, address: "0x971add32Ea87f10bD192671630be3BE8A11b8623" };
-EthereumTokens["CRV_P_ETH/stETH_303"] = { decimals: 18, address: "0x21E27a5E5513D6e65C4f830167390997aA84843a" };
-EthereumTokens["CRV_P_FXN/cvxFXN_358"] = { decimals: 18, address: "0x1062FD8eD633c1f080754c19317cb3912810B5e5" };
-EthereumTokens["CRV_P_FXN/sdFXN_359"] = { decimals: 18, address: "0x28Ca243dc0aC075dD012fCf9375C25D18A844d96" };
-EthereumTokens["CRV_U_WETH/frxETH_15"] = { decimals: 18, address: "0x9c3B46C0Ceb5B9e304FCd6D88Fc50f7DD24B31Bc" };
-EthereumTokens["CRV_U_mkUSD/crvUSD_17"] = { decimals: 18, address: "0x3de254a0f838a844f727fee81040e0fa7884b935" };
-EthereumTokens["CRV_S_NG_mkUSD/USDC_17"] = { decimals: 18, address: "0xf980b4a4194694913af231de69ab4593f5e0fcdc" };
-EthereumTokens["CRV_S_NG_weETH/WETH_22"] = { decimals: 18, address: "0x13947303F63b363876868D070F14dc865C36463b" };
-EthereumTokens["CRV_S_NG_USDM/3CRV_26"] = { decimals: 18, address: "0xc83b79c07ece44b8b99ffa0e235c00add9124f9e" };
-EthereumTokens["CRV_S_NG_pxETH/stETH_30"] = { decimals: 18, address: "0x6951bdc4734b9f7f3e1b74afebc670c736a0edb6" };
-EthereumTokens["CRV_S_NG_FRAX/sDAI_32"] = { decimals: 18, address: "0xce6431d21e3fb1036ce9973a3312368ed96f5ce7" };
-EthereumTokens["CRV_S_NG_FRAX/PYUSD_34"] = { decimals: 18, address: "0xa5588f7cdf560811710a2d82d3c9c99769db1dcb" };
-EthereumTokens["CRV_S_NG_USDV/3CRV_38"] = { decimals: 18, address: "0x00e6fd108c4640d21b40d02f18dd6fe7c7f725ca" };
-EthereumTokens["CRV_S_NG_eUSD/mkUSD_60"] = { decimals: 18, address: "0xc37c0e88551ed383c1abedc6628a5579071bf56f" };
-EthereumTokens["CRV_S_NG_sUSDe/sDAI/sFRAX_61"] = { decimals: 18, address: "0xc559f6716d8b1471fc2dc10aafeb0faa219fe9df" };
-EthereumTokens["CRV_S_NG_eUSD/crvUSD_65"] = { decimals: 18, address: "0x91285c4fc766fff6f3acafeec7a0423275257fae" };
-EthereumTokens["CRV_S_NG_ezETH/WETH_79"] = { decimals: 18, address: "0x85de3add465a219ee25e04d22c39ab027cf5c12e" };
-EthereumTokens["CRV_S_NG_weETH/rswETH_80"] = { decimals: 18, address: "0x278cfb6f06b1efc09d34fc7127d6060c61d629db" };
-EthereumTokens["CRV_S_NG_crvUSD/fxUSD_106"] = { decimals: 18, address: "0x8ffc7b89412efd0d17edea2018f6634ea4c2fcb2" };
-EthereumTokens["CRV_S_NG_PYUSD/fxUSD_107"] = { decimals: 18, address: "0xd6982da59F1D26476E259559508f4135135cf9b8" };
-EthereumTokens["CRV_S_NG_DOLA/fxUSD_108"] = { decimals: 18, address: "0x189B4e49B5cAf33565095097b4B960F14032C7D0" };
-EthereumTokens["CRV_S_NG_GRAI/fxUSD_109"] = { decimals: 18, address: "0x69Cf42F15F9325986154b61A013da6E8feC82CCF" };
-EthereumTokens["CRV_S_NG_FRAX/fxUSD_110"] = { decimals: 18, address: "0x1EE81c56e42EC34039D993d12410d437DdeA341E" };
-EthereumTokens["CRV_S_NG_GHO/fxUSD_111"] = { decimals: 18, address: "0x74345504Eaea3D9408fC69Ae7EB2d14095643c5b" };
-EthereumTokens["CRV_S_NG_eUSD/fxUSD_114"] = { decimals: 18, address: "0x16b54e3ac8e3ba088333985035b869847e36e770" };
-EthereumTokens["CRV_S_NG_mkUSD/fxUSD_115"] = { decimals: 18, address: "0xca554e2e2948a211d4650fe0f4e271f01f9cb5f1" };
-EthereumTokens["CRV_S_NG_ULTRA/fxUSD_116"] = { decimals: 18, address: "0xf33ab11e5c4e55dacb13644f0c0a9d1e199a796f" };
-EthereumTokens["CRV_S_NG_rgUSD/fxUSD_127"] = { decimals: 18, address: "0x6fc7ea6ca8cd2759803eb78159c931a8ff5e0557" };
-EthereumTokens["CRV_S_NG_fxUSD/rUSD_138"] = { decimals: 18, address: "0x2116bfad62b383043230501f6a124c6ea60ccfa5" };
-EthereumTokens["CRV_S_NG_alUSD/fxUSD_139"] = { decimals: 18, address: "0x27cb9629ae3ee05cb266b99ca4124ec999303c9d" };
-EthereumTokens["CRV_S_NG_MIM/fxUSD_141"] = { decimals: 18, address: "0xd7bf9bb6bd088317effd116e2b70ea3a054cbceb" };
-EthereumTokens["CRV_S_NG_zunUSD/fxUSD_179"] = { decimals: 18, address: "0x13ea95ce68185e334d3747539845a3b7643a8cab" };
-EthereumTokens["CRV_S_NG_USDC/fxUSD_193"] = { decimals: 18, address: "0x5018be882dcce5e3f2f3b0913ae2096b9b3fb61f" };
-EthereumTokens["CRV_S_NG_USD0/fxUSD_195"] = { decimals: 18, address: "0x74c204520c9e88aa3eb9d61788aba11be1e0193f" };
-EthereumTokens["CRV_S_NG_fxUSD/rUSD/btcUSD_204"] = { decimals: 18, address: "0x52bf165abd26106d810733cc29faff68b96dece8" };
+EthereumTokens["CRV_SP_WETH/stETH_117"] = { decimals: 18, address: "0x828b154032950C8ff7CF8085D841723Db2696056" };
+EthereumTokens["CRV_SP_stETH/frxETH_274"] = { decimals: 18, address: "0x4d9f9D15101EEC665F77210cB999639f760F831E" };
+EthereumTokens["CRV_SP_CRV/cvxCRV_283"] = { decimals: 18, address: "0x971add32Ea87f10bD192671630be3BE8A11b8623" };
+EthereumTokens["CRV_SP_ETH/stETH_303"] = { decimals: 18, address: "0x21E27a5E5513D6e65C4f830167390997aA84843a" };
+EthereumTokens["CRV_SP_FXN/cvxFXN_358"] = { decimals: 18, address: "0x1062FD8eD633c1f080754c19317cb3912810B5e5" };
+EthereumTokens["CRV_SP_FXN/sdFXN_359"] = { decimals: 18, address: "0x28Ca243dc0aC075dD012fCf9375C25D18A844d96" };
+EthereumTokens["CRV_SC_WETH/frxETH_15"] = { decimals: 18, address: "0x9c3B46C0Ceb5B9e304FCd6D88Fc50f7DD24B31Bc" };
+EthereumTokens["CRV_SC_mkUSD/crvUSD_17"] = { decimals: 18, address: "0x3de254a0f838a844f727fee81040e0fa7884b935" };
+EthereumTokens["CRV_SN_mkUSD/USDC_17"] = { decimals: 18, address: "0xf980b4a4194694913af231de69ab4593f5e0fcdc" };
+EthereumTokens["CRV_SN_weETH/WETH_22"] = { decimals: 18, address: "0x13947303F63b363876868D070F14dc865C36463b" };
+EthereumTokens["CRV_SN_USDM/3CRV_26"] = { decimals: 18, address: "0xc83b79c07ece44b8b99ffa0e235c00add9124f9e" };
+EthereumTokens["CRV_SN_pxETH/stETH_30"] = { decimals: 18, address: "0x6951bdc4734b9f7f3e1b74afebc670c736a0edb6" };
+EthereumTokens["CRV_SN_FRAX/sDAI_32"] = { decimals: 18, address: "0xce6431d21e3fb1036ce9973a3312368ed96f5ce7" };
+EthereumTokens["CRV_SN_FRAX/PYUSD_34"] = { decimals: 18, address: "0xa5588f7cdf560811710a2d82d3c9c99769db1dcb" };
+EthereumTokens["CRV_SN_USDV/3CRV_38"] = { decimals: 18, address: "0x00e6fd108c4640d21b40d02f18dd6fe7c7f725ca" };
+EthereumTokens["CRV_SN_eUSD/mkUSD_60"] = { decimals: 18, address: "0xc37c0e88551ed383c1abedc6628a5579071bf56f" };
+EthereumTokens["CRV_SN_sUSDe/sDAI/sFRAX_61"] = { decimals: 18, address: "0xc559f6716d8b1471fc2dc10aafeb0faa219fe9df" };
+EthereumTokens["CRV_SN_eUSD/crvUSD_65"] = { decimals: 18, address: "0x91285c4fc766fff6f3acafeec7a0423275257fae" };
+EthereumTokens["CRV_SN_ezETH/WETH_79"] = { decimals: 18, address: "0x85de3add465a219ee25e04d22c39ab027cf5c12e" };
+EthereumTokens["CRV_SN_weETH/rswETH_80"] = { decimals: 18, address: "0x278cfb6f06b1efc09d34fc7127d6060c61d629db" };
+EthereumTokens["CRV_SN_crvUSD/fxUSD_106"] = { decimals: 18, address: "0x8ffc7b89412efd0d17edea2018f6634ea4c2fcb2" };
+EthereumTokens["CRV_SN_PYUSD/fxUSD_107"] = { decimals: 18, address: "0xd6982da59F1D26476E259559508f4135135cf9b8" };
+EthereumTokens["CRV_SN_DOLA/fxUSD_108"] = { decimals: 18, address: "0x189B4e49B5cAf33565095097b4B960F14032C7D0" };
+EthereumTokens["CRV_SN_GRAI/fxUSD_109"] = { decimals: 18, address: "0x69Cf42F15F9325986154b61A013da6E8feC82CCF" };
+EthereumTokens["CRV_SN_FRAX/fxUSD_110"] = { decimals: 18, address: "0x1EE81c56e42EC34039D993d12410d437DdeA341E" };
+EthereumTokens["CRV_SN_GHO/fxUSD_111"] = { decimals: 18, address: "0x74345504Eaea3D9408fC69Ae7EB2d14095643c5b" };
+EthereumTokens["CRV_SN_eUSD/fxUSD_114"] = { decimals: 18, address: "0x16b54e3ac8e3ba088333985035b869847e36e770" };
+EthereumTokens["CRV_SN_mkUSD/fxUSD_115"] = { decimals: 18, address: "0xca554e2e2948a211d4650fe0f4e271f01f9cb5f1" };
+EthereumTokens["CRV_SN_ULTRA/fxUSD_116"] = { decimals: 18, address: "0xf33ab11e5c4e55dacb13644f0c0a9d1e199a796f" };
+EthereumTokens["CRV_SN_rgUSD/fxUSD_127"] = { decimals: 18, address: "0x6fc7ea6ca8cd2759803eb78159c931a8ff5e0557" };
+EthereumTokens["CRV_SN_fxUSD/rUSD_138"] = { decimals: 18, address: "0x2116bfad62b383043230501f6a124c6ea60ccfa5" };
+EthereumTokens["CRV_SN_alUSD/fxUSD_139"] = { decimals: 18, address: "0x27cb9629ae3ee05cb266b99ca4124ec999303c9d" };
+EthereumTokens["CRV_SN_MIM/fxUSD_141"] = { decimals: 18, address: "0xd7bf9bb6bd088317effd116e2b70ea3a054cbceb" };
+EthereumTokens["CRV_SN_zunUSD/fxUSD_179"] = { decimals: 18, address: "0x13ea95ce68185e334d3747539845a3b7643a8cab" };
+EthereumTokens["CRV_SN_USDC/fxUSD_193"] = { decimals: 18, address: "0x5018be882dcce5e3f2f3b0913ae2096b9b3fb61f" };
+EthereumTokens["CRV_SN_USD0/fxUSD_195"] = { decimals: 18, address: "0x74c204520c9e88aa3eb9d61788aba11be1e0193f" };
+EthereumTokens["CRV_SN_fxUSD/rUSD/btcUSD_204"] = { decimals: 18, address: "0x52bf165abd26106d810733cc29faff68b96dece8" };
 // Curve Crypto LP (including factory pools)
 EthereumTokens["CRV_2C_crvUSD/fETH_299"] = { decimals: 18, address: "0x19033d99A7b7010157b81e5eE5A8E63A583fB735" };
 EthereumTokens["CRV_2C_fETH/FRAXBP_301"] = { decimals: 18, address: "0x3d28f9192E34e51414e69FBEE5b11B35590FB9Fb" };
