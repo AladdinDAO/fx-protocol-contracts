@@ -90,6 +90,49 @@ interface IPool {
 
   /// @notice The address of price oracle.
   function priceOracle() external view returns (address);
+  
+  /// @notice Return whether borrow is paused.
+  function isBorrowPaused() external view returns (bool);
+
+  /// @notice Return whether redeem is paused.
+  function isRedeemPaused() external view returns (bool);
+  
+  /// @notice Return the current top tick with debts.
+  function getTopTick() external view returns (int16);
+
+  /// @notice Return the next position id.
+  function getNextPositionId() external view returns (uint256);
+
+  /// @notice Return the next tick tree node id.
+  function getNextTreeNodeId() external view returns (uint256);
+
+  /// @notice Return the debt ratio range.
+  /// @param minDebtRatio The minimum required debt ratio, multiplied by 1e18.
+  /// @param maxDebtRatio The minimum allowed debt ratio, multiplied by 1e18.
+  function getDebtRatioRange() external view returns (uint256 minDebtRatio, uint256 maxDebtRatio);
+
+  /// @notice Return the maximum redeem percentage per tick, multiplied by 1e9.
+  function getMaxRedeemRatioPerTick() external view returns (uint256);
+
+  /// @notice Get `debtRatio` and `bonusRatio` for rebalance.
+  /// @return debtRatio The minimum debt ratio to start rebalance, multiplied by 1e18.
+  /// @return bonusRatio The bonus ratio during rebalance, multiplied by 1e9.
+  function getRebalanceRatios() external view returns (uint256 debtRatio, uint256 bonusRatio);
+
+  /// @notice Get `debtRatio` and `bonusRatio` for liquidate.
+  /// @return debtRatio The minimum debt ratio to start liquidate, multiplied by 1e18.
+  /// @return bonusRatio The bonus ratio during liquidate, multiplied by 1e9.
+  function getLiquidateRatios() external view returns (uint256 debtRatio, uint256 bonusRatio);
+
+  /// @notice Get debt and collateral index.
+  /// @return debtIndex The index for debt shares.
+  /// @return collIndex The index for collateral shares.
+  function getDebtAndCollateralIndex() external view returns (uint256 debtIndex, uint256 collIndex);
+
+  /// @notice Get debt and collateral shares.
+  /// @return debtShares The total number of debt shares.
+  /// @return collShares The total number of collateral shares.
+  function getDebtAndCollateralShares() external view returns (uint256 debtShares, uint256 collShares);
 
   /// @notice Return the details of the given position.
   /// @param rawColls The amount of collateral tokens supplied in this position.
@@ -97,7 +140,10 @@ interface IPool {
   function getPosition(uint256 tokenId) external view returns (uint256 rawColls, uint256 rawDebts);
 
   /// @notice The total amount of raw collateral tokens.
-  function getTotalRawColls() external view returns (uint256);
+  function getTotalRawCollaterals() external view returns (uint256);
+
+  /// @notice The total amount of raw debt tokens.
+  function getTotalRawDebts() external view returns (uint256);
 
   /****************************
    * Public Mutated Functions *

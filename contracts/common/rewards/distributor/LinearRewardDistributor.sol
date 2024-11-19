@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.0;
 
-import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/IERC20Upgradeable.sol";
-import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 import { IRewardDistributor } from "./IRewardDistributor.sol";
 import { LinearReward } from "./LinearReward.sol";
@@ -13,7 +13,7 @@ import { LinearReward } from "./LinearReward.sol";
 // solhint-disable not-rely-on-time
 
 abstract contract LinearRewardDistributor is AccessControlUpgradeable, IRewardDistributor {
-  using SafeERC20Upgradeable for IERC20Upgradeable;
+  using SafeERC20 for IERC20;
 
   using LinearReward for LinearReward.RewardData;
 
@@ -73,7 +73,7 @@ abstract contract LinearRewardDistributor is AccessControlUpgradeable, IRewardDi
   /// @inheritdoc IRewardDistributor
   function depositReward(uint256 _amount) external override onlyRole(REWARD_DEPOSITOR_ROLE) {
     if (_amount > 0) {
-      IERC20Upgradeable(rewardToken).safeTransferFrom(msg.sender, address(this), _amount);
+      IERC20(rewardToken).safeTransferFrom(msg.sender, address(this), _amount);
     }
 
     _distributePendingReward();

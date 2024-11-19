@@ -3,11 +3,11 @@
 pragma solidity ^0.8.25;
 pragma abicoder v2;
 
-import { AccessControl } from "@openzeppelin/contracts-v4/access/AccessControl.sol";
-import { IERC20 } from "@openzeppelin/contracts-v4/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts-v4/token/ERC20/utils/SafeERC20.sol";
-import { EnumerableSet } from "@openzeppelin/contracts-v4/utils/structs/EnumerableSet.sol";
-import { Address } from "@openzeppelin/contracts-v4/utils/Address.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
 import { IReservePool } from "../interfaces/IReservePool.sol";
 

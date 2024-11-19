@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.25;
 
-import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol";
-import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/security/ReentrancyGuardUpgradeable.sol";
-import { ERC20PermitUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
-import { IERC20MetadataUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/IERC20Upgradeable.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { ERC20PermitUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 import { AggregatorV3Interface } from "../interfaces/Chainlink/AggregatorV3Interface.sol";
 import { IPegKeeper } from "../interfaces/IPegKeeper.sol";
@@ -24,7 +25,7 @@ contract StakedFxUSD is
   LinearRewardDistributor,
   IStakedFxUSD
 {
-  using SafeERC20Upgradeable for IERC20Upgradeable;
+  using SafeERC20 for IERC20;
 
   /**********
    * Errors *
@@ -149,10 +150,15 @@ contract StakedFxUSD is
     stableToken = _stableToken;
     Chainlink_USDC_USD_Spot = _Chainlink_USDC_USD_Spot;
 
-    stableTokenScale = 10 ** (18 - IERC20MetadataUpgradeable(_stableToken).decimals());
+    stableTokenScale = 10 ** (18 - IERC20Metadata(_stableToken).decimals());
   }
 
-  function initialize(address admin, string memory _name, string memory _symbol, uint256 _stableDepegPrice) external initializer {
+  function initialize(
+    address admin,
+    string memory _name,
+    string memory _symbol,
+    uint256 _stableDepegPrice
+  ) external initializer {
     __Context_init();
     __ERC165_init();
     __AccessControl_init();
@@ -166,6 +172,10 @@ contract StakedFxUSD is
     _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
     _updateStableDepegPrice(_stableDepegPrice);
+
+    // approve
+    IERC20(yieldToken).forceApprove(poolManager, type(uint256).max);
+    IERC20(stableToken).forceApprove(poolManager, type(uint256).max);
   }
 
   /*************************
@@ -253,7 +263,7 @@ contract StakedFxUSD is
     _distributePendingReward();
 
     // we are very sure every token is normal token, so no fot check here.
-    IERC20Upgradeable(tokenIn).safeTransferFrom(_msgSender(), address(this), amountTokenToDeposit);
+    IERC20(tokenIn).safeTransferFrom(_msgSender(), address(this), amountTokenToDeposit);
 
     amountSharesOut = _deposit(tokenIn, amountTokenToDeposit);
     if (amountSharesOut < minSharesOut) revert ErrInsufficientSharesOut();
@@ -282,13 +292,13 @@ contract StakedFxUSD is
     _burn(_msgSender(), amountSharesToRedeem);
 
     if (amountYieldOut > 0) {
-      IERC20Upgradeable(yieldToken).safeTransfer(receiver, amountYieldOut);
+      IERC20(yieldToken).safeTransfer(receiver, amountYieldOut);
       unchecked {
         totalYieldToken = cachedTotalYieldToken - amountYieldOut;
       }
     }
     if (amountStableOut > 0) {
-      IERC20Upgradeable(stableToken).safeTransfer(receiver, amountStableOut);
+      IERC20(stableToken).safeTransfer(receiver, amountStableOut);
       unchecked {
         totalStableToken = cachedTotalStableToken - amountStableOut;
       }
@@ -393,9 +403,9 @@ contract StakedFxUSD is
         }
       }
     }
-    uint256 actualOut = IERC20Upgradeable(dstToken).balanceOf(address(this));
+    uint256 actualOut = IERC20(dstToken).balanceOf(address(this));
     amountOut = IPegKeeper(pegKeeper).onSwap(stableToken, dstToken, amountIn, data);
-    actualOut = IERC20Upgradeable(dstToken).balanceOf(address(this)) - actualOut;
+    actualOut = IERC20(dstToken).balanceOf(address(this)) - actualOut;
     // check actual fxUSD swapped in case peg keeper is hacked.
     if (amountOut > actualOut) revert ErrorInsufficientOutput();
     // check swapped token has no loss
@@ -405,7 +415,7 @@ contract StakedFxUSD is
     totalStableToken = cachedTotalStableToken;
     bonusOut = amountOut - expectedOut;
     if (bonusOut > 0) {
-      IERC20Upgradeable(dstToken).safeTransfer(receiver, bonusOut);
+      IERC20(dstToken).safeTransfer(receiver, bonusOut);
     }
 
     emit Arbitrage(_msgSender(), srcToken, amountIn, amountOut, bonusOut);
@@ -534,7 +544,7 @@ contract StakedFxUSD is
     }
 
     // transfer token from caller, the collateral is already transferred to caller.
-    IERC20Upgradeable(tokenIn).safeTransferFrom(_msgSender(), address(this), tokenUsed);
+    IERC20(tokenIn).safeTransferFrom(_msgSender(), address(this), tokenUsed);
 
     emit Rebalance(_msgSender(), tokenIn, tokenUsed, op.colls, op.yieldTokenUsed, op.stableTokenUsed);
   }

@@ -12,6 +12,11 @@ interface IPegKeeper {
   /// @param newConverter The address of current converter contract.
   event UpdateConverter(address indexed oldConverter, address indexed newConverter);
 
+  /// @notice Emitted when the curve pool contract is updated.
+  /// @param oldPool The address of previous curve pool contract.
+  /// @param newPool The address of current curve pool contract.
+  event UpdateCurvePool(address indexed oldPool, address indexed newPool);
+
   /// @notice Emitted when the price threshold is updated.
   /// @param oldThreshold The value of previous price threshold
   /// @param newThreshold The value of current price threshold

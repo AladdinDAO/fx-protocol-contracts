@@ -2,7 +2,8 @@
 
 pragma solidity ^0.8.26;
 
-import { Ownable2Step } from "@openzeppelin/contracts-v4/access/Ownable2Step.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 import { AggregatorV3Interface } from "../interfaces/Chainlink/AggregatorV3Interface.sol";
 import { ISpotPriceOracle } from "./interfaces/ISpotPriceOracle.sol";
@@ -32,7 +33,7 @@ abstract contract SpotPriceOracleBase is Ownable2Step {
    * Constructor *
    ***************/
 
-  constructor(address _spotPriceOracle) {
+  constructor(address _spotPriceOracle) Ownable(_msgSender()) {
     spotPriceOracle = _spotPriceOracle;
   }
 
@@ -56,7 +57,7 @@ abstract contract SpotPriceOracleBase is Ownable2Step {
       heartbeat := and(encoding, 0xffffffff)
     }
     (, int256 answer, , uint256 updatedAt, ) = AggregatorV3Interface(aggregator).latestRoundData();
-    if (answer < 0) revert("invalid");
+    if (answer <= 0) revert("invalid");
     if (block.timestamp - updatedAt > heartbeat) revert("expired");
     return uint256(answer) * scale;
   }

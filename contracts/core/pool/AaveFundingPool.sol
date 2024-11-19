@@ -7,6 +7,7 @@ import { IAaveFundingPool } from "../../interfaces/IAaveFundingPool.sol";
 import { IPegKeeper } from "../../interfaces/IPegKeeper.sol";
 
 import { WordCodec } from "../../common/codec/WordCodec.sol";
+import { Math } from "../../libraries/Math.sol";
 import { BasePool } from "./BasePool.sol";
 
 contract AaveFundingPool is BasePool, IAaveFundingPool {
@@ -103,7 +104,7 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
     _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
     _updateOpenRatio(1000000, 50000000000000000); // 0.1% and 5%
-    _updateCloseRatio(1000000); // 0.1%
+    _updateCloseFeeRatio(1000000); // 0.1%
     _updateInterestRate();
   }
 
@@ -111,9 +112,23 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
    * Public View Functions *
    *************************/
 
+  /// @notice Get open fee ratio related parameters.
+  /// @return ratio The value of open ratio, multiplied by 1e9.
+  /// @return step The value of open ratio step, multiplied by 1e18.
+  function getOpenRatio() external view returns (uint256 ratio, uint256 step) {
+    return _getOpenRatio();
+  }
+
   /// @notice Return the value of funding ratio, multiplied by 1e9.
   function getFundingRatio() external view returns (uint256) {
     return _getFundingRatio();
+  }
+
+  /// @notice Get the interest rate snapshot.
+  /// @return rate The snapshot interest rate, multiplied by 1e18.
+  /// @return timestamp The snapshot timestamp.
+  function getInterestRateSnapshot() external view returns (uint256, uint256) {
+    return _getInterestRate();
   }
 
   /// @notice Return the fee ratio for opening position, multiplied by 1e9.
@@ -121,7 +136,7 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
     (uint256 openRatio, uint256 openRatioStep) = _getOpenRatio();
     (uint256 rate, ) = _getInterestRate();
     unchecked {
-      uint256 aaveRatio = rate <= openRatioStep ? 1 : (rate - openRatioStep) / openRatioStep;
+      uint256 aaveRatio = rate <= openRatioStep ? 1 : (rate - 1) / openRatioStep;
       return aaveRatio * openRatio;
     }
   }
@@ -144,8 +159,8 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
 
   /// @notice Update the fee ratio for closing position.
   /// @param ratio The close ratio value, multiplied by 1e9.
-  function updateCloseRatio(uint256 ratio) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    _updateCloseRatio(ratio);
+  function updateCloseFeeRatio(uint256 ratio) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateCloseFeeRatio(ratio);
   }
 
   /// @notice Update the funding ratio.
@@ -177,6 +192,8 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
     bytes32 data = fundingMiscData;
     data = data.insertUint(ratio, OPEN_RATIO_OFFSET, 30);
     fundingMiscData = data.insertUint(step, OPEN_RATIO_STEP_OFFSET, 60);
+
+    emit UpdateOpenRatio(ratio, step);
   }
 
   /// @dev Internal function to get the value of close ratio, multiplied by 1e9.
@@ -185,11 +202,15 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
   }
 
   /// @dev Internal function to update the fee ratio for closing position.
-  /// @param ratio The close ratio value, multiplied by 1e9.
-  function _updateCloseRatio(uint256 ratio) internal {
-    _checkValueTooLarge(ratio, FEE_PRECISION);
+  /// @param newRatio The close fee ratio value, multiplied by 1e9.
+  function _updateCloseFeeRatio(uint256 newRatio) internal {
+    _checkValueTooLarge(newRatio, FEE_PRECISION);
 
-    fundingMiscData = fundingMiscData.insertUint(ratio, CLOSE_FEE_RATIO_OFFSET, 30);
+    bytes32 data = fundingMiscData;
+    uint256 oldRatio = data.decodeUint(CLOSE_FEE_RATIO_OFFSET, 30);
+    fundingMiscData = data.insertUint(newRatio, CLOSE_FEE_RATIO_OFFSET, 30);
+
+    emit UpdateCloseFeeRatio(oldRatio, newRatio);
   }
 
   /// @dev Internal function to get the value of funding ratio, multiplied by 1e9.
@@ -198,16 +219,20 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
   }
 
   /// @dev Internal function to update the funding ratio.
-  /// @param ratio The funding ratio value, multiplied by 1e9.
-  function _updateFundingRatio(uint256 ratio) internal {
-    _checkValueTooLarge(ratio, MAX_FUNDING_RATIO);
+  /// @param newRatio The funding ratio value, multiplied by 1e9.
+  function _updateFundingRatio(uint256 newRatio) internal {
+    _checkValueTooLarge(newRatio, MAX_FUNDING_RATIO);
 
-    fundingMiscData = fundingMiscData.insertUint(ratio, FUNDING_RATIO_OFFSET, 32);
+    bytes32 data = fundingMiscData;
+    uint256 oldRatio = data.decodeUint(FUNDING_RATIO_OFFSET, 32);
+    fundingMiscData = data.insertUint(newRatio, FUNDING_RATIO_OFFSET, 32);
+
+    emit UpdateFundingRatio(oldRatio, newRatio);
   }
 
   /// @dev Internal function to return interest rate snapshot.
-  /// @param rate The snapshot interest rate, multiplied by 1e18.
-  /// @param timestamp The snapshot timestamp.
+  /// @return rate The snapshot interest rate, multiplied by 1e18.
+  /// @return timestamp The snapshot timestamp.
   function _getInterestRate() internal view returns (uint256 rate, uint256 timestamp) {
     bytes32 data = fundingMiscData;
     rate = data.decodeUint(INTEREST_RATE_OFFSET, 68);
@@ -236,8 +261,9 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
     if (block.timestamp > snapshotTimestamp) {
       if (IPegKeeper(pegKeeper).isFundingEnabled()) {
         (, uint256 totalColls) = _getDebtAndCollateralShares();
-        uint256 totalRawColls = _convertToRawColl(totalColls, newCollIndex);
-        uint256 funding = (totalRawColls * oldInterestRate * (block.timestamp - snapshotTimestamp)) / (365 * 86400);
+        uint256 totalRawColls = _convertToRawColl(totalColls, newCollIndex, Math.Rounding.Down);
+        uint256 funding = (totalRawColls * oldInterestRate * (block.timestamp - snapshotTimestamp)) /
+          (365 * 86400 * PRECISION);
         funding = ((funding * _getFundingRatio()) / FEE_PRECISION);
 
         // update collateral index with funding costs
@@ -254,7 +280,9 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
   function _deductProtocolFees(int256 rawColl) internal view virtual override returns (uint256) {
     if (rawColl > 0) {
       // open position or add collateral
-      return (uint256(rawColl) * getOpenFeeRatio()) / FEE_PRECISION;
+      uint256 feeRatio = getOpenFeeRatio();
+      if (feeRatio > FEE_PRECISION) feeRatio = FEE_PRECISION;
+      return (uint256(rawColl) * feeRatio) / FEE_PRECISION;
     } else {
       // close position or remove collateral
       return (uint256(-rawColl) * _getCloseFeeRatio()) / FEE_PRECISION;

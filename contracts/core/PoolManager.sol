@@ -2,27 +2,26 @@
 
 pragma solidity ^0.8.26;
 
-import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol";
-import { EnumerableSetUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/utils/structs/EnumerableSetUpgradeable.sol";
-import { IERC20MetadataUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/IERC20Upgradeable.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import { IFxUSDRegeneracy } from "../interfaces/IFxUSDRegeneracy.sol";
 import { IPool } from "../interfaces/IPool.sol";
 import { IPoolManager } from "../interfaces/IPoolManager.sol";
-import { IRateProvider } from "../interfaces/IRateProvider.sol";
 import { IReservePool } from "../interfaces/IReservePool.sol";
 import { IRewardSplitter } from "../interfaces/IRewardSplitter.sol";
 import { IStakedFxUSD } from "../interfaces/IStakedFxUSD.sol";
+import { IRateProvider } from "../rate-provider/interfaces/IRateProvider.sol";
 
 import { WordCodec } from "../common/codec/WordCodec.sol";
 import { FlashLoans } from "./FlashLoans.sol";
 import { ProtocolFees } from "./ProtocolFees.sol";
 
 contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
-  using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
-  using SafeERC20Upgradeable for IERC20Upgradeable;
+  using EnumerableSet for EnumerableSet.AddressSet;
+  using SafeERC20 for IERC20;
   using WordCodec for bytes32;
 
   /**********
@@ -80,7 +79,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
   ///   ```text
   ///   * Field             Bits    Index       Comments
   ///   * debt capacity     96      0           The maximum allowed amount of debt tokens.
-  ///   * debt balance      96      96         The amount of debt tokens borrowed.
+  ///   * debt balance      96      96          The amount of debt tokens borrowed.
   ///   * reserved          64      192         Reserved data.
   ///   ```
   struct PoolStruct {
@@ -115,10 +114,10 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
    *********************/
 
   /// @dev The list of registered pools.
-  EnumerableSetUpgradeable.AddressSet private pools;
+  EnumerableSet.AddressSet private pools;
 
   /// @notice Mapping to pool address to pool struct.
-  mapping(address => PoolStruct) public poolInfo;
+  mapping(address => PoolStruct) private poolInfo;
 
   /// @notice Mapping from pool address to rewards splitter.
   mapping(address => address) public rewardSplitter;
@@ -168,6 +167,31 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     __FlashLoans_init();
   }
 
+  /*************************
+   * Public View Functions *
+   *************************/
+
+  /// @notice Return the pool information.
+  /// @param pool The address of pool to query.
+  /// @return collateralCapacity The maximum allowed amount of collateral tokens.
+  /// @return collateralBalance The amount of collateral tokens deposited.
+  /// @return debtCapacity The maximum allowed amount of debt tokens.
+  /// @return debtBalance The amount of debt tokens borrowed.
+  function getPoolInfo(
+    address pool
+  )
+    external
+    view
+    returns (uint256 collateralCapacity, uint256 collateralBalance, uint256 debtCapacity, uint256 debtBalance)
+  {
+    bytes32 data = poolInfo[pool].collateralData;
+    collateralCapacity = data.decodeUint(0, 96);
+    collateralBalance = data.decodeUint(96, 96);
+    data = poolInfo[pool].debtData;
+    debtCapacity = data.decodeUint(0, 96);
+    debtBalance = data.decodeUint(96, 96);
+  }
+
   /****************************
    * Public Mutated Functions *
    ****************************/
@@ -182,9 +206,12 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     address collateralToken = IPool(pool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
 
-    newRawColl = _scaleUp(newRawColl, scalingFactor);
+    if (newRawColl != type(int256).min) {
+      newRawColl = _scaleUp(newRawColl, scalingFactor);
+    }
 
     uint256 protocolFees;
+    // the `newRawColl` is the result without `protocolFees`
     (positionId, newRawColl, newRawDebt, protocolFees) = IPool(pool).operate(
       positionId,
       newRawColl,
@@ -195,21 +222,13 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     newRawColl = _scaleDown(newRawColl, scalingFactor);
     protocolFees = _scaleDown(protocolFees, scalingFactor);
     _accumulatePoolFee(pool, protocolFees);
+    _changePoolDebts(pool, newRawDebt);
     if (newRawColl > 0) {
       _changePoolCollateral(pool, newRawColl);
-    } else {
-      _changePoolCollateral(pool, newRawColl - int256(protocolFees));
-    }
-    _changePoolDebts(pool, newRawDebt);
-
-    if (newRawColl > 0) {
-      IERC20Upgradeable(collateralToken).safeTransferFrom(
-        _msgSender(),
-        address(this),
-        uint256(newRawColl) + protocolFees
-      );
+      IERC20(collateralToken).safeTransferFrom(_msgSender(), address(this), uint256(newRawColl) + protocolFees);
     } else if (newRawColl < 0) {
-      IERC20Upgradeable(collateralToken).safeTransfer(_msgSender(), uint256(-newRawColl));
+      _changePoolCollateral(pool, newRawColl - int256(protocolFees));
+      IERC20(collateralToken).safeTransfer(_msgSender(), uint256(-newRawColl));
     }
 
     if (newRawDebt > 0) {
@@ -228,7 +247,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     address pool,
     uint256 rawDebts
   ) external onlyRegisteredPool(pool) nonReentrant returns (uint256 rawColls) {
-    if (rawDebts > IERC20Upgradeable(fxUSD).balanceOf(_msgSender())) {
+    if (rawDebts > IERC20(fxUSD).balanceOf(_msgSender())) {
       revert ErrorRedeemExceedBalance();
     }
 
@@ -245,7 +264,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     _accumulatePoolFee(pool, protocolFees);
     rawColls -= protocolFees;
 
-    IERC20Upgradeable(collateralToken).safeTransfer(_msgSender(), rawColls);
+    IERC20(collateralToken).safeTransfer(_msgSender(), rawColls);
     IFxUSDRegeneracy(fxUSD).burn(_msgSender(), rawDebts);
 
     emit Redeem(pool, rawColls, rawDebts, protocolFees);
@@ -344,7 +363,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     // compute pending rewards
     address collateralToken = IPool(pool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
-    amountRewards = _scaleDown(IPool(pool).getTotalRawColls(), scalingFactor);
+    amountRewards = _scaleDown(IPool(pool).getTotalRawCollaterals(), scalingFactor);
     amountRewards = poolInfo[pool].collateralData.decodeUint(96, 96) - amountRewards;
     _changePoolCollateral(pool, -int256(amountRewards));
 
@@ -355,12 +374,12 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
 
     _accumulatePoolFee(pool, performanceFee);
     if (harvestBounty > 0) {
-      IERC20Upgradeable(collateralToken).safeTransfer(_msgSender(), harvestBounty);
+      IERC20(collateralToken).safeTransfer(_msgSender(), harvestBounty);
     }
     if (pendingRewards > 0) {
       address splitter = rewardSplitter[pool];
 
-      IERC20Upgradeable(collateralToken).safeTransfer(splitter, pendingRewards);
+      IERC20(collateralToken).safeTransfer(splitter, pendingRewards);
       IRewardSplitter(splitter).split(collateralToken);
     }
 
@@ -394,7 +413,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
   /// @param token The address of the token.
   /// @param provider The address of corresponding rate provider.
   function updateRateProvider(address token, address provider) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    uint256 scale = 10 ** (18 - IERC20MetadataUpgradeable(token).decimals());
+    uint256 scale = 10 ** (18 - IERC20Metadata(token).decimals());
     tokenRates[token] = TokenRate(uint96(scale), provider);
 
     emit UpdateTokenRate(token, scale, provider);
@@ -503,12 +522,12 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
       IFxUSDRegeneracy(fxUSD).burn(_msgSender(), fxUSDUsed);
     }
     if (stableUsed > 0) {
-      IERC20Upgradeable(IStakedFxUSD(sfxUSD).stableToken()).safeTransferFrom(_msgSender(), fxUSD, stableUsed);
+      IERC20(IStakedFxUSD(sfxUSD).stableToken()).safeTransferFrom(_msgSender(), fxUSD, stableUsed);
       IFxUSDRegeneracy(fxUSD).onRebalanceWithStable(stableUsed, op.rawDebts - maxFxUSD);
     }
 
     // transfer collateral
-    IERC20Upgradeable(op.collateralToken).safeTransfer(receiver, colls);
+    IERC20(op.collateralToken).safeTransfer(receiver, colls);
   }
 
   /// @dev Internal function to update collateral balance.

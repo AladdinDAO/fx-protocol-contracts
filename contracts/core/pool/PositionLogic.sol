@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 
 import { IPool } from "../../interfaces/IPool.sol";
 
+import { Math } from "../../libraries/Math.sol";
 import { TickLogic } from "./TickLogic.sol";
 
 abstract contract PositionLogic is TickLogic {
@@ -33,15 +34,22 @@ abstract contract PositionLogic is TickLogic {
 
     // convert shares to actual amount
     (uint256 debtIndex, uint256 collIndex) = _getDebtAndCollateralIndex();
-    rawColls = _convertToRawColl(rawColls, collIndex);
-    rawDebts = _convertToRawColl(rawDebts, debtIndex);
+    rawColls = _convertToRawColl(rawColls, collIndex, Math.Rounding.Down);
+    rawDebts = _convertToRawDebt(rawDebts, debtIndex, Math.Rounding.Down);
   }
 
   /// @inheritdoc IPool
-  function getTotalRawColls() external view returns (uint256) {
+  function getTotalRawCollaterals() external view returns (uint256) {
     (, uint256 totalColls) = _getDebtAndCollateralShares();
     (, uint256 collIndex) = _getDebtAndCollateralIndex();
-    return _convertToRawColl(totalColls, collIndex);
+    return _convertToRawColl(totalColls, collIndex, Math.Rounding.Down);
+  }
+
+  /// @inheritdoc IPool
+  function getTotalRawDebts() external view returns (uint256) {
+    (uint256 totalDebts, ) = _getDebtAndCollateralShares();
+    (uint256 debtIndex, ) = _getDebtAndCollateralIndex();
+    return _convertToRawDebt(totalDebts, debtIndex, Math.Rounding.Down);
   }
 
   /**********************
@@ -75,23 +83,39 @@ abstract contract PositionLogic is TickLogic {
   }
 
   /// @dev Internal function to convert raw collateral amounts to collateral shares.
-  function _convertToCollShares(uint256 raw, uint256 index) internal pure returns (uint256 shares) {
-    shares = (raw * index) / E128;
+  function _convertToCollShares(
+    uint256 raw,
+    uint256 index,
+    Math.Rounding rounding
+  ) internal pure returns (uint256 shares) {
+    shares = Math.mulDiv(raw, index, E96, rounding);
   }
 
   /// @dev Internal function to convert raw debt amounts to debt shares.
-  function _convertToDebtShares(uint256 raw, uint256 index) internal pure returns (uint256 shares) {
-    shares = (raw * E128) / index;
+  function _convertToDebtShares(
+    uint256 raw,
+    uint256 index,
+    Math.Rounding rounding
+  ) internal pure returns (uint256 shares) {
+    shares = Math.mulDiv(raw, E96, index, rounding);
   }
 
   /// @dev Internal function to convert raw collateral shares to collateral amounts.
-  function _convertToRawColl(uint256 shares, uint256 index) internal pure returns (uint256 raw) {
-    raw = (shares * E128) / index;
+  function _convertToRawColl(
+    uint256 shares,
+    uint256 index,
+    Math.Rounding rounding
+  ) internal pure returns (uint256 raw) {
+    raw = Math.mulDiv(shares, E96, index, rounding);
   }
 
   /// @dev Internal function to convert raw debt shares to debt amounts.
-  function _convertToRawDebt(uint256 shares, uint256 index) internal pure returns (uint256 raw) {
-    raw = (shares * index) / E128;
+  function _convertToRawDebt(
+    uint256 shares,
+    uint256 index,
+    Math.Rounding rounding
+  ) internal pure returns (uint256 raw) {
+    raw = Math.mulDiv(shares, index, E96, rounding);
   }
 
   /**

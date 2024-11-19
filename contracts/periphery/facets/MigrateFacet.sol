@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.20;
 
-import { IERC20 } from "@openzeppelin/contracts-v4/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts-v4/token/ERC20/utils/SafeERC20.sol";
-import { IERC721 } from "@openzeppelin/contracts-v4/token/ERC721/IERC721.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import { IMultiPathConverter } from "../../helpers/interfaces/IMultiPathConverter.sol";
 import { IBalancerVault } from "../../interfaces/Balancer/IBalancerVault.sol";
@@ -157,8 +157,7 @@ contract MigrateFacet {
     // since we need to swap back to USDC, mint 0.5% more fxUSD to cover slippage.
     fTokenAmount = (fTokenAmount * 1005) / 1000;
 
-    IERC20(wstETH).safeApprove(poolManager, 0);
-    IERC20(wstETH).safeApprove(poolManager, wstETHAmount);
+    LibRouter.approve(wstETH, poolManager, wstETHAmount);
     uint256 position = IPoolManager(poolManager).operate(pool, 0, int256(wstETHAmount), int256(fTokenAmount));
     IERC721(pool).transferFrom(address(this), recipient, position);
 
@@ -194,8 +193,7 @@ contract MigrateFacet {
     // since we need to swap back to USDC, mint 0.5% more fxUSD to cover slippage.
     fTokenAmount = (fTokenAmount * 1005) / 1000;
 
-    IERC20(wstETH).safeApprove(poolManager, 0);
-    IERC20(wstETH).safeApprove(poolManager, wstETHAmount);
+    LibRouter.approve(wstETH, poolManager, wstETHAmount);
     uint256 position = IPoolManager(poolManager).operate(pool, 0, int256(wstETHAmount), int256(fTokenAmount));
     IERC721(pool).transferFrom(address(this), recipient, position);
 

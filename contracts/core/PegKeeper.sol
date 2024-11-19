@@ -2,9 +2,10 @@
 
 pragma solidity ^0.8.26;
 
-import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/access/AccessControlUpgradeable.sol";
-import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-v4/token/ERC20/IERC20Upgradeable.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 import { IMultiPathConverter } from "../helpers/interfaces/IMultiPathConverter.sol";
 import { ICurveStableSwapNG } from "../interfaces/Curve/ICurveStableSwapNG.sol";
@@ -13,7 +14,7 @@ import { IPegKeeper } from "../interfaces/IPegKeeper.sol";
 import { IStakedFxUSD } from "../interfaces/IStakedFxUSD.sol";
 
 contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
-  using SafeERC20Upgradeable for IERC20Upgradeable;
+  using SafeERC20 for IERC20;
 
   /**********
    * Errors *
@@ -92,7 +93,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     stable = IStakedFxUSD(_sfxUSD).stableToken();
   }
 
-  function initialize(address admin, address _converter) external initializer {
+  function initialize(address admin, address _converter, address _curvePool) external initializer {
     __Context_init();
     __ERC165_init();
     __AccessControl_init();
@@ -100,6 +101,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
     _updateConverter(_converter);
+    _updateCurvePool(_curvePool);
     _updatePriceThreshold(995000000000000000); // 0.995
 
     context = CONTEXT_NO_CONTEXT;
@@ -151,7 +153,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     if (context == CONTEXT_NO_CONTEXT) revert ErrorNotInCallbackContext();
 
     amountOut = _doSwap(srcToken, amountIn, data);
-    IERC20Upgradeable(targetToken).safeTransfer(_msgSender(), amountOut);
+    IERC20(targetToken).safeTransfer(_msgSender(), amountOut);
   }
 
   /************************
@@ -162,6 +164,12 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   /// @param newConverter The address of converter.
   function updateConverter(address newConverter) external onlyRole(DEFAULT_ADMIN_ROLE) {
     _updateConverter(newConverter);
+  }
+
+  /// @notice Update the address of curve pool.
+  /// @param newPool The address of curve pool.
+  function updateCurvePool(address newPool) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateCurvePool(newPool);
   }
 
   /// @notice Update the value of depeg price threshold.
@@ -185,6 +193,17 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     emit UpdateConverter(oldConverter, newConverter);
   }
 
+  /// @dev Internal function to update the address of curve pool.
+  /// @param newPool The address of curve pool.
+  function _updateCurvePool(address newPool) internal {
+    if (newPool == address(0)) revert ErrorZeroAddress();
+
+    address oldPool = curvePool;
+    curvePool = newPool;
+
+    emit UpdateCurvePool(oldPool, newPool);
+  }
+
   /// @dev Internal function to update the value of depeg price threshold.
   /// @param newThreshold The value of new price threshold.
   function _updatePriceThreshold(uint256 newThreshold) internal {
@@ -200,8 +219,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   /// @param data The callback data.
   /// @return amountOut The amount of token swapped.
   function _doSwap(address srcToken, uint256 amountIn, bytes calldata data) internal returns (uint256 amountOut) {
-    IERC20Upgradeable(srcToken).safeApprove(converter, 0);
-    IERC20Upgradeable(srcToken).safeApprove(converter, amountIn);
+    IERC20(srcToken).forceApprove(converter, amountIn);
 
     (uint256 minOut, uint256 encoding, uint256[] memory routes) = abi.decode(data, (uint256, uint256, uint256[]));
     amountOut = IMultiPathConverter(converter).convert(srcToken, amountIn, encoding, routes);
@@ -211,8 +229,9 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   /// @dev Internal function to get curve ema price for fxUSD.
   /// @return price The value of ema price, multiplied by 1e18.
   function _getFxUSDEmaPrice() internal view returns (uint256 price) {
-    address firstCoin = ICurveStableSwapNG(curvePool).coins(0);
-    price = ICurveStableSwapNG(curvePool).price_oracle(0);
+    address cachedCurvePool = curvePool; // gas saving
+    address firstCoin = ICurveStableSwapNG(cachedCurvePool).coins(0);
+    price = ICurveStableSwapNG(cachedCurvePool).price_oracle(0);
     if (firstCoin == fxUSD) {
       price = (PRECISION * PRECISION) / price;
     }

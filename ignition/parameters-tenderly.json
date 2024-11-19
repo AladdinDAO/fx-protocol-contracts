@@ -8,17 +8,29 @@
   "TokenConverter": {
     "GeneralTokenConverter": "0x11C907b3aeDbD863e551c37f21DD3F36b28A6784"
   },
-  "FxProtocolProxy": {
-    "FxUSDProxy": "0x085780639CC2cACd35E474e71f4d000e2405d8f6"
+  "FxProtocol": {
+    "FxUSDProxy": "0x085780639CC2cACd35E474e71f4d000e2405d8f6",
+    "ExpenseRatio": "100000000",
+    "HarvesterRatio": "10000000",
+    "FlashLoanFeeRatio": "0",
+    "Platform": "0x0084C2e1B1823564e597Ff4848a88D61ac63D703"
   },
   "PriceOracle": {
     "SpotPriceOracle": "0xc2312CaF0De62eC9b4ADC785C79851Cb989C9abc"
+  },
+  "AaveFundingPool": {
+    "LendingPool": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+    "BaseAsset": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
   },
   "WstETHPool": {
     "Name": "f(x) wstETH position",
     "Symbol": "xstETH",
     "CollateralCapacity": "10000000000000000000000",
     "DebtCapacity": "10000000000000000000000000",
-    "getParameter": "0x81A777c4aB65229d1Bf64DaE4c831bDf628Ccc7f"
+    "RateProvider": "0x81A777c4aB65229d1Bf64DaE4c831bDf628Ccc7f",
+    "RebalanceDebtRatio": "880000000000000000",
+    "RebalanceBonusRatio": "25000000",
+    "LiquidateDebtRatio": "920000000000000000",
+    "LiquidateBonusRatio": "50000000"
   }
 }

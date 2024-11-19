@@ -2,12 +2,12 @@
 
 pragma solidity ^0.8.0;
 
-import { SafeCastUpgradeable } from "@openzeppelin/contracts-upgradeable-v4/utils/math/SafeCastUpgradeable.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 // solhint-disable not-rely-on-time
 
 library LinearReward {
-  using SafeCastUpgradeable for uint256;
+  using SafeCast for uint256;
 
   /// @dev Compiler will pack this into single `uint256`.
   /// Usually, we assume the amount of rewards won't exceed `uint96.max`.

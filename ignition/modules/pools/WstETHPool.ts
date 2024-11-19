@@ -22,10 +22,19 @@ export default buildModule("WstETHPool", (m) => {
     EthereumTokens.wstETH.address,
     StETHPriceOracle,
   ]);
-  const WstETHPoolProxy = m.contract("TransparentUpgradeableProxy", [
-    AaveFundingPool,
-    ProxyAdmin,
-    WstETHPoolInitializer,
+  const WstETHPoolProxy = m.contract(
+    "TransparentUpgradeableProxy",
+    [AaveFundingPool, ProxyAdmin, WstETHPoolInitializer],
+    { id: "WstETHPoolProxy" }
+  );
+  const WstETHPool = m.contractAt("AaveFundingPool", WstETHPoolProxy, { id: "WstETHPool" });
+  m.call(WstETHPool, "updateRebalanceRatios", [
+    m.getParameter("RebalanceDebtRatio"),
+    m.getParameter("RebalanceBonusRatio"),
+  ]);
+  m.call(WstETHPool, "updateLiquidateRatios", [
+    m.getParameter("LiquidateDebtRatio"),
+    m.getParameter("LiquidateBonusRatio"),
   ]);
 
   // register to PoolManagerProxy
@@ -40,7 +49,7 @@ export default buildModule("WstETHPool", (m) => {
   m.call(PoolManagerProxy, "updateRateProvider", [EthereumTokens.wstETH.address, m.getParameter("RateProvider")]);
 
   return {
-    WstETHPoolProxy,
+    WstETHPool,
     StETHPriceOracle,
   };
 });

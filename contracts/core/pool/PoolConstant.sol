@@ -10,10 +10,10 @@ abstract contract PoolConstant is IPool {
    *************/
 
   /// @dev The value of minimum collateral.
-  int256 internal constant MIN_COLLATERAL = 10000;
+  int256 internal constant MIN_COLLATERAL = 1e9;
 
   /// @dev The value of minimum debts.
-  int256 internal constant MIN_DEBT = 10000;
+  int256 internal constant MIN_DEBT = 1e9;
 
   /// @dev The precision used for various calculation.
   uint256 internal constant PRECISION = 1e18;
@@ -23,10 +23,10 @@ abstract contract PoolConstant is IPool {
 
   /// @dev bit operation related constants
   uint256 internal constant E60 = 2 ** 60; // 2^60
-  uint256 internal constant E128 = 2 ** 128; // 2^128
+  uint256 internal constant E96 = 2 ** 96; // 2^96
 
   uint256 internal constant X60 = 0xfffffffffffffff; // 2^60 - 1
-  uint256 internal constant X128 = 0xffffffffffffffffffffffffffffffff; // 2^128 - 1
+  uint256 internal constant X96 = 0xffffffffffffffffffffffff; // 2^96 - 1
 
   /***********************
    * Immutable Variables *

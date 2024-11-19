@@ -32,17 +32,17 @@ library TickBitmap {
   ) internal view returns (int16 next, bool hasDebt) {
     unchecked {
       // start from the word of the next tick, since the current tick state doesn't matter
-      (int8 wordPos, uint8 bitPos) = position(tick + 1);
-      // all the 1s at or to the left of the bitPos
-      uint256 mask = ~((1 << bitPos) - 1);
+      (int8 wordPos, uint8 bitPos) = position(tick);
+      // all the 1s at or to the right of the current bitPos
+      uint256 mask = (1 << bitPos) - 1 + (1 << bitPos);
       uint256 masked = self[wordPos] & mask;
 
       // if there are no initialized ticks to the left of the current tick, return leftmost in the word
       hasDebt = masked != 0;
-      // overflow/underflow is possible, but prevented externally by limiting both tickSpacing and tick
+      // overflow/underflow is possible, but prevented externally by limiting tick
       next = hasDebt
-        ? (tick + 1 + int16(uint16(BitMath.leastSignificantBit(masked) - bitPos)))
-        : (tick + 1 + int16(uint16(type(uint8).max - bitPos)));
+        ? (tick - int16(uint16(bitPos - BitMath.mostSignificantBit(masked))))
+        : (tick - int16(uint16(bitPos)));
     }
   }
 }
