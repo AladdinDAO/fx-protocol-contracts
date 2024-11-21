@@ -5,7 +5,7 @@ import {
   DiamondCutFacet__factory,
   DiamondLoupeFacet__factory,
   FlashLoanCallbackFacet__factory,
-  FlashSwapFacet__factory,
+  PositionOperateFlashLoanFacet__factory,
   MigrateFacet__factory,
   OwnershipFacet__factory,
   RouterManagementFacet__factory,
@@ -52,9 +52,9 @@ export default buildModule("Router", (m) => {
       functionSelectors: getAllSignatures(FlashLoanCallbackFacet__factory.createInterface()),
     },
     {
-      facetAddress: facets.FlashSwapFacet,
+      facetAddress: facets.PositionOperateFlashLoanFacet,
       action: 0,
-      functionSelectors: getAllSignatures(FlashSwapFacet__factory.createInterface()),
+      functionSelectors: getAllSignatures(PositionOperateFlashLoanFacet__factory.createInterface()),
     },
     {
       facetAddress: facets.MigrateFacet,

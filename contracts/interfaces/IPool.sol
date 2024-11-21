@@ -41,10 +41,24 @@ interface IPool {
   
   /// @notice Emitted when position is updated.
   /// @param position The index of this position.
-  /// @param colls The amount of collateral tokens in this position.
-  /// @param debts The amount of debt tokens in this position.
+  /// @param tick The index of tick, this position belongs to.
+  /// @param collShares The amount of collateral shares in this position.
+  /// @param debtShares The amount of debt shares in this position.
   /// @param price The price used for this operation.
-  event PositionSnapshot(uint256 position, uint256 colls, uint256 debts, uint256 price);
+  event PositionSnapshot(uint256 position, int16 tick, uint256 collShares, uint256 debtShares, uint256 price);
+  
+  /// @notice Emitted when tick moved due to rebalance, liquidate or redeem.
+  /// @param oldTick The index of the previous tick.
+  /// @param newTick The index of the current tick.
+  /// @param collShares The amount of collateral shares added to new tick.
+  /// @param debtShares The amount of debt shares added to new tick.
+  event TickMovement(int16 oldTick, int16 newTick, uint256 collShares, uint256 debtShares);
+
+  /// @notice Emitted when debt index increase.
+  event DebtIndexSnapshot(uint256 index);
+  
+  /// @notice Emitted when collateral index increase.
+  event CollateralIndexSnapshot(uint256 index);
 
   /***********
    * Structs *

@@ -44,6 +44,7 @@ abstract contract PositionLogic is TickLogic {
     (uint256 rawColls, uint256 rawDebts) = getPosition(tokenId);
     // price precision and ratio precision are both 1e18, use anchor price here
     (uint256 price, , ) = IPriceOracle(priceOracle).getPrice();
+    if (rawColls == 0) return 0;
     return (rawDebts * PRECISION * PRECISION) / (price * rawColls);
   }
 

@@ -20,7 +20,12 @@ interface IProtocolFees {
   /// @notice Emitted when the ratio for treasury is updated.
   /// @param oldRatio The value of the previous ratio, multiplied by 1e9.
   /// @param newRatio The value of the current ratio, multiplied by 1e9.
-  event UpdateExpenseRatio(uint256 oldRatio, uint256 newRatio);
+  event UpdateRewardsExpenseRatio(uint256 oldRatio, uint256 newRatio);
+
+  /// @notice Emitted when the ratio for treasury is updated.
+  /// @param oldRatio The value of the previous ratio, multiplied by 1e9.
+  /// @param newRatio The value of the current ratio, multiplied by 1e9.
+  event UpdateFundingExpenseRatio(uint256 oldRatio, uint256 newRatio);
 
   /// @notice Emitted when the ratio for harvester is updated.
   /// @param oldRatio The value of the previous ratio, multiplied by 1e9.
@@ -41,14 +46,20 @@ interface IProtocolFees {
    * Public View Functions *
    *************************/
 
-  /// @notice Return the fee ratio distributed as protocol revenue, multiplied by 1e9.
-  function getExpenseRatio() external view returns (uint256);
+  /// @notice Return the fee ratio distributed as protocol revenue in funding costs, multiplied by 1e9.
+  function getFundingExpenseRatio() external view returns (uint256);
+
+  /// @notice Return the fee ratio distributed as protocol revenue in general rewards, multiplied by 1e9.
+  function getRewardsExpenseRatio() external view returns (uint256);
+
+  /// @notice Return the fee ratio distributed to fxSAVE in funding costs, multiplied by 1e9.
+  function getFundingFxSaveRatio() external view returns (uint256);
+
+  /// @notice Return the fee ratio distributed to fxSAVE in general rewards, multiplied by 1e9.
+  function getRewardsFxSaveRatio() external view returns (uint256);
 
   /// @notice Return the fee ratio distributed ad harvester bounty, multiplied by 1e9.
   function getHarvesterRatio() external view returns (uint256);
-
-  /// @notice Return the fee ratio distributed to rebalance pool, multiplied by 1e9.
-  function getRebalancePoolRatio() external view returns (uint256);
 
   /// @notice Return the flash loan fee ratio, multiplied by 1e9.
   function getFlashLoanFeeRatio() external view returns (uint256);
@@ -64,6 +75,10 @@ interface IProtocolFees {
 
   /// @notice Return the amount of protocol fees accumulated by the given pool.
   function accumulatedPoolFees(address pool) external view returns (uint256);
+
+  /****************************
+   * Public Mutated Functions *
+   ****************************/
 
   /// @notice Withdraw accumulated pool fee for the given pool lists.
   /// @param pools The list of pool addresses to withdraw.

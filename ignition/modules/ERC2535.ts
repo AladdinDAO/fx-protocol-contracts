@@ -20,10 +20,10 @@ export default buildModule("ERC2535", (m) => {
   // deploy FlashLoanCallbackFacet
   const FlashLoanCallbackFacet = m.contract("FlashLoanCallbackFacet", [BalancerVault]);
 
-  // deploy FlashSwapFacet
-  const FlashSwapFacet = m.contract("FlashSwapFacet", [BalancerVault, PoolManagerProxy, MultiPathConverter]);
+  // deploy PositionOperateFlashLoanFacet
+  const PositionOperateFlashLoanFacet = m.contract("PositionOperateFlashLoanFacet", [BalancerVault, PoolManagerProxy, MultiPathConverter]);
 
-  // deploy FlashSwapFacet
+  // deploy PositionOperateFlashLoanFacet
   const MigrateFacet = m.contract("MigrateFacet", [BalancerVault, PoolManagerProxy, MultiPathConverter]);
 
   return {
@@ -34,7 +34,7 @@ export default buildModule("ERC2535", (m) => {
     RouterManagementFacet,
 
     FlashLoanCallbackFacet,
-    FlashSwapFacet,
+    PositionOperateFlashLoanFacet,
     MigrateFacet
   };
 });

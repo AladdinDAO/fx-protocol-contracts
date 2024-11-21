@@ -14,7 +14,7 @@ import { IPool } from "../../interfaces/IPool.sol";
 import { WordCodec } from "../../common/codec/WordCodec.sol";
 import { LibRouter } from "../libraries/LibRouter.sol";
 
-contract FlashSwapFacet {
+contract PositionOperateFlashLoanFacet {
   using SafeERC20 for IERC20;
   using WordCodec for bytes32;
 
@@ -28,6 +28,7 @@ contract FlashSwapFacet {
   /// @dev Thrown when the amount of tokens swapped are not enough.
   error ErrorInsufficientAmountSwapped();
 
+  /// @dev Thrown when debt ratio out of range.
   error ErrorDebtRatioOutOfRange();
 
   /*************
@@ -75,6 +76,16 @@ contract FlashSwapFacet {
     converter = _converter;
   }
 
+  /****************************
+   * Public Mutated Functions *
+   ****************************/
+
+  /// @notice Open a new position or add collateral to position with any tokens.
+  /// @param params The parameters to convert source token to collateral token.
+  /// @param pool The address of fx position pool.
+  /// @param positionId The index of position.
+  /// @param borrowAmount The amount of collateral token to borrow.
+  /// @param data Hook data passing to `onOpenOrAddPositionFlashLoan`.
   function openOrAddPositionFlashLoan(
     LibRouter.ConvertInParams memory params,
     address pool,
@@ -93,7 +104,7 @@ contract FlashSwapFacet {
       tokens,
       amounts,
       abi.encodeCall(
-        FlashSwapFacet.onOpenOrAddPositionFlashLoan,
+        PositionOperateFlashLoanFacet.onOpenOrAddPositionFlashLoan,
         (pool, positionId, amountIn, borrowAmount, msg.sender, data)
       )
     );
@@ -102,6 +113,11 @@ contract FlashSwapFacet {
     LibRouter.refundERC20(IPool(pool).collateralToken(), msg.sender);
   }
 
+  /// @notice Close a position or remove collateral from position.
+  /// @param params The parameters to convert collateral token to target token.
+  /// @param pool The address of fx position pool.
+  /// @param borrowAmount The amount of collateral token to borrow.
+  /// @param data Hook data passing to `onCloseOrRemovePositionFlashLoan`.
   function closeOrRemovePositionFlashLoan(
     LibRouter.ConvertOutParams memory params,
     address pool,
@@ -121,7 +137,7 @@ contract FlashSwapFacet {
       tokens,
       amounts,
       abi.encodeCall(
-        FlashSwapFacet.onCloseOrRemovePositionFlashLoan,
+        PositionOperateFlashLoanFacet.onCloseOrRemovePositionFlashLoan,
         (pool, positionId, amountOut, borrowAmount, msg.sender, data)
       )
     );
@@ -134,6 +150,13 @@ contract FlashSwapFacet {
     LibRouter.refundERC20(fxUSD, msg.sender);
   }
 
+  /// @notice Hook for `openOrAddPositionFlashLoan`.
+  /// @param pool The address of fx position pool.
+  /// @param position The index of position.
+  /// @param amount The amount of collateral token to supply.
+  /// @param repayAmount The amount of collateral token to repay.
+  /// @param recipient The address of position holder.
+  /// @param data Hook data passing to `onOpenOrAddPositionFlashLoan`.
   function onOpenOrAddPositionFlashLoan(
     address pool,
     uint256 position,
@@ -160,6 +183,13 @@ contract FlashSwapFacet {
     _swap(fxUSD, fxUSDAmount, repayAmount, swapEncoding, swapRoutes);
   }
 
+  /// @notice Hook for `closeOrRemovePositionFlashLoan`.
+  /// @param pool The address of fx position pool.
+  /// @param position The index of position.
+  /// @param amount The amount of collateral token to withdraw.
+  /// @param repayAmount The amount of collateral token to repay.
+  /// @param recipient The address of position holder.
+  /// @param data Hook data passing to `onOpenOrAddPositionFlashLoan`.
   function onCloseOrRemovePositionFlashLoan(
     address pool,
     uint256 position,
@@ -178,11 +208,28 @@ contract FlashSwapFacet {
 
     // close or remove collateral from position
     IERC721(pool).transferFrom(recipient, address(this), position);
-    IPoolManager(poolManager).operate(pool, position, -int256(amount), -int256(fxUSDAmount));
+    (, uint256 maxFxUSD) = IPool(pool).getPosition(position);
+    if (fxUSDAmount >= maxFxUSD) {
+      // close entire position
+      IPoolManager(poolManager).operate(pool, position, -int256(amount), type(int256).min);
+    } else {
+      IPoolManager(poolManager).operate(pool, position, -int256(amount), -int256(fxUSDAmount));
+    }
     _checkPositionDebtRatio(pool, position, miscData);
     IERC721(pool).transferFrom(address(this), recipient, position);
   }
 
+  /**********************
+   * Internal Functions *
+   **********************/
+
+  /// @dev Internal function to do swap.
+  /// @param token The address of input token.
+  /// @param amountIn The amount of input token.
+  /// @param minOut The minimum amount of output tokens should receive.
+  /// @param encoding The encoding for swap routes.
+  /// @param routes The swap routes to `MultiPathConverter`.
+  /// @return amountOut The amount of output tokens received.
   function _swap(
     address token,
     uint256 amountIn,
@@ -195,6 +242,10 @@ contract FlashSwapFacet {
     if (amountOut < minOut) revert ErrorInsufficientAmountSwapped();
   }
 
+  /// @dev Internal function to check debt ratio for the position.
+  /// @param pool The address of fx position pool.
+  /// @param positionId The index of the position.
+  /// @param miscData The encoded data for debt ratio range.
   function _checkPositionDebtRatio(address pool, uint256 positionId, bytes32 miscData) internal view {
     uint256 debtRatio = IPool(pool).getPositionDebtRatio(positionId);
     uint256 minDebtRatio = miscData.decodeUint(0, 60);

@@ -39,8 +39,8 @@ describe("FxUSDSave.spec", async () => {
   let pegKeeper: PegKeeper;
   let poolManager: PoolManager;
   let reservePool: ReservePool;
-  let sfxUSD: FxUSDSave;
-  let sfxUSDRewarder: FxSaveRewarder;
+  let fxSAVE: FxUSDSave;
+  let fxSAVERewarder: FxSaveRewarder;
 
   let mockAggregatorV3Interface: MockAggregatorV3Interface;
   let mockCurveStableSwapNG: MockCurveStableSwapNG;
@@ -148,14 +148,14 @@ describe("FxUSDSave.spec", async () => {
       FxUSDSave__factory.createInterface().encodeFunctionData("initialize", [
         admin.address,
         "Staked f(x) USD",
-        "sfxUSD",
+        "fxSAVE",
         ethers.parseEther("0.95"),
       ])
     );
-    sfxUSD = await ethers.getContractAt("FxUSDSave", await FxUSDSaveProxy.getAddress(), admin);
+    fxSAVE = await ethers.getContractAt("FxUSDSave", await FxUSDSaveProxy.getAddress(), admin);
 
     // deploy PegKeeper
-    const PegKeeperImpl = await PegKeeper.deploy(sfxUSD.getAddress());
+    const PegKeeperImpl = await PegKeeper.deploy(fxSAVE.getAddress());
     await proxyAdmin.upgradeAndCall(
       PegKeeperProxy.getAddress(),
       PegKeeperImpl.getAddress(),
@@ -184,10 +184,10 @@ describe("FxUSDSave.spec", async () => {
     await pool.updateRebalanceRatios(ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9));
     await pool.updateLiquidateRatios(ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9));
 
-    sfxUSDRewarder = await FxSaveRewarder.deploy(sfxUSD.getAddress());
+    fxSAVERewarder = await FxSaveRewarder.deploy(fxSAVE.getAddress());
     await poolManager.registerPool(
       pool.getAddress(),
-      sfxUSDRewarder.getAddress(),
+      fxSAVERewarder.getAddress(),
       ethers.parseUnits("10000", 18),
       ethers.parseEther("10000000")
     );
@@ -199,21 +199,21 @@ describe("FxUSDSave.spec", async () => {
 
   context("constructor", async () => {
     it("should succeed", async () => {
-      expect(await sfxUSD.name()).to.eq("Staked f(x) USD");
-      expect(await sfxUSD.symbol()).to.eq("sfxUSD");
+      expect(await fxSAVE.name()).to.eq("Staked f(x) USD");
+      expect(await fxSAVE.symbol()).to.eq("fxSAVE");
 
-      expect(await sfxUSD.poolManager()).to.eq(await poolManager.getAddress());
-      expect(await sfxUSD.pegKeeper()).to.eq(await pegKeeper.getAddress());
-      expect(await sfxUSD.yieldToken()).to.eq(await fxUSD.getAddress());
-      expect(await sfxUSD.stableToken()).to.eq(await stableToken.getAddress());
+      expect(await fxSAVE.poolManager()).to.eq(await poolManager.getAddress());
+      expect(await fxSAVE.pegKeeper()).to.eq(await pegKeeper.getAddress());
+      expect(await fxSAVE.yieldToken()).to.eq(await fxUSD.getAddress());
+      expect(await fxSAVE.stableToken()).to.eq(await stableToken.getAddress());
 
-      expect(await sfxUSD.totalYieldToken()).to.eq(0n);
-      expect(await sfxUSD.totalStableToken()).to.eq(0n);
-      expect(await sfxUSD.stableDepegPrice()).to.eq(ethers.parseEther("0.95"));
+      expect(await fxSAVE.totalYieldToken()).to.eq(0n);
+      expect(await fxSAVE.totalStableToken()).to.eq(0n);
+      expect(await fxSAVE.stableDepegPrice()).to.eq(ethers.parseEther("0.95"));
     });
 
     it("should revert, when initialize again", async () => {
-      await expect(sfxUSD.initialize(ZeroAddress, "", "", 0n)).to.revertedWithCustomError(
+      await expect(fxSAVE.initialize(ZeroAddress, "", "", 0n)).to.revertedWithCustomError(
         pool,
         "InvalidInitialization"
       );
@@ -238,181 +238,181 @@ describe("FxUSDSave.spec", async () => {
     });
 
     it("should revert, when ErrInvalidTokenIn", async () => {
-      await expect(sfxUSD.deposit(ZeroAddress, ZeroAddress, 0n, 0n)).to.revertedWithCustomError(
-        sfxUSD,
+      await expect(fxSAVE.deposit(ZeroAddress, ZeroAddress, 0n, 0n)).to.revertedWithCustomError(
+        fxSAVE,
         "ErrInvalidTokenIn"
       );
-      await expect(sfxUSD.previewDeposit(ZeroAddress, 0n)).to.revertedWithCustomError(sfxUSD, "ErrInvalidTokenIn");
+      await expect(fxSAVE.previewDeposit(ZeroAddress, 0n)).to.revertedWithCustomError(fxSAVE, "ErrInvalidTokenIn");
     });
 
     it("should revert, when ErrDepositZeroAmount", async () => {
-      await expect(sfxUSD.deposit(ZeroAddress, fxUSD.getAddress(), 0n, 0n)).to.revertedWithCustomError(
-        sfxUSD,
+      await expect(fxSAVE.deposit(ZeroAddress, fxUSD.getAddress(), 0n, 0n)).to.revertedWithCustomError(
+        fxSAVE,
         "ErrDepositZeroAmount"
       );
     });
 
     it("should revert, when ErrorStableTokenDepeg", async () => {
-      await fxUSD.connect(deployer).approve(sfxUSD.getAddress(), ethers.parseEther("1"));
+      await fxUSD.connect(deployer).approve(fxSAVE.getAddress(), ethers.parseEther("1"));
       await mockAggregatorV3Interface.setPrice(ethers.parseUnits("0.95", 8) - 1n);
-      expect(await sfxUSD.getStableTokenPrice()).to.eq((ethers.parseUnits("0.95", 8) - 1n) * 10n ** 10n);
-      expect(await sfxUSD.getStableTokenPriceWithScale()).to.eq((ethers.parseUnits("0.95", 8) - 1n) * 10n ** 22n);
+      expect(await fxSAVE.getStableTokenPrice()).to.eq((ethers.parseUnits("0.95", 8) - 1n) * 10n ** 10n);
+      expect(await fxSAVE.getStableTokenPriceWithScale()).to.eq((ethers.parseUnits("0.95", 8) - 1n) * 10n ** 22n);
       await expect(
-        sfxUSD.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("1"), 0n)
-      ).to.revertedWithCustomError(sfxUSD, "ErrorStableTokenDepeg");
+        fxSAVE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("1"), 0n)
+      ).to.revertedWithCustomError(fxSAVE, "ErrorStableTokenDepeg");
     });
 
     it("should revert, when ErrInsufficientSharesOut", async () => {
-      await fxUSD.connect(deployer).approve(sfxUSD.getAddress(), ethers.parseEther("1"));
+      await fxUSD.connect(deployer).approve(fxSAVE.getAddress(), ethers.parseEther("1"));
       await expect(
-        sfxUSD
+        fxSAVE
           .connect(deployer)
           .deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("1"), ethers.parseEther("1") + 1n)
-      ).to.revertedWithCustomError(sfxUSD, "ErrInsufficientSharesOut");
+      ).to.revertedWithCustomError(fxSAVE, "ErrInsufficientSharesOut");
     });
 
     context("first time", async () => {
       it("should succeed, when deposit with fxUSD", async () => {
         const amountIn = ethers.parseEther("1");
-        await fxUSD.connect(deployer).approve(sfxUSD.getAddress(), amountIn);
-        const shares = await sfxUSD.previewDeposit(fxUSD.getAddress(), amountIn);
+        await fxUSD.connect(deployer).approve(fxSAVE.getAddress(), amountIn);
+        const shares = await fxSAVE.previewDeposit(fxUSD.getAddress(), amountIn);
         expect(shares).to.eq(ethers.parseEther("1"));
 
-        await expect(sfxUSD.connect(deployer).deposit(admin.address, fxUSD.getAddress(), amountIn, shares))
-          .to.emit(sfxUSD, "Deposit")
+        await expect(fxSAVE.connect(deployer).deposit(admin.address, fxUSD.getAddress(), amountIn, shares))
+          .to.emit(fxSAVE, "Deposit")
           .withArgs(deployer.address, admin.address, await fxUSD.getAddress(), amountIn, shares);
-        expect(await sfxUSD.totalSupply()).to.eq(shares);
-        expect(await sfxUSD.balanceOf(admin.address)).to.eq(shares);
-        expect(await sfxUSD.totalYieldToken()).to.eq(amountIn);
-        expect(await sfxUSD.nav()).to.eq(ethers.parseEther("1"));
-        expect(await sfxUSD.totalStableToken()).to.eq(0n);
+        expect(await fxSAVE.totalSupply()).to.eq(shares);
+        expect(await fxSAVE.balanceOf(admin.address)).to.eq(shares);
+        expect(await fxSAVE.totalYieldToken()).to.eq(amountIn);
+        expect(await fxSAVE.nav()).to.eq(ethers.parseEther("1"));
+        expect(await fxSAVE.totalStableToken()).to.eq(0n);
       });
 
       it("should succeed, when deposit with USDC", async () => {
         const amountIn = ethers.parseUnits("1", 6);
         await mockAggregatorV3Interface.setPrice(ethers.parseUnits("0.999", 8));
-        await stableToken.connect(deployer).approve(sfxUSD.getAddress(), amountIn);
-        const shares = await sfxUSD.previewDeposit(stableToken.getAddress(), amountIn);
+        await stableToken.connect(deployer).approve(fxSAVE.getAddress(), amountIn);
+        const shares = await fxSAVE.previewDeposit(stableToken.getAddress(), amountIn);
         expect(shares).to.eq(ethers.parseEther("0.999"));
 
-        await expect(sfxUSD.connect(deployer).deposit(admin.address, stableToken.getAddress(), amountIn, shares))
-          .to.emit(sfxUSD, "Deposit")
+        await expect(fxSAVE.connect(deployer).deposit(admin.address, stableToken.getAddress(), amountIn, shares))
+          .to.emit(fxSAVE, "Deposit")
           .withArgs(deployer.address, admin.address, await stableToken.getAddress(), amountIn, shares);
-        expect(await sfxUSD.totalSupply()).to.eq(shares);
-        expect(await sfxUSD.balanceOf(admin.address)).to.eq(shares);
-        expect(await sfxUSD.totalYieldToken()).to.eq(0n);
-        expect(await sfxUSD.totalStableToken()).to.eq(amountIn);
-        expect(await sfxUSD.nav()).to.eq(ethers.parseEther("1"));
+        expect(await fxSAVE.totalSupply()).to.eq(shares);
+        expect(await fxSAVE.balanceOf(admin.address)).to.eq(shares);
+        expect(await fxSAVE.totalYieldToken()).to.eq(0n);
+        expect(await fxSAVE.totalStableToken()).to.eq(amountIn);
+        expect(await fxSAVE.nav()).to.eq(ethers.parseEther("1"));
       });
     });
 
     context("second time", async () => {
       beforeEach(async () => {
         await mockAggregatorV3Interface.setPrice(ethers.parseUnits("0.999", 8));
-        await fxUSD.connect(deployer).approve(sfxUSD.getAddress(), MaxUint256);
-        await stableToken.connect(deployer).approve(sfxUSD.getAddress(), MaxUint256);
+        await fxUSD.connect(deployer).approve(fxSAVE.getAddress(), MaxUint256);
+        await stableToken.connect(deployer).approve(fxSAVE.getAddress(), MaxUint256);
 
-        await sfxUSD.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("100"), 0n);
-        await sfxUSD
+        await fxSAVE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("100"), 0n);
+        await fxSAVE
           .connect(deployer)
           .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("100", 6), 0n);
-        expect(await sfxUSD.totalStableToken()).to.eq(ethers.parseUnits("100", 6));
-        expect(await sfxUSD.totalYieldToken()).to.eq(ethers.parseEther("100"));
-        expect(await sfxUSD.totalSupply()).to.eq(ethers.parseEther("199.9"));
-        expect(await sfxUSD.nav()).to.eq(ethers.parseEther("1"));
+        expect(await fxSAVE.totalStableToken()).to.eq(ethers.parseUnits("100", 6));
+        expect(await fxSAVE.totalYieldToken()).to.eq(ethers.parseEther("100"));
+        expect(await fxSAVE.totalSupply()).to.eq(ethers.parseEther("199.9"));
+        expect(await fxSAVE.nav()).to.eq(ethers.parseEther("1"));
       });
 
       it("should succeed, when deposit with fxUSD", async () => {
-        const totalSharesBefore = await sfxUSD.totalSupply();
-        const userSharesBefore = await sfxUSD.balanceOf(admin.address);
+        const totalSharesBefore = await fxSAVE.totalSupply();
+        const userSharesBefore = await fxSAVE.balanceOf(admin.address);
         const amountIn = ethers.parseEther("1");
-        await fxUSD.connect(deployer).approve(sfxUSD.getAddress(), amountIn);
-        const shares = await sfxUSD.previewDeposit(fxUSD.getAddress(), amountIn);
+        await fxUSD.connect(deployer).approve(fxSAVE.getAddress(), amountIn);
+        const shares = await fxSAVE.previewDeposit(fxUSD.getAddress(), amountIn);
         expect(shares).to.eq(ethers.parseEther("1"));
 
-        await expect(sfxUSD.connect(deployer).deposit(admin.address, fxUSD.getAddress(), amountIn, shares))
-          .to.emit(sfxUSD, "Deposit")
+        await expect(fxSAVE.connect(deployer).deposit(admin.address, fxUSD.getAddress(), amountIn, shares))
+          .to.emit(fxSAVE, "Deposit")
           .withArgs(deployer.address, admin.address, await fxUSD.getAddress(), amountIn, shares);
-        expect(await sfxUSD.totalSupply()).to.eq(totalSharesBefore + shares);
-        expect(await sfxUSD.balanceOf(admin.address)).to.eq(userSharesBefore + shares);
-        expect(await sfxUSD.totalYieldToken()).to.eq(amountIn + ethers.parseEther("100"));
-        expect(await sfxUSD.nav()).to.eq(ethers.parseEther("1"));
-        expect(await sfxUSD.totalStableToken()).to.eq(ethers.parseUnits("100", 6));
+        expect(await fxSAVE.totalSupply()).to.eq(totalSharesBefore + shares);
+        expect(await fxSAVE.balanceOf(admin.address)).to.eq(userSharesBefore + shares);
+        expect(await fxSAVE.totalYieldToken()).to.eq(amountIn + ethers.parseEther("100"));
+        expect(await fxSAVE.nav()).to.eq(ethers.parseEther("1"));
+        expect(await fxSAVE.totalStableToken()).to.eq(ethers.parseUnits("100", 6));
       });
 
       it("should succeed, when deposit with USDC", async () => {
-        const totalSharesBefore = await sfxUSD.totalSupply();
-        const userSharesBefore = await sfxUSD.balanceOf(admin.address);
+        const totalSharesBefore = await fxSAVE.totalSupply();
+        const userSharesBefore = await fxSAVE.balanceOf(admin.address);
         const amountIn = ethers.parseUnits("1", 6);
         await mockAggregatorV3Interface.setPrice(ethers.parseUnits("0.999", 8));
-        await stableToken.connect(deployer).approve(sfxUSD.getAddress(), amountIn);
-        const shares = await sfxUSD.previewDeposit(stableToken.getAddress(), amountIn);
+        await stableToken.connect(deployer).approve(fxSAVE.getAddress(), amountIn);
+        const shares = await fxSAVE.previewDeposit(stableToken.getAddress(), amountIn);
         expect(shares).to.eq(ethers.parseEther("0.999"));
 
-        await expect(sfxUSD.connect(deployer).deposit(admin.address, stableToken.getAddress(), amountIn, shares))
-          .to.emit(sfxUSD, "Deposit")
+        await expect(fxSAVE.connect(deployer).deposit(admin.address, stableToken.getAddress(), amountIn, shares))
+          .to.emit(fxSAVE, "Deposit")
           .withArgs(deployer.address, admin.address, await stableToken.getAddress(), amountIn, shares);
-        expect(await sfxUSD.totalSupply()).to.eq(totalSharesBefore + shares);
-        expect(await sfxUSD.balanceOf(admin.address)).to.eq(userSharesBefore + shares);
-        expect(await sfxUSD.totalYieldToken()).to.eq(ethers.parseEther("100"));
-        expect(await sfxUSD.totalStableToken()).to.eq(amountIn + ethers.parseUnits("100", 6));
-        expect(await sfxUSD.nav()).to.eq(ethers.parseEther("1"));
+        expect(await fxSAVE.totalSupply()).to.eq(totalSharesBefore + shares);
+        expect(await fxSAVE.balanceOf(admin.address)).to.eq(userSharesBefore + shares);
+        expect(await fxSAVE.totalYieldToken()).to.eq(ethers.parseEther("100"));
+        expect(await fxSAVE.totalStableToken()).to.eq(amountIn + ethers.parseUnits("100", 6));
+        expect(await fxSAVE.nav()).to.eq(ethers.parseEther("1"));
       });
 
       context("index up", async () => {
         beforeEach(async () => {
-          await sfxUSD.grantRole(await sfxUSD.REWARD_DEPOSITOR_ROLE(), deployer.address);
-          await sfxUSD.connect(deployer).depositReward(ethers.parseEther("1"));
+          await fxSAVE.grantRole(await fxSAVE.REWARD_DEPOSITOR_ROLE(), deployer.address);
+          await fxSAVE.connect(deployer).depositReward(ethers.parseEther("1"));
           const timestamp = (await ethers.provider.getBlock("latest"))!.timestamp;
           await network.provider.send("evm_setNextBlockTimestamp", [Number(timestamp) + 86400 * 7]);
-          await sfxUSD.connect(deployer).depositReward(0n);
-          expect(await sfxUSD.totalStableToken()).to.eq(ethers.parseUnits("100", 6));
-          expect(await sfxUSD.totalYieldToken()).to.closeTo(ethers.parseEther("101"), 1000000n);
-          expect(await sfxUSD.totalSupply()).to.eq(ethers.parseEther("199.9"));
-          expect(await sfxUSD.nav()).to.closeTo(ethers.parseEther("1.005002501250625312"), 1000000n);
+          await fxSAVE.connect(deployer).depositReward(0n);
+          expect(await fxSAVE.totalStableToken()).to.eq(ethers.parseUnits("100", 6));
+          expect(await fxSAVE.totalYieldToken()).to.closeTo(ethers.parseEther("101"), 1000000n);
+          expect(await fxSAVE.totalSupply()).to.eq(ethers.parseEther("199.9"));
+          expect(await fxSAVE.nav()).to.closeTo(ethers.parseEther("1.005002501250625312"), 1000000n);
         });
 
         it("should succeed, when deposit with fxUSD", async () => {
-          const totalSharesBefore = await sfxUSD.totalSupply();
-          const userSharesBefore = await sfxUSD.balanceOf(admin.address);
+          const totalSharesBefore = await fxSAVE.totalSupply();
+          const userSharesBefore = await fxSAVE.balanceOf(admin.address);
           const amountIn = ethers.parseEther("1");
-          await fxUSD.connect(deployer).approve(sfxUSD.getAddress(), amountIn);
-          const shares = await sfxUSD.previewDeposit(fxUSD.getAddress(), amountIn);
+          await fxUSD.connect(deployer).approve(fxSAVE.getAddress(), amountIn);
+          const shares = await fxSAVE.previewDeposit(fxUSD.getAddress(), amountIn);
           expect(shares).to.closeTo(ethers.parseEther("0.995022399203583873"), 1000000n);
           expect(
-            await sfxUSD.connect(deployer).deposit.staticCall(admin.address, fxUSD.getAddress(), amountIn, shares)
+            await fxSAVE.connect(deployer).deposit.staticCall(admin.address, fxUSD.getAddress(), amountIn, shares)
           ).to.eq(shares);
 
-          await expect(sfxUSD.connect(deployer).deposit(admin.address, fxUSD.getAddress(), amountIn, shares))
-            .to.emit(sfxUSD, "Deposit")
+          await expect(fxSAVE.connect(deployer).deposit(admin.address, fxUSD.getAddress(), amountIn, shares))
+            .to.emit(fxSAVE, "Deposit")
             .withArgs(deployer.address, admin.address, await fxUSD.getAddress(), amountIn, shares);
-          expect(await sfxUSD.totalSupply()).to.eq(totalSharesBefore + shares);
-          expect(await sfxUSD.balanceOf(admin.address)).to.eq(userSharesBefore + shares);
-          expect(await sfxUSD.totalYieldToken()).to.closeTo(amountIn + ethers.parseEther("101"), 1000000n);
-          expect(await sfxUSD.nav()).to.closeTo(ethers.parseEther("1.005002501250625312"), 1000000n);
-          expect(await sfxUSD.totalStableToken()).to.eq(ethers.parseUnits("100", 6));
+          expect(await fxSAVE.totalSupply()).to.eq(totalSharesBefore + shares);
+          expect(await fxSAVE.balanceOf(admin.address)).to.eq(userSharesBefore + shares);
+          expect(await fxSAVE.totalYieldToken()).to.closeTo(amountIn + ethers.parseEther("101"), 1000000n);
+          expect(await fxSAVE.nav()).to.closeTo(ethers.parseEther("1.005002501250625312"), 1000000n);
+          expect(await fxSAVE.totalStableToken()).to.eq(ethers.parseUnits("100", 6));
         });
 
         it("should succeed, when deposit with USDC", async () => {
-          const totalSharesBefore = await sfxUSD.totalSupply();
-          const userSharesBefore = await sfxUSD.balanceOf(admin.address);
+          const totalSharesBefore = await fxSAVE.totalSupply();
+          const userSharesBefore = await fxSAVE.balanceOf(admin.address);
           const amountIn = ethers.parseUnits("1", 6);
           await mockAggregatorV3Interface.setPrice(ethers.parseUnits("0.999", 8));
-          await stableToken.connect(deployer).approve(sfxUSD.getAddress(), amountIn);
-          const shares = await sfxUSD.previewDeposit(stableToken.getAddress(), amountIn);
+          await stableToken.connect(deployer).approve(fxSAVE.getAddress(), amountIn);
+          const shares = await fxSAVE.previewDeposit(stableToken.getAddress(), amountIn);
           expect(shares).to.closeTo(ethers.parseEther("0.994027376804380289"), 1000000n);
           expect(
-            await sfxUSD.connect(deployer).deposit.staticCall(admin.address, stableToken.getAddress(), amountIn, shares)
+            await fxSAVE.connect(deployer).deposit.staticCall(admin.address, stableToken.getAddress(), amountIn, shares)
           ).to.eq(shares);
 
-          await expect(sfxUSD.connect(deployer).deposit(admin.address, stableToken.getAddress(), amountIn, shares))
-            .to.emit(sfxUSD, "Deposit")
+          await expect(fxSAVE.connect(deployer).deposit(admin.address, stableToken.getAddress(), amountIn, shares))
+            .to.emit(fxSAVE, "Deposit")
             .withArgs(deployer.address, admin.address, await stableToken.getAddress(), amountIn, shares);
-          expect(await sfxUSD.totalSupply()).to.eq(totalSharesBefore + shares);
-          expect(await sfxUSD.balanceOf(admin.address)).to.eq(userSharesBefore + shares);
-          expect(await sfxUSD.totalYieldToken()).to.closeTo(ethers.parseEther("101"), 1000000n);
-          expect(await sfxUSD.totalStableToken()).to.eq(amountIn + ethers.parseUnits("100", 6));
-          expect(await sfxUSD.nav()).to.closeTo(ethers.parseEther("1.005002501250625312"), 1000000n);
+          expect(await fxSAVE.totalSupply()).to.eq(totalSharesBefore + shares);
+          expect(await fxSAVE.balanceOf(admin.address)).to.eq(userSharesBefore + shares);
+          expect(await fxSAVE.totalYieldToken()).to.closeTo(ethers.parseEther("101"), 1000000n);
+          expect(await fxSAVE.totalStableToken()).to.eq(amountIn + ethers.parseUnits("100", 6));
+          expect(await fxSAVE.nav()).to.closeTo(ethers.parseEther("1.005002501250625312"), 1000000n);
         });
       });
     });
@@ -431,61 +431,61 @@ describe("FxUSDSave.spec", async () => {
         .operate(pool.getAddress(), 0, ethers.parseEther("100"), ethers.parseEther("220000"));
 
       await stableToken.mint(deployer.address, ethers.parseUnits("220000", 6));
-      await fxUSD.connect(deployer).approve(sfxUSD.getAddress(), MaxUint256);
-      await stableToken.connect(deployer).approve(sfxUSD.getAddress(), MaxUint256);
+      await fxUSD.connect(deployer).approve(fxSAVE.getAddress(), MaxUint256);
+      await stableToken.connect(deployer).approve(fxSAVE.getAddress(), MaxUint256);
 
       // deposit
-      await sfxUSD.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("100"), 0n);
-      await sfxUSD
+      await fxSAVE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("100"), 0n);
+      await fxSAVE
         .connect(deployer)
         .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("100", 6), 0n);
 
       // index up
-      await sfxUSD.grantRole(await sfxUSD.REWARD_DEPOSITOR_ROLE(), deployer.address);
-      await sfxUSD.connect(deployer).depositReward(ethers.parseEther("1"));
+      await fxSAVE.grantRole(await fxSAVE.REWARD_DEPOSITOR_ROLE(), deployer.address);
+      await fxSAVE.connect(deployer).depositReward(ethers.parseEther("1"));
       const timestamp = (await ethers.provider.getBlock("latest"))!.timestamp;
       await network.provider.send("evm_setNextBlockTimestamp", [Number(timestamp) + 86400 * 7]);
-      await sfxUSD.connect(deployer).depositReward(0n);
+      await fxSAVE.connect(deployer).depositReward(0n);
 
       // check result
-      expect(await sfxUSD.totalStableToken()).to.eq(ethers.parseUnits("100", 6));
-      expect(await sfxUSD.totalYieldToken()).to.closeTo(ethers.parseEther("101"), 1000000n);
-      expect(await sfxUSD.totalSupply()).to.eq(ethers.parseEther("200.1"));
-      expect(await sfxUSD.balanceOf(deployer.address)).to.eq(ethers.parseEther("200.1"));
-      expect(await sfxUSD.nav()).to.closeTo(ethers.parseEther("1.004997501249375312"), 1000000n);
+      expect(await fxSAVE.totalStableToken()).to.eq(ethers.parseUnits("100", 6));
+      expect(await fxSAVE.totalYieldToken()).to.closeTo(ethers.parseEther("101"), 1000000n);
+      expect(await fxSAVE.totalSupply()).to.eq(ethers.parseEther("200.1"));
+      expect(await fxSAVE.balanceOf(deployer.address)).to.eq(ethers.parseEther("200.1"));
+      expect(await fxSAVE.nav()).to.closeTo(ethers.parseEther("1.004997501249375312"), 1000000n);
     });
 
     it("should revert, when ErrRedeemZeroShares", async () => {
-      await expect(sfxUSD.connect(deployer).redeem(deployer.address, 0n)).to.revertedWithCustomError(
-        sfxUSD,
+      await expect(fxSAVE.connect(deployer).redeem(deployer.address, 0n)).to.revertedWithCustomError(
+        fxSAVE,
         "ErrRedeemZeroShares"
       );
     });
 
     it("should succeed when redeem to self", async () => {
       const sharesIn = ethers.parseEther("1");
-      const [fxUSDOut, stableOut] = await sfxUSD.previewRedeem(sharesIn);
+      const [fxUSDOut, stableOut] = await fxSAVE.previewRedeem(sharesIn);
       expect(fxUSDOut).to.closeTo(ethers.parseEther(".504747626186906546"), 1000000n);
       expect(stableOut).to.closeTo(ethers.parseUnits(".499750", 6), 1n);
-      expect(await sfxUSD.connect(deployer).redeem.staticCall(deployer.address, sharesIn)).to.deep.eq([
+      expect(await fxSAVE.connect(deployer).redeem.staticCall(deployer.address, sharesIn)).to.deep.eq([
         fxUSDOut,
         stableOut,
       ]);
 
       const fxusdBefore = await fxUSD.balanceOf(deployer.address);
       const stableBefore = await stableToken.balanceOf(deployer.address);
-      await expect(sfxUSD.connect(deployer).redeem(deployer.address, sharesIn))
-        .to.emit(sfxUSD, "Redeem")
+      await expect(fxSAVE.connect(deployer).redeem(deployer.address, sharesIn))
+        .to.emit(fxSAVE, "Redeem")
         .withArgs(deployer.address, deployer.address, sharesIn, fxUSDOut, stableOut);
       const fxusdAfter = await fxUSD.balanceOf(deployer.address);
       const stableAfter = await stableToken.balanceOf(deployer.address);
       expect(stableAfter - stableBefore).to.eq(stableOut);
       expect(fxusdAfter - fxusdBefore).to.eq(fxUSDOut);
-      expect(await sfxUSD.totalSupply()).to.eq(ethers.parseEther("200.1") - sharesIn);
-      expect(await sfxUSD.balanceOf(deployer.address)).to.eq(ethers.parseEther("200.1") - sharesIn);
-      expect(await sfxUSD.totalStableToken()).to.eq(ethers.parseUnits("100", 6) - stableOut);
-      expect(await sfxUSD.totalYieldToken()).to.closeTo(ethers.parseEther("101") - fxUSDOut, 1000000n);
-      expect(await sfxUSD.nav()).to.closeTo(
+      expect(await fxSAVE.totalSupply()).to.eq(ethers.parseEther("200.1") - sharesIn);
+      expect(await fxSAVE.balanceOf(deployer.address)).to.eq(ethers.parseEther("200.1") - sharesIn);
+      expect(await fxSAVE.totalStableToken()).to.eq(ethers.parseUnits("100", 6) - stableOut);
+      expect(await fxSAVE.totalYieldToken()).to.closeTo(ethers.parseEther("101") - fxUSDOut, 1000000n);
+      expect(await fxSAVE.nav()).to.closeTo(
         ethers.parseEther("1.004997501249375312"),
         ethers.parseEther("1.004997501249375312") / 1000000n
       );
@@ -493,28 +493,28 @@ describe("FxUSDSave.spec", async () => {
 
     it("should succeed when redeem to other", async () => {
       const sharesIn = ethers.parseEther("1");
-      const [fxUSDOut, stableOut] = await sfxUSD.previewRedeem(sharesIn);
+      const [fxUSDOut, stableOut] = await fxSAVE.previewRedeem(sharesIn);
       expect(fxUSDOut).to.closeTo(ethers.parseEther(".504747626186906546"), 1000000n);
       expect(stableOut).to.closeTo(ethers.parseUnits(".499750", 6), 1n);
-      expect(await sfxUSD.connect(deployer).redeem.staticCall(deployer.address, sharesIn)).to.deep.eq([
+      expect(await fxSAVE.connect(deployer).redeem.staticCall(deployer.address, sharesIn)).to.deep.eq([
         fxUSDOut,
         stableOut,
       ]);
 
       const fxusdBefore = await fxUSD.balanceOf(admin.address);
       const stableBefore = await stableToken.balanceOf(admin.address);
-      await expect(sfxUSD.connect(deployer).redeem(admin.address, sharesIn))
-        .to.emit(sfxUSD, "Redeem")
+      await expect(fxSAVE.connect(deployer).redeem(admin.address, sharesIn))
+        .to.emit(fxSAVE, "Redeem")
         .withArgs(deployer.address, admin.address, sharesIn, fxUSDOut, stableOut);
       const fxusdAfter = await fxUSD.balanceOf(admin.address);
       const stableAfter = await stableToken.balanceOf(admin.address);
       expect(stableAfter - stableBefore).to.eq(stableOut);
       expect(fxusdAfter - fxusdBefore).to.eq(fxUSDOut);
-      expect(await sfxUSD.totalSupply()).to.eq(ethers.parseEther("200.1") - sharesIn);
-      expect(await sfxUSD.balanceOf(deployer.address)).to.eq(ethers.parseEther("200.1") - sharesIn);
-      expect(await sfxUSD.totalStableToken()).to.eq(ethers.parseUnits("100", 6) - stableOut);
-      expect(await sfxUSD.totalYieldToken()).to.closeTo(ethers.parseEther("101") - fxUSDOut, 1000000n);
-      expect(await sfxUSD.nav()).to.closeTo(
+      expect(await fxSAVE.totalSupply()).to.eq(ethers.parseEther("200.1") - sharesIn);
+      expect(await fxSAVE.balanceOf(deployer.address)).to.eq(ethers.parseEther("200.1") - sharesIn);
+      expect(await fxSAVE.totalStableToken()).to.eq(ethers.parseUnits("100", 6) - stableOut);
+      expect(await fxSAVE.totalYieldToken()).to.closeTo(ethers.parseEther("101") - fxUSDOut, 1000000n);
+      expect(await fxSAVE.nav()).to.closeTo(
         ethers.parseEther("1.004997501249375312"),
         ethers.parseEther("1.004997501249375312") / 1000000n
       );

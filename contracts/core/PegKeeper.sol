@@ -54,8 +54,8 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   /// @notice The address of stable token.
   address public immutable stable;
 
-  /// @notice The address of sfxUSD.
-  address public immutable sfxUSD;
+  /// @notice The address of fxSAVE.
+  address public immutable fxSAVE;
 
   /*********************
    * Storage Variables *
@@ -87,10 +87,10 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
    * Constructor *
    ***************/
 
-  constructor(address _sfxUSD) {
-    sfxUSD = _sfxUSD;
-    fxUSD = IFxUSDSave(_sfxUSD).yieldToken();
-    stable = IFxUSDSave(_sfxUSD).stableToken();
+  constructor(address _fxSAVE) {
+    fxSAVE = _fxSAVE;
+    fxUSD = IFxUSDSave(_fxSAVE).yieldToken();
+    stable = IFxUSDSave(_fxSAVE).stableToken();
   }
 
   function initialize(address admin, address _converter, address _curvePool) external initializer {
@@ -139,7 +139,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     uint256 amountIn,
     bytes calldata data
   ) external onlyRole(STABILIZE_ROLE) setContext(CONTEXT_STABILIZE) returns (uint256 amountOut, uint256 bonus) {
-    (amountOut, bonus) = IFxUSDSave(sfxUSD).arbitrage(srcToken, amountIn, _msgSender(), data);
+    (amountOut, bonus) = IFxUSDSave(fxSAVE).arbitrage(srcToken, amountIn, _msgSender(), data);
   }
 
   /// @dev This function will be called in `buyback`, `stabilize`.

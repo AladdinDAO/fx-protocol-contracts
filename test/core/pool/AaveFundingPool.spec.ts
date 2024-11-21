@@ -37,8 +37,8 @@ describe("AaveFundingPool.spec", async () => {
   let pegKeeper: PegKeeper;
   let poolManager: PoolManager;
   let reservePool: ReservePool;
-  let sfxUSD: FxUSDSave;
-  let sfxUSDRewarder: FxSaveRewarder;
+  let fxSAVE: FxUSDSave;
+  let fxSAVERewarder: FxSaveRewarder;
 
   let mockAggregatorV3Interface: MockAggregatorV3Interface;
   let mockCurveStableSwapNG: MockCurveStableSwapNG;
@@ -93,11 +93,7 @@ describe("AaveFundingPool.spec", async () => {
       proxyAdmin.getAddress(),
       "0x"
     );
-    const FxUSDSaveProxy = await TransparentUpgradeableProxy.deploy(
-      empty.getAddress(),
-      proxyAdmin.getAddress(),
-      "0x"
-    );
+    const FxUSDSaveProxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), proxyAdmin.getAddress(), "0x");
 
     // deploy ReservePool
     reservePool = await ReservePool.deploy(admin.address, PoolManagerProxy.getAddress());
@@ -147,14 +143,14 @@ describe("AaveFundingPool.spec", async () => {
       FxUSDSave__factory.createInterface().encodeFunctionData("initialize", [
         admin.address,
         "Staked f(x) USD",
-        "sfxUSD",
+        "fxSAVE",
         ethers.parseEther("0.995"),
       ])
     );
-    sfxUSD = await ethers.getContractAt("FxUSDSave", await FxUSDSaveProxy.getAddress(), admin);
+    fxSAVE = await ethers.getContractAt("FxUSDSave", await FxUSDSaveProxy.getAddress(), admin);
 
     // deploy PegKeeper
-    const PegKeeperImpl = await PegKeeper.deploy(sfxUSD.getAddress());
+    const PegKeeperImpl = await PegKeeper.deploy(fxSAVE.getAddress());
     await proxyAdmin.upgradeAndCall(
       PegKeeperProxy.getAddress(),
       PegKeeperImpl.getAddress(),
@@ -183,11 +179,11 @@ describe("AaveFundingPool.spec", async () => {
     await pool.updateRebalanceRatios(ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9));
     await pool.updateLiquidateRatios(ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9));
 
-    sfxUSDRewarder = await FxSaveRewarder.deploy(sfxUSD.getAddress());
-    await sfxUSD.grantRole(await sfxUSD.REWARD_DEPOSITOR_ROLE(), sfxUSDRewarder.getAddress());
+    fxSAVERewarder = await FxSaveRewarder.deploy(fxSAVE.getAddress());
+    await fxSAVE.grantRole(await fxSAVE.REWARD_DEPOSITOR_ROLE(), fxSAVERewarder.getAddress());
     await poolManager.registerPool(
       pool.getAddress(),
-      sfxUSDRewarder.getAddress(),
+      fxSAVERewarder.getAddress(),
       ethers.parseEther("10000"),
       ethers.parseEther("10000000")
     );
@@ -580,7 +576,7 @@ describe("AaveFundingPool.spec", async () => {
       expect(result[3]).to.eq(protocolFees); // protocol fee
       await expect(pool.connect(signer).operate(0, newRawColl, ethers.parseEther("2000"), deployer.address))
         .to.emit(pool, "PositionSnapshot")
-        .withArgs(1, newRawColl - protocolFees, ethers.parseEther("2000"), ethers.parseEther("2999"));
+        .withArgs(1, 4934, newRawColl - protocolFees, ethers.parseEther("2000"), ethers.parseEther("2999"));
       expect(await pool.ownerOf(1)).to.eq(deployer.address);
       expect(await pool.getPosition(1)).to.deep.eq([newRawColl - protocolFees, ethers.parseEther("2000")]);
       expect(await pool.getNextPositionId()).to.eq(2);
@@ -609,7 +605,7 @@ describe("AaveFundingPool.spec", async () => {
       expect(result[3]).to.eq(protocolFees); // protocol fee
       await expect(pool.connect(signer).operate(0, newRawColl, ethers.parseEther("2000"), deployer.address))
         .to.emit(pool, "PositionSnapshot")
-        .withArgs(1, newRawColl - protocolFees, ethers.parseEther("2000"), ethers.parseEther("2999"));
+        .withArgs(1, 4934, newRawColl - protocolFees, ethers.parseEther("2000"), ethers.parseEther("2999"));
       expect(await pool.ownerOf(1)).to.eq(deployer.address);
       expect(await pool.getPosition(1)).to.deep.eq([newRawColl - protocolFees, ethers.parseEther("2000")]);
       expect(await pool.getNextPositionId()).to.eq(2);
@@ -623,7 +619,7 @@ describe("AaveFundingPool.spec", async () => {
       // another position in same tick, top tick not change
       await expect(pool.connect(signer).operate(0, newRawColl, ethers.parseEther("2000"), deployer.address))
         .to.emit(pool, "PositionSnapshot")
-        .withArgs(2, newRawColl - protocolFees, ethers.parseEther("2000"), ethers.parseEther("2999"));
+        .withArgs(2, 4934, newRawColl - protocolFees, ethers.parseEther("2000"), ethers.parseEther("2999"));
       expect(await pool.ownerOf(2)).to.eq(deployer.address);
       expect(await pool.getPosition(2)).to.deep.eq([newRawColl - protocolFees, ethers.parseEther("2000")]);
       expect(await pool.getNextPositionId()).to.eq(3);
@@ -640,7 +636,7 @@ describe("AaveFundingPool.spec", async () => {
       // another position in with smaller tick, top tick not change
       await expect(pool.connect(signer).operate(0, newRawColl, ethers.parseEther("1900"), deployer.address))
         .to.emit(pool, "PositionSnapshot")
-        .withArgs(3, newRawColl - protocolFees, ethers.parseEther("1900"), ethers.parseEther("2999"));
+        .withArgs(3, 4900, newRawColl - protocolFees, ethers.parseEther("1900"), ethers.parseEther("2999"));
       expect(await pool.ownerOf(3)).to.eq(deployer.address);
       expect(await pool.getPosition(3)).to.deep.eq([newRawColl - protocolFees, ethers.parseEther("1900")]);
       expect(await pool.getNextPositionId()).to.eq(4);
@@ -657,7 +653,7 @@ describe("AaveFundingPool.spec", async () => {
       // another position in with larger tick, top tick change
       await expect(pool.connect(signer).operate(0, newRawColl, ethers.parseEther("2100"), deployer.address))
         .to.emit(pool, "PositionSnapshot")
-        .withArgs(4, newRawColl - protocolFees, ethers.parseEther("2100"), ethers.parseEther("2999"));
+        .withArgs(4, 4967, newRawColl - protocolFees, ethers.parseEther("2100"), ethers.parseEther("2999"));
       expect(await pool.ownerOf(4)).to.eq(deployer.address);
       expect(await pool.getPosition(4)).to.deep.eq([newRawColl - protocolFees, ethers.parseEther("2100")]);
       expect(await pool.getNextPositionId()).to.eq(5);

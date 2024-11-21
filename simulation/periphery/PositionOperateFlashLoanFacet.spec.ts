@@ -54,7 +54,7 @@ const getAllSignatures = (e: Interface): string[] => {
   return sigs;
 };
 
-describe("MigrateFacet.spec", async () => {
+describe("PositionOperateFlashLoanFacet.spec", async () => {
   let deployer: HardhatEthersSigner;
   let owner: HardhatEthersSigner;
 
@@ -215,13 +215,6 @@ describe("MigrateFacet.spec", async () => {
     // FxSaveRewarder
     rewarder = await FxSaveRewarder.deploy(fxSAVE.getAddress());
 
-    // deploy MarketV2
-    const MarketV2 = await ethers.getContractFactory("MarketV2", deployer);
-    const WstETHMarketV2Impl = await MarketV2.deploy("0xED803540037B0ae069c93420F89Cd653B6e3Df1f");
-    const SfrxETHMarketV2Impl = await MarketV2.deploy("0xcfEEfF214b256063110d3236ea12Db49d2dF2359");
-    await proxyAdmin.upgrade(wstETHMarket.getAddress(), WstETHMarketV2Impl.getAddress());
-    await proxyAdmin.upgrade(sfrxETHMarket.getAddress(), SfrxETHMarketV2Impl.getAddress());
-
     // deploy Facets and Diamond
     {
       const Diamond = await ethers.getContractFactory("Diamond", deployer);
@@ -290,9 +283,6 @@ describe("MigrateFacet.spec", async () => {
     }
 
     // initialization
-    await wstETHMarket.connect(owner).grantRole(await wstETHMarket.MIGRATOR_ROLE(), router.getAddress());
-    await sfrxETHMarket.connect(owner).grantRole(await wstETHMarket.MIGRATOR_ROLE(), router.getAddress());
-    await fxUSD.connect(owner).grantRole(await fxUSD.MIGRATOR_ROLE(), router.getAddress());
     await fxSAVE.connect(owner).grantRole(await fxSAVE.REWARD_DEPOSITOR_ROLE(), rewarder.getAddress());
     await poolManager
       .connect(owner)
@@ -446,7 +436,12 @@ describe("MigrateFacet.spec", async () => {
     return positionId;
   };
 
-  it("should succeed, when migrate xstETH to position", async () => {
+  context("open position or add collateral", async() => {
+  });
+
+  context("close position", async() => {});
+
+  it("should succeed, when open position", async () => {
     const HOLDER = "0x488b99c4A94BB0027791E8e0eEB421187EC9a487";
     await unlockAccounts([HOLDER]);
     const holder = await ethers.getSigner(HOLDER);

@@ -504,7 +504,7 @@ contract FxUSDSave is
     } else {
       // user pays USDC
       uint256 maxAmountInUSD = (maxAmount * op.stablePrice) / PRECISION;
-      if (maxAmountInUSD < amountYieldToken) amountYieldToken = maxAmount;
+      if (maxAmountInUSD < amountYieldToken) amountYieldToken = maxAmountInUSD;
       else {
         amountStableToken = ((maxAmountInUSD - amountYieldToken) * PRECISION) / op.stablePrice;
       }
@@ -542,6 +542,9 @@ contract FxUSDSave is
       tokenUsed = (amountUSD * PRECISION) / op.stablePrice + 1;
       op.totalStableToken += tokenUsed;
     }
+
+    totalYieldToken = op.totalYieldToken;
+    totalStableToken = op.totalStableToken;
 
     // transfer token from caller, the collateral is already transferred to caller.
     IERC20(tokenIn).safeTransferFrom(_msgSender(), address(this), tokenUsed);

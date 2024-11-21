@@ -60,12 +60,14 @@ library LibRouter {
   /// @param target The address of converter contract.
   /// @param data The calldata passing to the target contract.
   /// @param minOut The minimum amount of output token should receive.
+  /// @param signature The optional data for future usage.
   struct ConvertInParams {
     address tokenIn;
     uint256 amount;
     address target;
     bytes data;
     uint256 minOut;
+    bytes signature;
   }
 
   /// @notice The struct for output token convert parameters.
@@ -74,12 +76,14 @@ library LibRouter {
   /// @param encodings The encodings for `MultiPathConverter`.
   /// @param minOut The minimum amount of output token should receive.
   /// @param routes The convert route encodings.
+  /// @param signature The optional data for future usage.
   struct ConvertOutParams {
     address tokenOut;
     address converter;
     uint256 encodings;
     uint256[] routes;
     uint256 minOut;
+    bytes signature;
   }
 
   /**********************

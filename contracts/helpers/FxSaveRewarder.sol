@@ -22,21 +22,21 @@ contract FxSaveRewarder is PermissionedSwap, IRewardSplitter {
   address public immutable fxUSD;
 
   /// @notice The address of `FxUSDSave` contract.
-  address public immutable sfxUSD;
+  address public immutable fxSAVE;
 
   /***************
    * Constructor *
    ***************/
 
-  constructor(address _sfxUSD) initializer {
+  constructor(address _fxSAVE) initializer {
     __Context_init();
     __ERC165_init();
     __AccessControl_init();
 
-    sfxUSD = _sfxUSD;
-    fxUSD = IFxUSDSave(_sfxUSD).yieldToken();
+    fxSAVE = _fxSAVE;
+    fxUSD = IFxUSDSave(_fxSAVE).yieldToken();
 
-    IERC20(fxUSD).forceApprove(sfxUSD, type(uint256).max);
+    IERC20(fxUSD).forceApprove(_fxSAVE, type(uint256).max);
 
     _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
   }
@@ -50,7 +50,7 @@ contract FxSaveRewarder is PermissionedSwap, IRewardSplitter {
     // do nothing
   }
 
-  /// @notice Harvest base token to fxUSD by amm trading and distribute to sfxUSD.
+  /// @notice Harvest base token to fxUSD by amm trading and distribute to fxSAVE.
   /// @param baseToken The address of base token to use.
   /// @param params The parameters used for trading.
   /// @return amountOut The amount of fxUSD received.
@@ -60,8 +60,8 @@ contract FxSaveRewarder is PermissionedSwap, IRewardSplitter {
     // swap base token to fxUSD
     amountOut = _doTrade(baseToken, fxUSD, amountIn, params);
 
-    // deposit fxUSD to sfxUSD
-    IRewardDistributor(sfxUSD).depositReward(amountOut);
+    // deposit fxUSD to fxSAVE
+    IRewardDistributor(fxSAVE).depositReward(amountOut);
   }
 
   /************************

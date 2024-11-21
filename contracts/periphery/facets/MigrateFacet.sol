@@ -30,33 +30,41 @@ contract MigrateFacet {
   /// @dev Thrown when the amount of tokens swapped are not enough.
   error ErrorInsufficientAmountSwapped();
 
+  /// @dev Thrown when debt ratio out of range.
   error ErrorDebtRatioOutOfRange();
 
   /*************
    * Constants *
    *************/
 
-  /// @dev The precision used for various calculation.
-  uint256 internal constant PRECISION = 1e18;
-
+  /// @dev The address of USDC token.
   address private constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
+  /// @dev The address of fxUSD token.
   address private constant fxUSD = 0x085780639CC2cACd35E474e71f4d000e2405d8f6;
 
+  /// @dev The address of wstETH market contract.
   address private constant wstETHMarket = 0xAD9A0E7C08bc9F747dF97a3E7E7f620632CB6155;
 
+  /// @dev The address of wstETH token.
   address private constant wstETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
 
+  /// @dev The address of fstETH token.
   address private constant fstETH = 0xD6B8162e2fb9F3EFf09bb8598ca0C8958E33A23D;
 
+  /// @dev The address of xstETH token.
   address private constant xstETH = 0x5a097b014C547718e79030a077A91Ae37679EfF5;
 
+  /// @dev The address of sfrxETH market contract.
   address private constant sfrxETHMarket = 0x714B853b3bA73E439c652CfE79660F329E6ebB42;
 
+  /// @dev The address of sfrxETH token.
   address private constant sfrxETH = 0xac3E018457B222d93114458476f3E3416Abbe38F;
 
+  /// @dev The address of ffrxETH token.
   address private constant ffrxETH = 0xa87F04c9743Fd1933F82bdDec9692e9D97673769;
 
+  /// @dev The address of xfrxETH token.
   address private constant xfrxETH = 0x2bb0C32101456F5960d4e994Bac183Fe0dc6C82c;
 
   /***********************
@@ -71,6 +79,10 @@ contract MigrateFacet {
 
   /// @dev The address of `MultiPathConverter` contract.
   address private immutable converter;
+
+  /*************
+   * Modifiers *
+   *************/
 
   modifier onlySelf() {
     if (msg.sender != address(this)) revert ErrorNotFromSelf();
@@ -94,6 +106,16 @@ contract MigrateFacet {
     converter = _converter;
   }
 
+  /****************************
+   * Public Mutated Functions *
+   ****************************/
+
+  /// @notice Migrate xstETH to fx position.
+  /// @param pool The address of fx position pool.
+  /// @param positionId The index of position.
+  /// @param xTokenAmount The amount of xstETH to migrate.
+  /// @param borrowAmount The amount of USDC to borrow.
+  /// @param data The calldata passing to `onMigrateXstETHPosition` hook function.
   function migrateXstETHPosition(
     address pool,
     uint256 positionId,
@@ -124,6 +146,12 @@ contract MigrateFacet {
     LibRouter.refundERC20(USDC, msg.sender);
   }
 
+  /// @notice Migrate xfrxETH to fx position.
+  /// @param pool The address of fx position pool.
+  /// @param positionId The index of position.
+  /// @param xTokenAmount The amount of xfrxETH to migrate.
+  /// @param borrowAmount The amount of USDC to borrow.
+  /// @param data The calldata passing to `onMigrateXfrxETHPosition` hook function.
   function migrateXfrxETHPosition(
     address pool,
     uint256 positionId,
@@ -154,6 +182,13 @@ contract MigrateFacet {
     LibRouter.refundERC20(USDC, msg.sender);
   }
 
+  /// @notice Hook for `migrateXstETHPosition`.
+  /// @param pool The address of fx position pool.
+  /// @param positionId The index of position.
+  /// @param xTokenAmount The amount of xstETH to migrate.
+  /// @param borrowAmount The amount of USDC to borrow.
+  /// @param recipient The address of position holder.
+  /// @param data Hook data.
   function onMigrateXstETHPosition(
     address pool,
     uint256 positionId,
@@ -177,8 +212,8 @@ contract MigrateFacet {
       wstETHAmount += baseOut + bonus;
     }
 
-    // since we need to swap back to USDC, mint 0.5% more fxUSD to cover slippage.
-    fTokenAmount = (fTokenAmount * 1005) / 1000;
+    // since we need to swap back to USDC, mint 0.1% more fxUSD to cover slippage.
+    fTokenAmount = (fTokenAmount * 1001) / 1000;
 
     LibRouter.approve(wstETH, poolManager, wstETHAmount);
     positionId = IPoolManager(poolManager).operate(pool, positionId, int256(wstETHAmount), int256(fTokenAmount));
@@ -189,6 +224,13 @@ contract MigrateFacet {
     _swapFxUSDToUSDC(IERC20(fxUSD).balanceOf(address(this)), borrowAmount, data);
   }
 
+  /// @notice Hook for `migrateXfrxETHPosition`.
+  /// @param pool The address of fx position pool.
+  /// @param positionId The index of position.
+  /// @param xTokenAmount The amount of xstETH to migrate.
+  /// @param borrowAmount The amount of USDC to borrow.
+  /// @param recipient The address of position holder.
+  /// @param data Hook data.
   function onMigrateXfrxETHPosition(
     address pool,
     uint256 positionId,
@@ -215,8 +257,8 @@ contract MigrateFacet {
       wstETHAmount = _swapSfrxETHToWstETH(wstETHAmount, 0, data);
     }
 
-    // since we need to swap back to USDC, mint 0.5% more fxUSD to cover slippage.
-    fTokenAmount = (fTokenAmount * 1005) / 1000;
+    // since we need to swap back to USDC, mint 0.1% more fxUSD to cover slippage.
+    fTokenAmount = (fTokenAmount * 1001) / 1000;
 
     LibRouter.approve(wstETH, poolManager, wstETHAmount);
     positionId = IPoolManager(poolManager).operate(pool, positionId, int256(wstETHAmount), int256(fTokenAmount));
@@ -227,6 +269,15 @@ contract MigrateFacet {
     _swapFxUSDToUSDC(IERC20(fxUSD).balanceOf(address(this)), borrowAmount, data);
   }
 
+  /**********************
+   * Internal Functions *
+   **********************/
+
+  /// @dev Internal function to swap USDC to fxUSD.
+  /// @param amountUSDC The amount of USDC to use.
+  /// @param minFxUSD The minimum amount of fxUSD should receive.
+  /// @param data The swap route encoding.
+  /// @return amountFxUSD The amount of fxUSD received.
   function _swapUSDCToFxUSD(
     uint256 amountUSDC,
     uint256 minFxUSD,
@@ -236,6 +287,11 @@ contract MigrateFacet {
     return _swap(USDC, amountUSDC, minFxUSD, swapEncoding, swapRoutes);
   }
 
+  /// @dev Internal function to swap fxUSD to USDC.
+  /// @param amountFxUSD The amount of fxUSD to use.
+  /// @param minUSDC The minimum amount of USDC should receive.
+  /// @param data The swap route encoding.
+  /// @return amountUSDC The amount of USDC received.
   function _swapFxUSDToUSDC(
     uint256 amountFxUSD,
     uint256 minUSDC,
@@ -248,6 +304,11 @@ contract MigrateFacet {
     return _swap(fxUSD, amountFxUSD, minUSDC, swapEncoding, swapRoutes);
   }
 
+  /// @dev Internal function to swap sfrxETH to wstETH.
+  /// @param amountSfrxETH The amount of sfrxETH to use.
+  /// @param minWstETH The minimum amount of wstETH should receive.
+  /// @param data The swap route encoding.
+  /// @return amountWstETH The amount of wstETH received.
   function _swapSfrxETHToWstETH(
     uint256 amountSfrxETH,
     uint256 minWstETH,
@@ -260,6 +321,13 @@ contract MigrateFacet {
     return _swap(sfrxETH, amountSfrxETH, minWstETH, swapEncoding, swapRoutes);
   }
 
+  /// @dev Internal function to do swap.
+  /// @param token The address of input token.
+  /// @param amountIn The amount of input token.
+  /// @param minOut The minimum amount of output tokens should receive.
+  /// @param encoding The encoding for swap routes.
+  /// @param routes The swap routes to `MultiPathConverter`.
+  /// @return amountOut The amount of output tokens received.
   function _swap(
     address token,
     uint256 amountIn,
@@ -272,6 +340,10 @@ contract MigrateFacet {
     if (amountOut < minOut) revert ErrorInsufficientAmountSwapped();
   }
 
+  /// @dev Internal function to check debt ratio for the position.
+  /// @param pool The address of fx position pool.
+  /// @param positionId The index of the position.
+  /// @param miscData The encoded data for debt ratio range.
   function _checkPositionDebtRatio(address pool, uint256 positionId, bytes32 miscData) internal view {
     uint256 debtRatio = IPool(pool).getPositionDebtRatio(positionId);
     uint256 minDebtRatio = miscData.decodeUint(0, 60);

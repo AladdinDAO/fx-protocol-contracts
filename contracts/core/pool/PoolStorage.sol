@@ -409,12 +409,16 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   /// @param index The debt index to update.
   function _updateDebtIndex(uint256 index) internal {
     indexData = indexData.insertUint(index, DEBT_INDEX_OFFSET, 128);
+
+    emit DebtIndexSnapshot(index);
   }
 
   /// @dev Internal function to update collateral index.
   /// @param index The collateral index to update.
   function _updateCollateralIndex(uint256 index) internal {
     indexData = indexData.insertUint(index, COLLATERAL_INDEX_OFFSET, 128);
+
+    emit CollateralIndexSnapshot(index);
   }
 
   /**************************************

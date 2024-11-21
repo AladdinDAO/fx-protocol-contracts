@@ -63,6 +63,7 @@ abstract contract TickLogic is PoolStorage {
       (root, collRatioCompressed, debtRatioCompressed) = _getRootNodeAndCompress(parent);
       collRatio = (collRatio * collRatioCompressed) >> 60;
       debtRatio = (debtRatio * debtRatioCompressed) >> 60;
+      metadata = metadata.insertUint(root, 0, 32);
       metadata = metadata.insertUint(collRatio, 48, 64);
       metadata = metadata.insertUint(debtRatio, 112, 64);
       tickTreeData[node].metadata = metadata;
@@ -203,6 +204,8 @@ abstract contract TickLogic is PoolStorage {
       (newTick, parentNode) = _addPositionToTick(tickCollAfter, tickDebtAfter, false);
       metadata = metadata.insertUint(parentNode, 0, 32);
     }
+    emit TickMovement(tick, int16(newTick), tickCollAfter, tickDebtAfter);
+
     // top tick liquidated, update it to new one
     int16 topTick = _getTopTick();
     if (topTick == tick && newTick != int256(tick)) {
