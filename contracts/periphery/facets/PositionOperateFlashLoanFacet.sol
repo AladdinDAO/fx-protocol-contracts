@@ -92,7 +92,7 @@ contract PositionOperateFlashLoanFacet {
     uint256 positionId,
     uint256 borrowAmount,
     bytes calldata data
-  ) external onFlashLoan {
+  ) external payable onFlashLoan {
     uint256 amountIn = LibRouter.transferInAndConvert(params, IPool(pool).collateralToken()) + borrowAmount;
 
     address[] memory tokens = new address[](1);

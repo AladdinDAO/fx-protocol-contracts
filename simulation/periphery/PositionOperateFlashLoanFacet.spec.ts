@@ -26,6 +26,7 @@ import {
   FlashLoanCallbackFacet__factory,
   PositionOperateFlashLoanFacet__factory,
   MigrateFacet__factory,
+  IRateProvider,
 } from "@/types/index";
 
 import { forkNetworkAndUnlockAccounts, mockETHBalance, unlockAccounts } from "@/test/utils";
@@ -36,6 +37,7 @@ import {
   encodeSpotPriceSources,
   EthereumTokens,
   MULTI_PATH_CONVERTER_ROUTES,
+  same,
   SpotPriceEncodings,
 } from "@/utils/index";
 import { Interface, ZeroAddress } from "ethers";
@@ -45,6 +47,7 @@ const FORK_URL = process.env.MAINNET_FORK_RPC || "";
 const PLATFORM = "0x0084C2e1B1823564e597Ff4848a88D61ac63D703";
 const OWNER = "0x26B2ec4E02ebe2F54583af25b647b1D619e67BbF";
 const DEPLOYER = "0x1000000000000000000000000000000000000001";
+const PRECISION = 10n ** 18n;
 
 const getAllSignatures = (e: Interface): string[] => {
   const sigs: string[] = [];
@@ -63,12 +66,10 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
   let fxUSD: FxUSDRegeneracy;
   let usdc: MockERC20;
   let wstETH: MockERC20;
-  let sfrxETH: MockERC20;
 
   let oracle: StETHPriceOracle;
+  let rateProvider: IRateProvider;
 
-  let wstETHMarket: MarketV2;
-  let sfrxETHMarket: MarketV2;
   let pegKeeper: PegKeeper;
   let poolManager: PoolManager;
   let reservePool: ReservePool;
@@ -89,12 +90,10 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
     const spot = await ethers.getContractAt("ISpotPriceOracle", "0xc2312CaF0De62eC9b4ADC785C79851Cb989C9abc", deployer);
     proxyAdmin = await ethers.getContractAt("ProxyAdmin", "0x9B54B7703551D9d0ced177A78367560a8B2eDDA4", owner);
 
-    wstETHMarket = await ethers.getContractAt("MarketV2", "0xAD9A0E7C08bc9F747dF97a3E7E7f620632CB6155", deployer);
-    sfrxETHMarket = await ethers.getContractAt("MarketV2", "0x714B853b3bA73E439c652CfE79660F329E6ebB42", deployer);
+    rateProvider = await ethers.getContractAt("IRateProvider", "0x81A777c4aB65229d1Bf64DaE4c831bDf628Ccc7f", deployer);
     fxUSD = await ethers.getContractAt("FxUSDRegeneracy", EthereumTokens.fxUSD.address, deployer);
     usdc = await ethers.getContractAt("MockERC20", EthereumTokens.USDC.address, deployer);
     wstETH = await ethers.getContractAt("MockERC20", EthereumTokens.wstETH.address, deployer);
-    sfrxETH = await ethers.getContractAt("MockERC20", EthereumTokens.sfrxETH.address, deployer);
 
     const StETHPriceOracle = await ethers.getContractFactory("StETHPriceOracle", deployer);
     oracle = await StETHPriceOracle.deploy(
@@ -208,7 +207,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       EthereumTokens.USDC.address
     );
     await pool.initialize(owner.address, "f(x) wstETH position", "xstETH", wstETH.getAddress(), oracle.getAddress());
-    await pool.updateDebtRatioRange(0n, ethers.parseEther("0.8"));
+    await pool.updateDebtRatioRange(0n, ethers.parseEther("1"));
     await pool.updateRebalanceRatios(ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9));
     await pool.updateLiquidateRatios(ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9));
 
@@ -280,6 +279,8 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       ];
 
       router = await Diamond.deploy(diamondCuts, { owner: owner.address, init: ZeroAddress, initCalldata: "0x" });
+      const manager = await ethers.getContractAt("RouterManagementFacet", await router.getAddress(), deployer);
+      await manager.connect(owner).approveTarget(converter.getAddress(), converter.getAddress());
     }
 
     // initialization
@@ -292,180 +293,332 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
         ethers.parseUnits("10000", 18),
         ethers.parseEther("100000000")
       );
-    await poolManager
-      .connect(owner)
-      .updateRateProvider(wstETH.getAddress(), "0x81A777c4aB65229d1Bf64DaE4c831bDf628Ccc7f");
+    await poolManager.connect(owner).updateRateProvider(wstETH.getAddress(), rateProvider.getAddress());
   });
 
   const encodeMiscData = (minDebtRatio: bigint, maxDebtRatio: bigint): bigint => {
     return (maxDebtRatio << 60n) + minDebtRatio;
   };
 
-  const migrateXstETH = async (
+  // assume all fxUSD will sell to wstETH
+  const openOrAdd = async (
+    token: MockERC20,
     holder: HardhatEthersSigner,
-    positionId: number,
-    amountXToken: bigint
+    amountIn: bigint,
+    convertInRoute: {
+      encoding: bigint;
+      routes: bigint[];
+    },
+    leverage: bigint,
+    slippage: bigint,
+    positionId: number
   ): Promise<number> => {
-    const xstETH = await ethers.getContractAt("MockERC20", EthereumTokens.xstETH.address, holder);
-    const fstETH = await ethers.getContractAt("MockERC20", EthereumTokens.fstETH.address, holder);
-    const usdc = await ethers.getContractAt("MockERC20", EthereumTokens.USDC.address, holder);
+    const facet = await ethers.getContractAt("PositionOperateFlashLoanFacet", await router.getAddress(), deployer);
+    const isETH = same(await token.getAddress(), ZeroAddress);
+    const isWstETH = same(await token.getAddress(), EthereumTokens.wstETH.address);
+    // approve when not ETH
+    if (!isETH) {
+      await token.connect(holder).approve(facet.getAddress(), amountIn);
+    }
 
-    const facet = await ethers.getContractAt("MigrateFacet", await router.getAddress(), deployer);
+    let wstETHAmountIn = amountIn;
+    if (!isWstETH) {
+      wstETHAmountIn = await converter.queryConvert.staticCall(
+        amountIn,
+        convertInRoute.encoding,
+        convertInRoute.routes
+      );
+    }
 
-    const curvePool = await ethers.getContractAt("ICurveStableSwapNG", Addresses["CRV_SN_USDC/fxUSD_193"], holder);
-    const routeUSDCToFxUSD = MULTI_PATH_CONVERTER_ROUTES.USDC.fxUSD;
-    const routeFxUSDToUSDC = MULTI_PATH_CONVERTER_ROUTES.fxUSD.USDC;
+    // borrow wstETH is x, new mint fxUSD is y, and we have
+    // ((wstETHAmountIn + x) * rate + currentColls) * minPrice * (1 - 1 / l) = currentDebts + y
+    // x * rate * minPrice = y
+    // we get
+    // ((wstETHAmountIn + x) * rate + currentColls) * minPrice * (1 - 1 / l) = currentDebts + x * rate * minPrice
+    // (wstETHAmountIn * rate + x * rate + currentColls) * minPrice * (1 - 1 / l) = currentDebts + x * rate * minPrice
+    // (wstETHAmountIn * rate + currentColls) * minPrice * (1 - 1 / l) + x * rate * minPrice * (1 - 1 / l) = currentDebts + x * rate * minPrice
+    // (wstETHAmountIn * rate + currentColls) * minPrice * (1 - 1 / l) - currentDebts = x * rate * minPrice / l
+    // x = ((wstETHAmountIn * rate + currentColls) * minPrice * (l - 1) - currentDebts * l) / rate / minPrice
+    // y = (wstETHAmountIn * rate + currentColls) * minPrice * (l - 1) - currentDebts * l
+    const rate = await rateProvider.getRate();
+    const [anchorPrice, minPrice] = await oracle.getPrice();
+    const [currentColls, currentDebts] = await pool.getPosition(positionId);
+    const hintFxUSDAmount =
+      (((wstETHAmountIn * rate) / PRECISION + currentColls) * minPrice * (leverage - 1n)) / PRECISION -
+      currentDebts * leverage;
+    if (hintFxUSDAmount <= 0n) throw Error("cannot open or add to given leverage");
+    const borrowAmount = (hintFxUSDAmount * PRECISION * PRECISION) / rate / minPrice;
+    const routeFxUSDToWstETH = MULTI_PATH_CONVERTER_ROUTES.fxUSD.wstETH;
+    // binary search to fxUSD to borrow
+    let left = hintFxUSDAmount;
+    let right = hintFxUSDAmount * 2n;
+    while (left + PRECISION < right) {
+      const mid = (left + right) >> 1n;
+      const output = await converter.queryConvert.staticCall(
+        mid,
+        routeFxUSDToWstETH.encoding,
+        routeFxUSDToWstETH.routes
+      );
+      if (output >= borrowAmount) right = mid;
+      else left = mid + 1n;
+    }
+    const fxUSDAmount = (right * (10000n + slippage)) / 10000n;
+    const targetDebtRatio =
+      ((currentDebts + fxUSDAmount) * PRECISION * PRECISION * PRECISION) /
+      (((borrowAmount + wstETHAmountIn) * rate + currentColls * PRECISION) * anchorPrice);
     const data = ethers.AbiCoder.defaultAbiCoder().encode(
-      ["uint256", "uint256", "uint256[]", "uint256", "uint256[]"],
+      ["uint256", "uint256", "uint256", "uint256[]"],
       [
-        encodeMiscData(ethers.parseEther("0.01"), ethers.parseEther("0.9")),
-        routeUSDCToFxUSD.encoding,
-        routeUSDCToFxUSD.routes,
-        routeFxUSDToUSDC.encoding,
-        routeFxUSDToUSDC.routes,
+        encodeMiscData(
+          (targetDebtRatio * (10000n - slippage)) / 10000n,
+          (targetDebtRatio * (10000n + slippage)) / 10000n
+        ),
+        fxUSDAmount,
+        routeFxUSDToWstETH.encoding,
+        routeFxUSDToWstETH.routes,
       ]
     );
-
-    // compute borrow amount
-    const amountFToken = (amountXToken * (await fstETH.totalSupply())) / (await xstETH.totalSupply());
-    // add 0.1% to cover slippage
-    const amountUSDC = ((await curvePool.get_dx(0, 1, amountFToken)) * 1001n) / 1000n;
-    console.log("fxUSD to redeem:", ethers.formatEther(amountFToken));
-    console.log("USDC to borrow:", ethers.formatUnits(amountUSDC, 6));
-
-    const usdcBefore = await usdc.balanceOf(holder.address);
-    const xstETHBefore = await xstETH.balanceOf(holder.address);
-    // approve nft tx
-    if (positionId > 0) {
-      await pool.connect(holder).approve(router.getAddress(), positionId);
-    }
-    // approve xstETH tx
-    await xstETH.connect(holder).approve(router.getAddress(), amountXToken);
-    // migrate tx
-    const tx = await facet
-      .connect(holder)
-      .migrateXstETHPosition(pool.getAddress(), positionId, amountXToken, amountUSDC, data);
-    const r = await tx.wait();
-    const usdcAfter = await usdc.balanceOf(holder.address);
-    const xstETHAfter = await xstETH.balanceOf(holder.address);
-    expect(xstETHBefore - xstETHAfter).to.eq(amountXToken);
-    if (positionId === 0) {
-      positionId = Number((await pool.getNextPositionId()) - 1n);
-    }
-    expect(await pool.ownerOf(positionId)).to.eq(holder.address);
-    console.log("gas used:", r?.gasUsed);
-    console.log("USDC leftover", ethers.formatUnits(usdcAfter - usdcBefore, 6));
     console.log(
-      "price impact",
-      ethers.formatEther(((usdcAfter - usdcBefore) * 10n ** 12n * 10n ** 18n) / amountFToken)
+      `${isETH ? "ETH" : await token.symbol()}Supplied[${ethers.formatUnits(
+        amountIn,
+        isETH ? 18 : await token.decimals()
+      )}]`,
+      `wstETHToSupply[${ethers.formatEther(wstETHAmountIn)}]`,
+      `wstETHToBorrow[${ethers.formatEther(borrowAmount)}]`,
+      `fxUSDToMint[${ethers.formatEther(fxUSDAmount)}]`,
+      `TargetDebtRatio[${ethers.formatEther(targetDebtRatio)}]`
     );
+    const wstETHBefore = await wstETH.balanceOf(holder.address);
+    if (positionId > 0) {
+      await pool.connect(holder).approve(facet.getAddress(), positionId);
+    }
+    await facet.connect(holder).openOrAddPositionFlashLoan(
+      {
+        tokenIn: await token.getAddress(),
+        amount: amountIn,
+        target: await converter.getAddress(),
+        data: converter.interface.encodeFunctionData("convert", [
+          await token.getAddress(),
+          amountIn,
+          convertInRoute.encoding,
+          convertInRoute.routes,
+        ]),
+        minOut: 0n,
+        signature: "0x",
+      },
+      pool.getAddress(),
+      positionId,
+      borrowAmount,
+      data,
+      {
+        value: isETH ? amountIn : 0n,
+      }
+    );
+    if (positionId === 0) positionId = 1;
+    const wstETHAfter = await wstETH.balanceOf(holder.address);
     const [colls, debts] = await pool.getPosition(positionId);
+    const debtRatio = await pool.getPositionDebtRatio(positionId);
+    const wstETHRefund = isWstETH ? wstETHAfter - wstETHBefore + amountIn : wstETHAfter - wstETHBefore;
     console.log(
-      `colls[${ethers.formatEther(colls)}] debts[${ethers.formatEther(debts)}] debt ratio:`,
-      ethers.formatEther(await pool.getPositionDebtRatio(positionId))
+      `RawColl[${ethers.formatEther(colls)}]`,
+      `RawDebt[${ethers.formatEther(debts)}]`,
+      `DebtRatio[${ethers.formatEther(debtRatio)}]`,
+      `wstETHRefund[${ethers.formatEther(wstETHRefund)}]`
     );
     return positionId;
   };
 
-  const migrateXfrxETH = async (
-    holder: HardhatEthersSigner,
-    positionId: number,
-    amountXToken: bigint
-  ): Promise<number> => {
-    const xfrxETH = await ethers.getContractAt("MockERC20", EthereumTokens.xfrxETH.address, holder);
-    const ffrxETH = await ethers.getContractAt("MockERC20", EthereumTokens.ffrxETH.address, holder);
-    const usdc = await ethers.getContractAt("MockERC20", EthereumTokens.USDC.address, holder);
+  context("open position or add collateral", async () => {
+    it("should succeed when open with wstETH", async () => {
+      const HOLDER = "0x3c22ec75ea5D745c78fc84762F7F1E6D82a2c5BF";
+      await unlockAccounts([HOLDER]);
+      const holder = await ethers.getSigner(HOLDER);
+      await mockETHBalance(HOLDER, ethers.parseEther("100"));
 
-    const facet = await ethers.getContractAt("MigrateFacet", await router.getAddress(), deployer);
+      // open with 10 wstETH, 3x leverage
+      const position = await openOrAdd(
+        wstETH,
+        holder,
+        ethers.parseEther("10"),
+        { encoding: 0n, routes: [] },
+        3n,
+        30n,
+        0
+      );
 
-    const curvePool = await ethers.getContractAt("ICurveStableSwapNG", Addresses["CRV_SN_USDC/fxUSD_193"], holder);
-    const routeUSDCToFxUSD = MULTI_PATH_CONVERTER_ROUTES.USDC.fxUSD;
-    const routeFxUSDToUSDC = MULTI_PATH_CONVERTER_ROUTES.fxUSD.USDC;
-    const routeSfrxETHToWstETH = MULTI_PATH_CONVERTER_ROUTES.sfrxETH.wstETH;
-    const data = ethers.AbiCoder.defaultAbiCoder().encode(
-      ["uint256", "uint256", "uint256[]", "uint256", "uint256[]", "uint256", "uint256[]"],
-      [
-        encodeMiscData(ethers.parseEther("0.01"), ethers.parseEther("0.9")),
-        routeUSDCToFxUSD.encoding,
-        routeUSDCToFxUSD.routes,
-        routeFxUSDToUSDC.encoding,
-        routeFxUSDToUSDC.routes,
-        routeSfrxETHToWstETH.encoding,
-        routeSfrxETHToWstETH.routes,
-      ]
-    );
+      // add 2 wstETH, 4x leverage
+      await openOrAdd(wstETH, holder, ethers.parseEther("2"), { encoding: 0n, routes: [] }, 4n, 30n, position);
+    });
 
-    // compute borrow amount
-    const amountFToken = (amountXToken * (await ffrxETH.totalSupply())) / (await xfrxETH.totalSupply());
-    // add 0.1% to cover slippage
-    const amountUSDC = ((await curvePool.get_dx(0, 1, amountFToken)) * 1001n) / 1000n;
-    console.log("fxUSD to redeem:", ethers.formatEther(amountFToken));
-    console.log("USDC to borrow:", ethers.formatUnits(amountUSDC, 6));
+    it("should succeed when open with stETH", async () => {
+      const HOLDER = "0x176F3DAb24a159341c0509bB36B833E7fdd0a132";
+      await unlockAccounts([HOLDER]);
+      const holder = await ethers.getSigner(HOLDER);
+      await mockETHBalance(HOLDER, ethers.parseEther("100"));
+      const token = await ethers.getContractAt("MockERC20", EthereumTokens.stETH.address, holder);
 
-    const usdcBefore = await usdc.balanceOf(holder.address);
-    const xfrxETHBefore = await xfrxETH.balanceOf(holder.address);
-    // approve nft tx
-    if (positionId > 0) {
-      await pool.connect(holder).approve(router.getAddress(), positionId);
-    }
-    // approve xfrxETH tx
-    await xfrxETH.connect(holder).approve(router.getAddress(), amountXToken);
-    // migrate tx
-    const tx = await facet
-      .connect(holder)
-      .migrateXfrxETHPosition(pool.getAddress(), positionId, amountXToken, amountUSDC, data);
-    const r = await tx.wait();
-    const usdcAfter = await usdc.balanceOf(holder.address);
-    const xfrxETHAfter = await xfrxETH.balanceOf(holder.address);
-    expect(xfrxETHBefore - xfrxETHAfter).to.eq(amountXToken);
-    if (positionId === 0) {
-      positionId = Number((await pool.getNextPositionId()) - 1n);
-    }
-    expect(await pool.ownerOf(positionId)).to.eq(holder.address);
-    console.log("gas used:", r?.gasUsed);
-    console.log("USDC leftover", ethers.formatUnits(usdcAfter - usdcBefore, 6));
-    console.log(
-      "price impact",
-      ethers.formatEther(((usdcAfter - usdcBefore) * 10n ** 12n * 10n ** 18n) / amountFToken)
-    );
-    const [colls, debts] = await pool.getPosition(positionId);
-    console.log(
-      `colls[${ethers.formatEther(colls)}] debts[${ethers.formatEther(debts)}] debt ratio:`,
-      ethers.formatEther(await pool.getPositionDebtRatio(positionId))
-    );
-    return positionId;
-  };
+      // open with 10 stETH, 3x leverage
+      const position = await openOrAdd(
+        token,
+        holder,
+        ethers.parseEther("10"),
+        MULTI_PATH_CONVERTER_ROUTES.stETH.wstETH,
+        3n,
+        30n,
+        0
+      );
 
-  context("open position or add collateral", async() => {
+      // add 2 stETH, 4x leverage
+      await openOrAdd(
+        token,
+        holder,
+        ethers.parseEther("2"),
+        MULTI_PATH_CONVERTER_ROUTES.stETH.wstETH,
+        4n,
+        30n,
+        position
+      );
+    });
+
+    it("should succeed when open with ETH", async () => {
+      const HOLDER = "0x176F3DAb24a159341c0509bB36B833E7fdd0a132";
+      await unlockAccounts([HOLDER]);
+      const holder = await ethers.getSigner(HOLDER);
+      await mockETHBalance(HOLDER, ethers.parseEther("100"));
+      const token = await ethers.getContractAt("MockERC20", ZeroAddress, holder);
+
+      // open with 10 ETH, 3x leverage
+      const position = await openOrAdd(
+        token,
+        holder,
+        ethers.parseEther("10"),
+        MULTI_PATH_CONVERTER_ROUTES.WETH.wstETH,
+        3n,
+        30n,
+        0
+      );
+
+      // add 2 ETH, 4x leverage
+      await openOrAdd(
+        token,
+        holder,
+        ethers.parseEther("2"),
+        MULTI_PATH_CONVERTER_ROUTES.WETH.wstETH,
+        4n,
+        30n,
+        position
+      );
+    });
+
+    it("should succeed when open with WETH", async () => {
+      const HOLDER = "0x8EB8a3b98659Cce290402893d0123abb75E3ab28";
+      await unlockAccounts([HOLDER]);
+      const holder = await ethers.getSigner(HOLDER);
+      await mockETHBalance(HOLDER, ethers.parseEther("100"));
+      const token = await ethers.getContractAt("MockERC20", EthereumTokens.WETH.address, holder);
+
+      // open with 10 WETH, 3x leverage
+      const position = await openOrAdd(
+        token,
+        holder,
+        ethers.parseEther("10"),
+        MULTI_PATH_CONVERTER_ROUTES.WETH.wstETH,
+        3n,
+        30n,
+        0
+      );
+
+      // add 2 WETH, 4x leverage
+      await openOrAdd(
+        token,
+        holder,
+        ethers.parseEther("2"),
+        MULTI_PATH_CONVERTER_ROUTES.WETH.wstETH,
+        4n,
+        30n,
+        position
+      );
+    });
+
+    it("should succeed when open with USDC", async () => {
+      const HOLDER = "0x8EB8a3b98659Cce290402893d0123abb75E3ab28";
+      await unlockAccounts([HOLDER]);
+      const holder = await ethers.getSigner(HOLDER);
+      await mockETHBalance(HOLDER, ethers.parseEther("100"));
+      const token = await ethers.getContractAt("MockERC20", EthereumTokens.USDC.address, holder);
+
+      // open with 100000 USDC, 3x leverage
+      const position = await openOrAdd(
+        token,
+        holder,
+        ethers.parseUnits("100000", 6),
+        MULTI_PATH_CONVERTER_ROUTES.USDC.wstETH,
+        3n,
+        30n,
+        0
+      );
+
+      // add 2000 USDC, 4x leverage
+      await openOrAdd(
+        token,
+        holder,
+        ethers.parseUnits("2000", 6),
+        MULTI_PATH_CONVERTER_ROUTES.USDC.wstETH,
+        4n,
+        30n,
+        position
+      );
+    });
+
+    it("should succeed when open with fxUSD", async () => {
+      const HOLDER = "0xB1Fb33bF3A036742FFFAa9F96C548AcB0aE6a4bB";
+      await unlockAccounts([HOLDER]);
+      const holder = await ethers.getSigner(HOLDER);
+      await mockETHBalance(HOLDER, ethers.parseEther("100"));
+      const token = await ethers.getContractAt("MockERC20", EthereumTokens.fxUSD.address, holder);
+
+      // open with 10000 fxUSD, 3x leverage
+      const position = await openOrAdd(
+        token,
+        holder,
+        ethers.parseUnits("10000", 18),
+        MULTI_PATH_CONVERTER_ROUTES.fxUSD.wstETH,
+        3n,
+        30n,
+        0
+      );
+
+      // add 200 fxUSD, 4x leverage
+      await openOrAdd(
+        token,
+        holder,
+        ethers.parseUnits("200", 18),
+        MULTI_PATH_CONVERTER_ROUTES.fxUSD.wstETH,
+        4n,
+        30n,
+        position
+      );
+    });
   });
 
-  context("close position", async() => {});
+  /*
+  context("close position", async () => {
+    beforeEach(async () => {});
 
-  it("should succeed, when open position", async () => {
-    const HOLDER = "0x488b99c4A94BB0027791E8e0eEB421187EC9a487";
-    await unlockAccounts([HOLDER]);
-    const holder = await ethers.getSigner(HOLDER);
-    await mockETHBalance(HOLDER, ethers.parseEther("100"));
+    it("should succeed when close to wstETH", async () => {
+      // partial close
+      // full close
+    });
 
-    // first time migrate 1000000 xstETH
-    const positionId = await migrateXstETH(holder, 0, ethers.parseEther("1000000"));
-    // second time migrate 1000000 xstETH
-    await migrateXstETH(holder, positionId, ethers.parseEther("2000000"));
-    // third time migrate 1000000 xstETH
-    await migrateXstETH(holder, positionId, ethers.parseEther("2000000"));
+    it("should succeed when close to stETH", async () => {});
+
+    it("should succeed when close to ETH", async () => {});
+
+    it("should succeed when close to WETH", async () => {});
+
+    it("should succeed when close to USDC", async () => {});
+
+    it("should succeed when close to USDT", async () => {});
   });
-
-  it("should succeed, when migrate xfrxETH to position", async () => {
-    const HOLDER = "0xF968A5de2019dE1F0A8f53758dD137aE5C9EFbC9";
-    await unlockAccounts([HOLDER]);
-    const holder = await ethers.getSigner(HOLDER);
-    await mockETHBalance(HOLDER, ethers.parseEther("100"));
-
-    // first time migrate 100000 xfrxETH
-    const positionId = await migrateXfrxETH(holder, 0, ethers.parseEther("100000"));
-    // second time migrate 200000 xfrxETH
-    await migrateXfrxETH(holder, positionId, ethers.parseEther("200000"));
-    // third time migrate 200000 xfrxETH
-    await migrateXfrxETH(holder, positionId, ethers.parseEther("200000"));
-  });
+  */
 });

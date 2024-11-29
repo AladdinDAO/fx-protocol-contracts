@@ -8,6 +8,7 @@ import { EthereumTokens } from "./tokens";
 /* eslint-disable prettier/prettier */
 // prettier-ignore
 export const PATH_ENCODING: { [name: string]:  bigint } = {
+  "USDC/WETH-UniV3500": encodePoolHintV3(Addresses["UniV3_USDC/WETH_500"], PoolTypeV3.UniswapV3, 2, 0, 1, Action.Swap, {fee_num: 500}),
   "USDC/fxUSD-CrvSN193": encodePoolHintV3(Addresses["CRV_SN_USDC/fxUSD_193"], PoolTypeV3.CurveStableSwapNG, 2, 0, 1, Action.Swap),
   "fxUSD/USDC-CrvSN193": encodePoolHintV3(Addresses["CRV_SN_USDC/fxUSD_193"], PoolTypeV3.CurveStableSwapNG, 2, 1, 0, Action.Swap),
   "sfrxETH/frxETH-Frax": encodePoolHintV3(EthereumTokens.sfrxETH.address, PoolTypeV3.ERC4626, 2, 0, 0, Action.Remove),
@@ -60,15 +61,32 @@ export const MULTI_PATH_CONVERTER_ROUTES: {
 } = {
   USDC: {
     fxUSD: encodeMultiPath([PATH_ENCODING["USDC/fxUSD-CrvSN193"]], [100n]),
+    wstETH: encodeMultiPath(
+      [[PATH_ENCODING["USDC/WETH-UniV3500"], PATH_ENCODING["WETH/stETH-Lido"], PATH_ENCODING["stETH/wstETH-Lido"]]],
+      [100n]
+    ),
+  },
+  WETH: {
+    wstETH: encodeMultiPath(
+      [[PATH_ENCODING["WETH/stETH-Lido"], PATH_ENCODING["stETH/wstETH-Lido"]]],
+      [100n]
+    ),
   },
   fxUSD: {
     USDC: encodeMultiPath([PATH_ENCODING["fxUSD/USDC-CrvSN193"]], [100n]),
+    wstETH: encodeMultiPath(
+      [[PATH_ENCODING["fxUSD/USDC-CrvSN193"], PATH_ENCODING["USDC/WETH-UniV3500"], PATH_ENCODING["WETH/stETH-Lido"], PATH_ENCODING["stETH/wstETH-Lido"]]],
+      [100n]
+    ),
   },
   sfrxETH: {
     wstETH: encodeMultiPath(
       [[PATH_ENCODING["sfrxETH/frxETH-Frax"], PATH_ENCODING["frxETH/WETH-CrvSC15"], PATH_ENCODING["WETH/stETH-Lido"], PATH_ENCODING["stETH/wstETH-Lido"]]],
       [100n]
     ),
+  },
+  stETH: {
+    wstETH: encodeMultiPath([[PATH_ENCODING["stETH/wstETH-Lido"]]], [100n]),
   }
 };
 /* eslint-enable prettier/prettier */

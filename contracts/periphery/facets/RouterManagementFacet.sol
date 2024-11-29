@@ -22,7 +22,7 @@ contract RouterManagementFacet {
   }
 
   /// @notice Return the list of approved targets.
-  function getApprovedTargetsV2() external view returns (address[] memory _accounts) {
+  function getApprovedTargets() external view returns (address[] memory _accounts) {
     LibRouter.RouterStorage storage $ = LibRouter.routerStorage();
     uint256 _numAccount = $.approvedTargets.length();
     _accounts = new address[](_numAccount);
@@ -32,7 +32,7 @@ contract RouterManagementFacet {
   }
 
   /// @notice Return the whitelist kind for the given target.
-  function getWhitelistedV2() external view returns (address[] memory _accounts) {
+  function getWhitelisted() external view returns (address[] memory _accounts) {
     LibRouter.RouterStorage storage $ = LibRouter.routerStorage();
     uint256 _numAccount = $.whitelisted.length();
     _accounts = new address[](_numAccount);
