@@ -7,7 +7,7 @@ export const Addresses: { [name: string]: string } = {
   // + 2C for crypto pool with 2 tokens
   // + 3C for crypto pool with 3 tokens
   "CRV_SB_ETH/frxETH": "0xa1f8a6807c402e4a15ef4eba36528a3fed24e577",
-  "CRV_SB_ETH/stETH": "0xdc24316b9ae028f1497c275eb9192a3ea0f67022",
+  "CRV_SB_ETH/stETH": "0xDC24316b9AE028F1497c275EB9192a3Ea0f67022",
   "CRV_SP_stETH/frxETH_274": "0x4d9f9D15101EEC665F77210cB999639f760F831E",
   "CRV_SP_CRV/sdCRV_300": "0xca0253a98d16e9c1e3614cafda19318ee69772d0",
   "CRV_SP_ETH/stETH_303": "0x21E27a5E5513D6e65C4f830167390997aA84843a",

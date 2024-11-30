@@ -11,7 +11,7 @@ import { IMultiPathConverter } from "../helpers/interfaces/IMultiPathConverter.s
 import { ICurveStableSwapNG } from "../interfaces/Curve/ICurveStableSwapNG.sol";
 import { IFxUSDRegeneracy } from "../interfaces/IFxUSDRegeneracy.sol";
 import { IPegKeeper } from "../interfaces/IPegKeeper.sol";
-import { IFxUSDSave } from "../interfaces/IFxUSDSave.sol";
+import { IFxUSDBasePool } from "../interfaces/IFxUSDBasePool.sol";
 
 contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   using SafeERC20 for IERC20;
@@ -54,8 +54,8 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   /// @notice The address of stable token.
   address public immutable stable;
 
-  /// @notice The address of fxSAVE.
-  address public immutable fxSAVE;
+  /// @notice The address of FxUSDBasePool.
+  address public immutable fxBASE;
 
   /*********************
    * Storage Variables *
@@ -87,10 +87,10 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
    * Constructor *
    ***************/
 
-  constructor(address _fxSAVE) {
-    fxSAVE = _fxSAVE;
-    fxUSD = IFxUSDSave(_fxSAVE).yieldToken();
-    stable = IFxUSDSave(_fxSAVE).stableToken();
+  constructor(address _fxBASE) {
+    fxBASE = _fxBASE;
+    fxUSD = IFxUSDBasePool(_fxBASE).yieldToken();
+    stable = IFxUSDBasePool(_fxBASE).stableToken();
   }
 
   function initialize(address admin, address _converter, address _curvePool) external initializer {
@@ -121,6 +121,11 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     return _getFxUSDEmaPrice() < priceThreshold;
   }
 
+  /// @inheritdoc IPegKeeper
+  function getFxUSDPrice() external view returns (uint256) {
+    return _getFxUSDEmaPrice();
+  }
+
   /****************************
    * Public Mutated Functions *
    ****************************/
@@ -139,7 +144,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     uint256 amountIn,
     bytes calldata data
   ) external onlyRole(STABILIZE_ROLE) setContext(CONTEXT_STABILIZE) returns (uint256 amountOut, uint256 bonus) {
-    (amountOut, bonus) = IFxUSDSave(fxSAVE).arbitrage(srcToken, amountIn, _msgSender(), data);
+    (amountOut, bonus) = IFxUSDBasePool(fxBASE).arbitrage(srcToken, amountIn, _msgSender(), data);
   }
 
   /// @dev This function will be called in `buyback`, `stabilize`.

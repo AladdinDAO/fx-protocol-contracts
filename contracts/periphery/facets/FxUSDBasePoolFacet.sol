@@ -5,13 +5,14 @@ pragma solidity ^0.8.20;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import { IFxUSDSave } from "../../interfaces/IFxUSDSave.sol";
+import { IFxUSDBasePool } from "../../interfaces/IFxUSDBasePool.sol";
+import { IFxShareableRebalancePool } from "../../v2/interfaces/IFxShareableRebalancePool.sol";
 import { ILiquidityGauge } from "../../voting-escrow/interfaces/ILiquidityGauge.sol";
 
 import { WordCodec } from "../../common/codec/WordCodec.sol";
 import { LibRouter } from "../libraries/LibRouter.sol";
 
-contract FxUSDSaveFacet {
+contract FxUSDBasePoolFacet {
   using SafeERC20 for IERC20;
 
   /*************
@@ -31,19 +32,19 @@ contract FxUSDSaveFacet {
   /// @dev The address of `PoolManager` contract.
   address private immutable poolManager;
 
-  /// @dev The address of `FxUSDSave` contract.
-  address private immutable fxSAVE;
+  /// @dev The address of `FxUSDBasePool` contract.
+  address private immutable fxBASE;
 
-  /// @dev The address of fxSAVE gauge contract.
+  /// @dev The address of fxBASE gauge contract.
   address private immutable gauge;
 
   /***************
    * Constructor *
    ***************/
 
-  constructor(address _poolManager, address _fxSAVE, address _gauge) {
+  constructor(address _poolManager, address _fxBASE, address _gauge) {
     poolManager = _poolManager;
-    fxSAVE = _fxSAVE;
+    fxBASE = _fxBASE;
     gauge = _gauge;
   }
 
@@ -51,63 +52,87 @@ contract FxUSDSaveFacet {
    * Public Mutated Functions *
    ****************************/
 
-  /// @notice Deposit token to fxSave.
+  /// @notice Migrate fxUSD from rebalance pool to fxBASE.
+  /// @param pool The address of rebalance pool.
+  /// @param amountIn The amount of rebalance pool shares to migrate.
+  /// @param minShares The minimum shares should receive.
+  /// @param receiver The address of fxBASE share recipient.
+  function migrateToFxBase(address pool, uint256 amountIn, uint256 minShares, address receiver) external {
+    IFxShareableRebalancePool(pool).withdrawFrom(msg.sender, amountIn, address(this));
+    LibRouter.approve(fxUSD, fxBASE, amountIn);
+    IFxUSDBasePool(fxBASE).deposit(receiver, fxUSD, amountIn, minShares);
+  }
+
+  /// @notice Migrate fxUSD from rebalance pool to fxBASE gauge.
+  /// @param pool The address of rebalance pool.
+  /// @param amountIn The amount of rebalance pool shares to migrate.
+  /// @param minShares The minimum shares should receive.
+  /// @param receiver The address of fxBASE share recipient.
+  function migrateToFxBaseGauge(address pool, uint256 amountIn, uint256 minShares, address receiver) external {
+    IFxShareableRebalancePool(pool).withdrawFrom(msg.sender, amountIn, address(this));
+    LibRouter.approve(fxUSD, fxBASE, amountIn);
+    uint256 shares = IFxUSDBasePool(fxBASE).deposit(address(this), fxUSD, amountIn, minShares);
+    LibRouter.approve(fxBASE, gauge, shares);
+    ILiquidityGauge(gauge).deposit(shares, receiver);
+  }
+
+  /// @notice Deposit token to fxBASE.
   /// @param params The parameters to convert source token to `tokenOut`.
   /// @param tokenOut The target token, USDC or fxUSD.
   /// @param minShares The minimum shares should receive.
-  /// @param receiver The address of fxSAVE share recipient.
-  function depositToFxSave(
+  /// @param receiver The address of fxBASE share recipient.
+  function depositToFxBase(
     LibRouter.ConvertInParams memory params,
     address tokenOut,
     uint256 minShares,
     address receiver
   ) external {
     uint256 amountIn = LibRouter.transferInAndConvert(params, tokenOut);
-    LibRouter.approve(tokenOut, fxSAVE, amountIn);
-    IFxUSDSave(fxSAVE).deposit(receiver, tokenOut, amountIn, minShares);
+    LibRouter.approve(tokenOut, fxBASE, amountIn);
+    IFxUSDBasePool(fxBASE).deposit(receiver, tokenOut, amountIn, minShares);
   }
 
-  /// @notice Deposit token to fxSave and then deposit to gauge.
+  /// @notice Deposit token to fxBase and then deposit to gauge.
   /// @param params The parameters to convert source token to `tokenOut`.
   /// @param tokenOut The target token, USDC or fxUSD.
   /// @param minShares The minimum shares should receive.
   /// @param receiver The address of gauge share recipient.
-  function depositToFxSaveGauge(
+  function depositToFxBaseGauge(
     LibRouter.ConvertInParams memory params,
     address tokenOut,
     uint256 minShares,
     address receiver
   ) external {
     uint256 amountIn = LibRouter.transferInAndConvert(params, tokenOut);
-    LibRouter.approve(tokenOut, fxSAVE, amountIn);
-    uint256 shares = IFxUSDSave(fxSAVE).deposit(address(this), tokenOut, amountIn, minShares);
-    LibRouter.approve(fxSAVE, gauge, shares);
+    LibRouter.approve(tokenOut, fxBASE, amountIn);
+    uint256 shares = IFxUSDBasePool(fxBASE).deposit(address(this), tokenOut, amountIn, minShares);
+    LibRouter.approve(fxBASE, gauge, shares);
     ILiquidityGauge(gauge).deposit(shares, receiver);
   }
 
-  /// @notice Burn fxSAVE shares and then convert USDC and fxUSD to another token.
+  /// @notice Burn fxBASE shares and then convert USDC and fxUSD to another token.
   /// @param fxusdParams The parameters to convert fxUSD to target token.
   /// @param usdcParams The parameters to convert USDC to target token.
-  /// @param amountIn The amount of fxSAVE to redeem.
+  /// @param amountIn The amount of fxBASE to redeem.
   /// @param receiver The address of token recipient.
-  function redeemFromFxSave(
+  function redeemFromFxBase(
     LibRouter.ConvertOutParams memory fxusdParams,
     LibRouter.ConvertOutParams memory usdcParams,
     uint256 amountIn,
     address receiver
   ) external {
-    IERC20(fxSAVE).safeTransferFrom(msg.sender, address(this), amountIn);
-    (uint256 amountFxUSD, uint256 amountUSDC) = IFxUSDSave(fxSAVE).redeem(address(this), amountIn);
+    IERC20(fxBASE).safeTransferFrom(msg.sender, address(this), amountIn);
+    (uint256 amountFxUSD, uint256 amountUSDC) = IFxUSDBasePool(fxBASE).redeem(address(this), amountIn);
     LibRouter.convertAndTransferOut(fxusdParams, fxUSD, amountFxUSD, receiver);
     LibRouter.convertAndTransferOut(usdcParams, USDC, amountUSDC, receiver);
   }
 
-  /// @notice Burn fxSAVE shares from gauge and then convert USDC and fxUSD to another token.
+  /// @notice Burn fxBASE shares from gauge and then convert USDC and fxUSD to another token.
   /// @param fxusdParams The parameters to convert fxUSD to target token.
   /// @param usdcParams The parameters to convert USDC to target token.
-  /// @param amountIn The amount of fxSAVE to redeem.
+  /// @param amountIn The amount of fxBASE to redeem.
   /// @param receiver The address of token recipient.
-  function redeemFromFxSaveGauge(
+  function redeemFromFxBaseGauge(
     LibRouter.ConvertOutParams memory fxusdParams,
     LibRouter.ConvertOutParams memory usdcParams,
     uint256 amountIn,
@@ -115,7 +140,7 @@ contract FxUSDSaveFacet {
   ) external {
     IERC20(gauge).safeTransferFrom(msg.sender, address(this), amountIn);
     ILiquidityGauge(gauge).withdraw(amountIn);
-    (uint256 amountFxUSD, uint256 amountUSDC) = IFxUSDSave(fxSAVE).redeem(address(this), amountIn);
+    (uint256 amountFxUSD, uint256 amountUSDC) = IFxUSDBasePool(fxBASE).redeem(address(this), amountIn);
     LibRouter.convertAndTransferOut(fxusdParams, fxUSD, amountFxUSD, receiver);
     LibRouter.convertAndTransferOut(usdcParams, USDC, amountUSDC, receiver);
   }

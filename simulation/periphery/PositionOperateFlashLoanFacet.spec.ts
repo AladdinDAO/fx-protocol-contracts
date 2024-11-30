@@ -40,7 +40,7 @@ import {
   same,
   SpotPriceEncodings,
 } from "@/utils/index";
-import { Interface, ZeroAddress } from "ethers";
+import { Contract, Interface, MaxInt256, ZeroAddress } from "ethers";
 
 const FORK_HEIGHT = 21234850;
 const FORK_URL = process.env.MAINNET_FORK_RPC || "";
@@ -73,7 +73,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
   let pegKeeper: PegKeeper;
   let poolManager: PoolManager;
   let reservePool: ReservePool;
-  let fxSAVE: FxUSDSave;
+  let fxBASE: FxUSDSave;
   let rewarder: FxSaveRewarder;
   let pool: AaveFundingPool;
 
@@ -180,14 +180,14 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       FxUSDSave__factory.createInterface().encodeFunctionData("initialize", [
         owner.address,
         "fxUSD Save",
-        "fxSAVE",
+        "fxBASE",
         ethers.parseEther("0.95"),
       ])
     );
-    fxSAVE = await ethers.getContractAt("FxUSDSave", await FxUSDSaveProxy.getAddress(), owner);
+    fxBASE = await ethers.getContractAt("FxUSDSave", await FxUSDSaveProxy.getAddress(), owner);
 
     // deploy PegKeeper
-    const PegKeeperImpl = await PegKeeper.deploy(fxSAVE.getAddress());
+    const PegKeeperImpl = await PegKeeper.deploy(fxBASE.getAddress());
     await proxyAdmin.upgradeAndCall(
       PegKeeperProxy.getAddress(),
       PegKeeperImpl.getAddress(),
@@ -212,7 +212,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
     await pool.updateLiquidateRatios(ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9));
 
     // FxSaveRewarder
-    rewarder = await FxSaveRewarder.deploy(fxSAVE.getAddress());
+    rewarder = await FxSaveRewarder.deploy(fxBASE.getAddress());
 
     // deploy Facets and Diamond
     {
@@ -284,7 +284,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
     }
 
     // initialization
-    await fxSAVE.connect(owner).grantRole(await fxSAVE.REWARD_DEPOSITOR_ROLE(), rewarder.getAddress());
+    await fxBASE.connect(owner).grantRole(await fxBASE.REWARD_DEPOSITOR_ROLE(), rewarder.getAddress());
     await poolManager
       .connect(owner)
       .registerPool(
@@ -300,6 +300,48 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
     return (maxDebtRatio << 60n) + minDebtRatio;
   };
 
+  const MulticallInterface = new Interface(
+    JSON.parse(
+      '[{"inputs":[{"components":[{"internalType":"address","name":"target","type":"address"},{"internalType":"bytes","name":"callData","type":"bytes"}],"internalType":"struct Multicall3.Call[]","name":"calls","type":"tuple[]"}],"name":"aggregate","outputs":[{"internalType":"uint256","name":"blockNumber","type":"uint256"},{"internalType":"bytes[]","name":"returnData","type":"bytes[]"}],"stateMutability":"payable","type":"function"},{"inputs":[{"components":[{"internalType":"address","name":"target","type":"address"},{"internalType":"bool","name":"allowFailure","type":"bool"},{"internalType":"bytes","name":"callData","type":"bytes"}],"internalType":"struct Multicall3.Call3[]","name":"calls","type":"tuple[]"}],"name":"aggregate3","outputs":[{"components":[{"internalType":"bool","name":"success","type":"bool"},{"internalType":"bytes","name":"returnData","type":"bytes"}],"internalType":"struct Multicall3.Result[]","name":"returnData","type":"tuple[]"}],"stateMutability":"payable","type":"function"},{"inputs":[{"components":[{"internalType":"address","name":"target","type":"address"},{"internalType":"bool","name":"allowFailure","type":"bool"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"bytes","name":"callData","type":"bytes"}],"internalType":"struct Multicall3.Call3Value[]","name":"calls","type":"tuple[]"}],"name":"aggregate3Value","outputs":[{"components":[{"internalType":"bool","name":"success","type":"bool"},{"internalType":"bytes","name":"returnData","type":"bytes"}],"internalType":"struct Multicall3.Result[]","name":"returnData","type":"tuple[]"}],"stateMutability":"payable","type":"function"},{"inputs":[{"components":[{"internalType":"address","name":"target","type":"address"},{"internalType":"bytes","name":"callData","type":"bytes"}],"internalType":"struct Multicall3.Call[]","name":"calls","type":"tuple[]"}],"name":"blockAndAggregate","outputs":[{"internalType":"uint256","name":"blockNumber","type":"uint256"},{"internalType":"bytes32","name":"blockHash","type":"bytes32"},{"components":[{"internalType":"bool","name":"success","type":"bool"},{"internalType":"bytes","name":"returnData","type":"bytes"}],"internalType":"struct Multicall3.Result[]","name":"returnData","type":"tuple[]"}],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"getBasefee","outputs":[{"internalType":"uint256","name":"basefee","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"blockNumber","type":"uint256"}],"name":"getBlockHash","outputs":[{"internalType":"bytes32","name":"blockHash","type":"bytes32"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getBlockNumber","outputs":[{"internalType":"uint256","name":"blockNumber","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getChainId","outputs":[{"internalType":"uint256","name":"chainid","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getCurrentBlockCoinbase","outputs":[{"internalType":"address","name":"coinbase","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getCurrentBlockDifficulty","outputs":[{"internalType":"uint256","name":"difficulty","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getCurrentBlockGasLimit","outputs":[{"internalType":"uint256","name":"gaslimit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getCurrentBlockTimestamp","outputs":[{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"addr","type":"address"}],"name":"getEthBalance","outputs":[{"internalType":"uint256","name":"balance","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getLastBlockHash","outputs":[{"internalType":"bytes32","name":"blockHash","type":"bytes32"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bool","name":"requireSuccess","type":"bool"},{"components":[{"internalType":"address","name":"target","type":"address"},{"internalType":"bytes","name":"callData","type":"bytes"}],"internalType":"struct Multicall3.Call[]","name":"calls","type":"tuple[]"}],"name":"tryAggregate","outputs":[{"components":[{"internalType":"bool","name":"success","type":"bool"},{"internalType":"bytes","name":"returnData","type":"bytes"}],"internalType":"struct Multicall3.Result[]","name":"returnData","type":"tuple[]"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"bool","name":"requireSuccess","type":"bool"},{"components":[{"internalType":"address","name":"target","type":"address"},{"internalType":"bytes","name":"callData","type":"bytes"}],"internalType":"struct Multicall3.Call[]","name":"calls","type":"tuple[]"}],"name":"tryBlockAndAggregate","outputs":[{"internalType":"uint256","name":"blockNumber","type":"uint256"},{"internalType":"bytes32","name":"blockHash","type":"bytes32"},{"components":[{"internalType":"bool","name":"success","type":"bool"},{"internalType":"bytes","name":"returnData","type":"bytes"}],"internalType":"struct Multicall3.Result[]","name":"returnData","type":"tuple[]"}],"stateMutability":"payable","type":"function"}]'
+    )
+  );
+
+  const searchAmount = async (
+    left: bigint,
+    right: bigint,
+    expect: bigint,
+    routes: {
+      encoding: bigint;
+      routes: Array<bigint>;
+    },
+    precision: bigint
+  ): Promise<[number, bigint]> => {
+    const multicall = new Contract("0xcA11bde05977b3631167028862bE2a173976CA11", MulticallInterface, ethers.provider);
+    let times = 0;
+    while (left + precision < right) {
+      const calls: Array<{ target: string; callData: string }> = [];
+      const step = (right - left) / 100n;
+      for (let i = 0; i < 100; ++i) {
+        const amount = left + step * BigInt(i + 1);
+        calls.push({
+          target: await converter.getAddress(),
+          callData: converter.interface.encodeFunctionData("queryConvert", [amount, routes.encoding, routes.routes]),
+        });
+      }
+      times += 1;
+      const [, results] = await multicall.aggregate.staticCall(calls);
+      for (let i = 0; i < 100; ++i) {
+        const output = BigInt(results[i]);
+        if (output >= expect) {
+          left += step * BigInt(i);
+          right = left + step;
+          break;
+        }
+      }
+    }
+    return [times, right];
+  };
+
   // assume all fxUSD will sell to wstETH
   const openOrAdd = async (
     token: MockERC20,
@@ -313,6 +355,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
     slippage: bigint,
     positionId: number
   ): Promise<number> => {
+    const routeFxUSDToWstETH = MULTI_PATH_CONVERTER_ROUTES.fxUSD.wstETH;
     const facet = await ethers.getContractAt("PositionOperateFlashLoanFacet", await router.getAddress(), deployer);
     const isETH = same(await token.getAddress(), ZeroAddress);
     const isWstETH = same(await token.getAddress(), EthereumTokens.wstETH.address);
@@ -348,21 +391,16 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       currentDebts * leverage;
     if (hintFxUSDAmount <= 0n) throw Error("cannot open or add to given leverage");
     const borrowAmount = (hintFxUSDAmount * PRECISION * PRECISION) / rate / minPrice;
-    const routeFxUSDToWstETH = MULTI_PATH_CONVERTER_ROUTES.fxUSD.wstETH;
-    // binary search to fxUSD to borrow
-    let left = hintFxUSDAmount;
-    let right = hintFxUSDAmount * 2n;
-    while (left + PRECISION < right) {
-      const mid = (left + right) >> 1n;
-      const output = await converter.queryConvert.staticCall(
-        mid,
-        routeFxUSDToWstETH.encoding,
-        routeFxUSDToWstETH.routes
-      );
-      if (output >= borrowAmount) right = mid;
-      else left = mid + 1n;
-    }
-    const fxUSDAmount = (right * (10000n + slippage)) / 10000n;
+    // binary search to fxUSD to borrow, precision 1 fxUSD
+    let [searchTimes, fxUSDAmount] = await searchAmount(
+      hintFxUSDAmount,
+      hintFxUSDAmount * 2n,
+      borrowAmount,
+      routeFxUSDToWstETH,
+      PRECISION
+    );
+    // add slippage
+    fxUSDAmount = (fxUSDAmount * (10000n + slippage)) / 10000n;
     const targetDebtRatio =
       ((currentDebts + fxUSDAmount) * PRECISION * PRECISION * PRECISION) /
       (((borrowAmount + wstETHAmountIn) * rate + currentColls * PRECISION) * anchorPrice);
@@ -379,6 +417,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       ]
     );
     console.log(
+      `SearchTimes[${searchTimes}]`,
       `${isETH ? "ETH" : await token.symbol()}Supplied[${ethers.formatUnits(
         amountIn,
         isETH ? 18 : await token.decimals()
@@ -601,24 +640,178 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
     });
   });
 
-  /*
-  context("close position", async () => {
-    beforeEach(async () => {});
+  const closeOrRemove = async (
+    token: MockERC20,
+    holder: HardhatEthersSigner,
+    wstETHToWithdraw: bigint,
+    convertOutRoute: {
+      encoding: bigint;
+      routes: bigint[];
+    },
+    leverage: number,
+    slippage: bigint,
+    positionId: number
+  ) => {
+    const routeWstETHToFxUSD = MULTI_PATH_CONVERTER_ROUTES.wstETH.fxUSD;
+    const facet = await ethers.getContractAt("PositionOperateFlashLoanFacet", await router.getAddress(), deployer);
+    const targetDebtRatio = leverage === 0 ? PRECISION : ethers.parseEther(((leverage - 1) / leverage).toFixed(9));
+    const isETH = same(await token.getAddress(), ZeroAddress);
+    const isWstETH = same(await token.getAddress(), EthereumTokens.wstETH.address);
+    // assume borrow x, repay y fxUSD, and we have
+    // x * rate * minPrice = y
+    // (currentColls - wstETHToWithdraw * rate) * minPrice * targetDebtRatio = currentDebts - y
+    // we get
+    // y = currentDebts - (currentColls - wstETHToWithdraw * rate) * minPrice * targetDebtRatio
+    // x = y / rate / minPrice
+    const rate = await rateProvider.getRate();
+    const [currentColls, currentDebts] = await pool.getPosition(positionId);
+    const [, minPrice] = await oracle.getPrice();
+    // targetLeverage = 0 means close position
+    const fxUSDAmount =
+      leverage === 0
+        ? currentDebts
+        : currentDebts -
+          ((((currentColls - (wstETHToWithdraw * rate) / PRECISION) * minPrice) / PRECISION) * targetDebtRatio) /
+            PRECISION;
+    if (fxUSDAmount > currentDebts || fxUSDAmount < 0n) throw Error("cannot remove or close to given leverage");
+    if (leverage === 0) {
+      // the value doesn't matter
+      wstETHToWithdraw = (currentColls * PRECISION) / rate;
+    }
+    const hintWstETHToBorrow = (fxUSDAmount * PRECISION * PRECISION) / (rate * minPrice);
+    // binary search to wstETH borrow amount, precision 0.00001 wstETH
+    let [searchTimes, wstETHToBorrow] = await searchAmount(
+      hintWstETHToBorrow,
+      hintWstETHToBorrow * 2n,
+      fxUSDAmount,
+      routeWstETHToFxUSD,
+      ethers.parseEther("0.00001")
+    );
+    wstETHToBorrow = (wstETHToBorrow * (10000n + slippage)) / 10000n;
+    const closeFeeRatio = await pool.getCloseFeeRatio();
+    const wstETHExpected = (wstETHToWithdraw * (10n ** 9n - closeFeeRatio)) / 10n ** 9n - wstETHToBorrow;
+    const minOut =
+      ((isWstETH
+        ? wstETHExpected
+        : await converter.queryConvert.staticCall(wstETHExpected, convertOutRoute.encoding, convertOutRoute.routes)) *
+        (10000n - slippage)) /
+      10000n;
+    console.log(
+      `SearchTimes[${searchTimes}]`,
+      `CurrentColls[${ethers.formatEther(currentColls)}]`,
+      `CurrentDebts[${ethers.formatEther(currentDebts)}]`,
+      `wstETHToWithdraw[${ethers.formatEther(wstETHToWithdraw)}]`,
+      `wstETHToBorrow[${ethers.formatEther(wstETHToBorrow)}]`,
+      `fxUSDToRepay[${ethers.formatEther(fxUSDAmount)}]`,
+      `TargetDebtRatio[${ethers.formatEther(targetDebtRatio)}]`,
+      `Min${isETH ? "ETH" : await token.symbol()}Out[${ethers.formatUnits(
+        minOut,
+        isETH ? 18 : await token.decimals()
+      )}]`
+    );
+    const data = ethers.AbiCoder.defaultAbiCoder().encode(
+      ["uint256", "uint256", "uint256", "uint256[]"],
+      [
+        encodeMiscData(
+          (targetDebtRatio * (10000n - slippage)) / 10000n,
+          (targetDebtRatio * (10000n + slippage)) / 10000n
+        ),
+        fxUSDAmount,
+        routeWstETHToFxUSD.encoding,
+        routeWstETHToFxUSD.routes,
+      ]
+    );
+    const fxUSDBefore = await fxUSD.balanceOf(holder.address);
+    const balanceBefore = isETH
+      ? await ethers.provider.getBalance(holder.address)
+      : await token.balanceOf(holder.address);
+    await pool.connect(holder).approve(facet.getAddress(), positionId);
+    const tx = await facet.connect(holder).closeOrRemovePositionFlashLoan(
+      {
+        tokenOut: await token.getAddress(),
+        converter: await converter.getAddress(),
+        encodings: convertOutRoute.encoding,
+        routes: convertOutRoute.routes,
+        minOut: minOut,
+        signature: "0x",
+      },
+      pool.getAddress(),
+      positionId,
+      wstETHToWithdraw,
+      wstETHToBorrow,
+      data
+    );
+    const r = await tx.wait();
+    const fxUSDAfter = await fxUSD.balanceOf(holder.address);
+    const balanceAfter = isETH
+      ? await ethers.provider.getBalance(holder.address)
+      : await token.balanceOf(holder.address);
+    const [colls, debts] = await pool.getPosition(positionId);
+    const debtRatio = await pool.getPositionDebtRatio(positionId);
+    console.log(
+      `RawColl[${ethers.formatEther(colls)}]`,
+      `RawDebt[${ethers.formatEther(debts)}]`,
+      `DebtRatio[${ethers.formatEther(debtRatio)}]`,
+      `fxUSDRefund[${ethers.formatEther(fxUSDAfter - fxUSDBefore)}]`,
+      `${isETH ? "ETH" : await token.symbol()}Withdrawn[${ethers.formatUnits(
+        balanceAfter - balanceBefore + (isETH ? r!.gasPrice * r!.gasUsed : 0n),
+        isETH ? 18 : await token.decimals()
+      )}]`
+    );
+  };
+
+  context("close position or remove collateral", async () => {
+    let holder: HardhatEthersSigner;
+
+    beforeEach(async () => {
+      const HOLDER = "0x3c22ec75ea5D745c78fc84762F7F1E6D82a2c5BF";
+      await unlockAccounts([HOLDER]);
+      holder = await ethers.getSigner(HOLDER);
+      await mockETHBalance(HOLDER, ethers.parseEther("100"));
+
+      // open with 10 wstETH, 3x leverage
+      await openOrAdd(wstETH, holder, ethers.parseEther("10"), { encoding: 0n, routes: [] }, 3n, 30n, 0);
+      // another open with 1 wstETH, 2x leverage
+      await openOrAdd(wstETH, holder, ethers.parseEther("1"), { encoding: 0n, routes: [] }, 2n, 30n, 0);
+    });
 
     it("should succeed when close to wstETH", async () => {
       // partial close
+      await closeOrRemove(wstETH, holder, ethers.parseEther("1"), { encoding: 0n, routes: [] }, 3, 30n, 1);
       // full close
+      await closeOrRemove(wstETH, holder, ethers.parseEther("1"), { encoding: 0n, routes: [] }, 0, 5n, 2);
     });
 
-    it("should succeed when close to stETH", async () => {});
+    it("should succeed when close to stETH", async () => {
+      const token = await ethers.getContractAt("MockERC20", EthereumTokens.stETH.address, holder);
+      // partial close
+      await closeOrRemove(token, holder, ethers.parseEther("1"), MULTI_PATH_CONVERTER_ROUTES.wstETH.stETH, 3, 30n, 1);
+      // full close
+      await closeOrRemove(token, holder, ethers.parseEther("1"), MULTI_PATH_CONVERTER_ROUTES.wstETH.stETH, 0, 5n, 2);
+    });
 
-    it("should succeed when close to ETH", async () => {});
+    it("should succeed when close to ETH", async () => {
+      const token = await ethers.getContractAt("MockERC20", ZeroAddress, holder);
+      // partial close
+      await closeOrRemove(token, holder, ethers.parseEther("1"), MULTI_PATH_CONVERTER_ROUTES.wstETH.WETH, 3, 30n, 1);
+      // full close
+      await closeOrRemove(token, holder, ethers.parseEther("1"), MULTI_PATH_CONVERTER_ROUTES.wstETH.WETH, 0, 5n, 2);
+    });
 
-    it("should succeed when close to WETH", async () => {});
+    it("should succeed when close to WETH", async () => {
+      const token = await ethers.getContractAt("MockERC20", EthereumTokens.WETH.address, holder);
+      // partial close
+      await closeOrRemove(token, holder, ethers.parseEther("1"), MULTI_PATH_CONVERTER_ROUTES.wstETH.WETH, 3, 30n, 1);
+      // full close
+      await closeOrRemove(token, holder, ethers.parseEther("1"), MULTI_PATH_CONVERTER_ROUTES.wstETH.WETH, 0, 5n, 2);
+    });
 
-    it("should succeed when close to USDC", async () => {});
-
-    it("should succeed when close to USDT", async () => {});
+    it("should succeed when close to USDC", async () => {
+      const token = await ethers.getContractAt("MockERC20", EthereumTokens.USDC.address, holder);
+      // partial close
+      await closeOrRemove(token, holder, ethers.parseEther("1"), MULTI_PATH_CONVERTER_ROUTES.wstETH.USDC, 3, 30n, 1);
+      // full close
+      await closeOrRemove(token, holder, ethers.parseEther("1"), MULTI_PATH_CONVERTER_ROUTES.wstETH.USDC, 0, 5n, 2);
+    });
   });
-  */
 });

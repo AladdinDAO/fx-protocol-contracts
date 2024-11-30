@@ -72,7 +72,7 @@ describe("MigrateFacet.spec", async () => {
   let pegKeeper: PegKeeper;
   let poolManager: PoolManager;
   let reservePool: ReservePool;
-  let fxSAVE: FxUSDSave;
+  let fxBASE: FxUSDSave;
   let rewarder: FxSaveRewarder;
   let pool: AaveFundingPool;
 
@@ -181,14 +181,14 @@ describe("MigrateFacet.spec", async () => {
       FxUSDSave__factory.createInterface().encodeFunctionData("initialize", [
         owner.address,
         "fxUSD Save",
-        "fxSAVE",
+        "fxBASE",
         ethers.parseEther("0.95"),
       ])
     );
-    fxSAVE = await ethers.getContractAt("FxUSDSave", await FxUSDSaveProxy.getAddress(), owner);
+    fxBASE = await ethers.getContractAt("FxUSDSave", await FxUSDSaveProxy.getAddress(), owner);
 
     // deploy PegKeeper
-    const PegKeeperImpl = await PegKeeper.deploy(fxSAVE.getAddress());
+    const PegKeeperImpl = await PegKeeper.deploy(fxBASE.getAddress());
     await proxyAdmin.upgradeAndCall(
       PegKeeperProxy.getAddress(),
       PegKeeperImpl.getAddress(),
@@ -213,7 +213,7 @@ describe("MigrateFacet.spec", async () => {
     await pool.updateLiquidateRatios(ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9));
 
     // FxSaveRewarder
-    rewarder = await FxSaveRewarder.deploy(fxSAVE.getAddress());
+    rewarder = await FxSaveRewarder.deploy(fxBASE.getAddress());
 
     // deploy MarketV2
     const MarketV2 = await ethers.getContractFactory("MarketV2", deployer);
@@ -293,7 +293,7 @@ describe("MigrateFacet.spec", async () => {
     await wstETHMarket.connect(owner).grantRole(await wstETHMarket.MIGRATOR_ROLE(), router.getAddress());
     await sfrxETHMarket.connect(owner).grantRole(await wstETHMarket.MIGRATOR_ROLE(), router.getAddress());
     await fxUSD.connect(owner).grantRole(await fxUSD.MIGRATOR_ROLE(), router.getAddress());
-    await fxSAVE.connect(owner).grantRole(await fxSAVE.REWARD_DEPOSITOR_ROLE(), rewarder.getAddress());
+    await fxBASE.connect(owner).grantRole(await fxBASE.REWARD_DEPOSITOR_ROLE(), rewarder.getAddress());
     await poolManager
       .connect(owner)
       .registerPool(

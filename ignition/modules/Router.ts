@@ -9,6 +9,7 @@ import {
   MigrateFacet__factory,
   OwnershipFacet__factory,
   RouterManagementFacet__factory,
+  FxUSDBasePoolFacet__factory,
 } from "@/types/index";
 
 import ERC2535Module from "./ERC2535";
@@ -60,6 +61,11 @@ export default buildModule("Router", (m) => {
       facetAddress: facets.MigrateFacet,
       action: 0,
       functionSelectors: getAllSignatures(MigrateFacet__factory.createInterface()),
+    },
+    {
+      facetAddress: facets.FxUSDBasePoolFacet,
+      action: 0,
+      functionSelectors: getAllSignatures(FxUSDBasePoolFacet__factory.createInterface()),
     },
   ];
 

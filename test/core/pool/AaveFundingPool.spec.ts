@@ -18,9 +18,9 @@ import {
   PoolManager__factory,
   ProxyAdmin,
   ReservePool,
-  FxSaveRewarder,
-  FxUSDSave,
-  FxUSDSave__factory,
+  FxUSDBasePool,
+  FxUSDBasePool__factory,
+  GaugeRewarder,
 } from "@/types/index";
 import { encodeChainlinkPriceFeed } from "@/utils/index";
 import { mockETHBalance, unlockAccounts } from "@/test/utils";
@@ -37,8 +37,8 @@ describe("AaveFundingPool.spec", async () => {
   let pegKeeper: PegKeeper;
   let poolManager: PoolManager;
   let reservePool: ReservePool;
-  let fxSAVE: FxUSDSave;
-  let fxSAVERewarder: FxSaveRewarder;
+  let fxBASE: FxUSDBasePool;
+  let fxBASERewarder: GaugeRewarder;
 
   let mockAggregatorV3Interface: MockAggregatorV3Interface;
   let mockCurveStableSwapNG: MockCurveStableSwapNG;
@@ -71,9 +71,9 @@ describe("AaveFundingPool.spec", async () => {
     const FxUSDRegeneracy = await ethers.getContractFactory("FxUSDRegeneracy", deployer);
     const PegKeeper = await ethers.getContractFactory("PegKeeper", deployer);
     const PoolManager = await ethers.getContractFactory("PoolManager", deployer);
-    const FxUSDSave = await ethers.getContractFactory("FxUSDSave", deployer);
+    const FxUSDBasePool = await ethers.getContractFactory("FxUSDBasePool", deployer);
     const ReservePool = await ethers.getContractFactory("ReservePool", deployer);
-    const FxSaveRewarder = await ethers.getContractFactory("FxSaveRewarder", deployer);
+    const GaugeRewarder = await ethers.getContractFactory("GaugeRewarder", deployer);
     const MultiPathConverter = await ethers.getContractFactory("MultiPathConverter", deployer);
 
     const empty = await EmptyContract.deploy();
@@ -93,7 +93,11 @@ describe("AaveFundingPool.spec", async () => {
       proxyAdmin.getAddress(),
       "0x"
     );
-    const FxUSDSaveProxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), proxyAdmin.getAddress(), "0x");
+    const FxUSDBasePoolProxy = await TransparentUpgradeableProxy.deploy(
+      empty.getAddress(),
+      proxyAdmin.getAddress(),
+      "0x"
+    );
 
     // deploy ReservePool
     reservePool = await ReservePool.deploy(admin.address, PoolManagerProxy.getAddress());
@@ -101,7 +105,7 @@ describe("AaveFundingPool.spec", async () => {
     // deploy PoolManager
     const PoolManagerImpl = await PoolManager.deploy(
       FxUSDRegeneracyProxy.getAddress(),
-      FxUSDSaveProxy.getAddress(),
+      FxUSDBasePoolProxy.getAddress(),
       PegKeeperProxy.getAddress()
     );
     await proxyAdmin.upgradeAndCall(
@@ -129,8 +133,8 @@ describe("AaveFundingPool.spec", async () => {
     await fxUSD.initialize("f(x) USD", "fxUSD");
     await fxUSD.initializeV2();
 
-    // deploy FxUSDSave
-    const FxUSDSaveImpl = await FxUSDSave.deploy(
+    // deploy FxUSDBasePool
+    const FxUSDBasePoolImpl = await FxUSDBasePool.deploy(
       PoolManagerProxy.getAddress(),
       PegKeeperProxy.getAddress(),
       FxUSDRegeneracyProxy.getAddress(),
@@ -138,19 +142,19 @@ describe("AaveFundingPool.spec", async () => {
       encodeChainlinkPriceFeed(await mockAggregatorV3Interface.getAddress(), 10n ** 10n, 1000000000)
     );
     await proxyAdmin.upgradeAndCall(
-      FxUSDSaveProxy.getAddress(),
-      FxUSDSaveImpl.getAddress(),
-      FxUSDSave__factory.createInterface().encodeFunctionData("initialize", [
+      FxUSDBasePoolProxy.getAddress(),
+      FxUSDBasePoolImpl.getAddress(),
+      FxUSDBasePool__factory.createInterface().encodeFunctionData("initialize", [
         admin.address,
-        "Staked f(x) USD",
-        "fxSAVE",
+        "fxUSD Base Pool Token",
+        "fxUSDBase",
         ethers.parseEther("0.995"),
       ])
     );
-    fxSAVE = await ethers.getContractAt("FxUSDSave", await FxUSDSaveProxy.getAddress(), admin);
+    fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), admin);
 
     // deploy PegKeeper
-    const PegKeeperImpl = await PegKeeper.deploy(fxSAVE.getAddress());
+    const PegKeeperImpl = await PegKeeper.deploy(fxBASE.getAddress());
     await proxyAdmin.upgradeAndCall(
       PegKeeperProxy.getAddress(),
       PegKeeperImpl.getAddress(),
@@ -179,11 +183,10 @@ describe("AaveFundingPool.spec", async () => {
     await pool.updateRebalanceRatios(ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9));
     await pool.updateLiquidateRatios(ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9));
 
-    fxSAVERewarder = await FxSaveRewarder.deploy(fxSAVE.getAddress());
-    await fxSAVE.grantRole(await fxSAVE.REWARD_DEPOSITOR_ROLE(), fxSAVERewarder.getAddress());
+    fxBASERewarder = await GaugeRewarder.deploy(fxBASE.getAddress());
     await poolManager.registerPool(
       pool.getAddress(),
-      fxSAVERewarder.getAddress(),
+      fxBASERewarder.getAddress(),
       ethers.parseEther("10000"),
       ethers.parseEther("10000000")
     );

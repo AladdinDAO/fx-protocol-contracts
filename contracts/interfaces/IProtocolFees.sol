@@ -52,10 +52,10 @@ interface IProtocolFees {
   /// @notice Return the fee ratio distributed as protocol revenue in general rewards, multiplied by 1e9.
   function getRewardsExpenseRatio() external view returns (uint256);
 
-  /// @notice Return the fee ratio distributed to fxSAVE in funding costs, multiplied by 1e9.
+  /// @notice Return the fee ratio distributed to fxBASE in funding costs, multiplied by 1e9.
   function getFundingFxSaveRatio() external view returns (uint256);
 
-  /// @notice Return the fee ratio distributed to fxSAVE in general rewards, multiplied by 1e9.
+  /// @notice Return the fee ratio distributed to fxBASE in general rewards, multiplied by 1e9.
   function getRewardsFxSaveRatio() external view returns (uint256);
 
   /// @notice Return the fee ratio distributed ad harvester bounty, multiplied by 1e9.

@@ -12,7 +12,7 @@ export default buildModule("WstETHPool", (m) => {
   const { fx: ProxyAdmin } = m.useModule(ProxyAdminModule);
   const { AaveFundingPoolImplementation } = m.useModule(AaveFundingPoolModule);
   const { StETHPriceOracle } = m.useModule(PriceOracleModule);
-  const { PoolManagerProxy, FxSaveRewarder } = m.useModule(FxProtocolModule);
+  const { PoolManagerProxy, GaugeRewarder } = m.useModule(FxProtocolModule);
 
   // deploy WstETHPool proxy
   const WstETHPoolInitializer = m.encodeFunctionCall(AaveFundingPoolImplementation, "initialize", [
@@ -40,7 +40,7 @@ export default buildModule("WstETHPool", (m) => {
   // register to PoolManagerProxy
   m.call(PoolManagerProxy, "registerPool", [
     WstETHPoolProxy,
-    FxSaveRewarder,
+    GaugeRewarder,
     m.getParameter("CollateralCapacity"),
     m.getParameter("DebtCapacity"),
   ]);

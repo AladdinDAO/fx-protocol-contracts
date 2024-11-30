@@ -96,7 +96,7 @@ interface IPoolManager {
   function fxUSD() external view returns (address);
 
   /// @notice The address of FxUSDSave.
-  function fxSAVE() external view returns (address);
+  function fxBASE() external view returns (address);
 
   /// @notice The address of `PegKeeper`.
   function pegKeeper() external view returns (address);

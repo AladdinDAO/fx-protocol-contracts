@@ -115,6 +115,7 @@ contract PositionOperateFlashLoanFacet {
 
   /// @notice Close a position or remove collateral from position.
   /// @param params The parameters to convert collateral token to target token.
+  /// @param positionId The index of position.
   /// @param pool The address of fx position pool.
   /// @param borrowAmount The amount of collateral token to borrow.
   /// @param data Hook data passing to `onCloseOrRemovePositionFlashLoan`.
@@ -211,11 +212,11 @@ contract PositionOperateFlashLoanFacet {
     (, uint256 maxFxUSD) = IPool(pool).getPosition(position);
     if (fxUSDAmount >= maxFxUSD) {
       // close entire position
-      IPoolManager(poolManager).operate(pool, position, -int256(amount), type(int256).min);
+      IPoolManager(poolManager).operate(pool, position, type(int256).min, type(int256).min);
     } else {
       IPoolManager(poolManager).operate(pool, position, -int256(amount), -int256(fxUSDAmount));
+      _checkPositionDebtRatio(pool, position, miscData);
     }
-    _checkPositionDebtRatio(pool, position, miscData);
     IERC721(pool).transferFrom(address(this), recipient, position);
   }
 
@@ -237,6 +238,8 @@ contract PositionOperateFlashLoanFacet {
     uint256 encoding,
     uint256[] memory routes
   ) internal returns (uint256 amountOut) {
+    if (amountIn == 0) return 0;
+
     LibRouter.approve(token, converter, amountIn);
     amountOut = IMultiPathConverter(converter).convert(token, amountIn, encoding, routes);
     if (amountOut < minOut) revert ErrorInsufficientAmountSwapped();

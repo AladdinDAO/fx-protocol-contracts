@@ -12,7 +12,7 @@ import { IPool } from "../interfaces/IPool.sol";
 import { IPoolManager } from "../interfaces/IPoolManager.sol";
 import { IReservePool } from "../interfaces/IReservePool.sol";
 import { IRewardSplitter } from "../interfaces/IRewardSplitter.sol";
-import { IFxUSDSave } from "../interfaces/IFxUSDSave.sol";
+import { IFxUSDBasePool } from "../interfaces/IFxUSDBasePool.sol";
 import { IRateProvider } from "../rate-provider/interfaces/IRateProvider.sol";
 
 import { WordCodec } from "../common/codec/WordCodec.sol";
@@ -60,7 +60,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
   address public immutable fxUSD;
 
   /// @inheritdoc IPoolManager
-  address public immutable fxSAVE;
+  address public immutable fxBASE;
 
   /// @inheritdoc IPoolManager
   address public immutable pegKeeper;
@@ -137,7 +137,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
   }
 
   modifier onlyFxUSDSave() {
-    if (_msgSender() != fxSAVE) revert ErrorCallerNotFxUSDSave();
+    if (_msgSender() != fxBASE) revert ErrorCallerNotFxUSDSave();
     _;
   }
 
@@ -145,9 +145,9 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
    * Constructor *
    ***************/
 
-  constructor(address _fxUSD, address _fxSAVE, address _pegKeeper) {
+  constructor(address _fxUSD, address _fxBASE, address _pegKeeper) {
     fxUSD = _fxUSD;
-    fxSAVE = _fxSAVE;
+    fxBASE = _fxBASE;
     pegKeeper = _pegKeeper;
   }
 
@@ -410,7 +410,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     if (harvestBounty > 0) {
       IERC20(collateralToken).safeTransfer(_msgSender(), harvestBounty);
     }
-    // transfer rewards for fxSAVE
+    // transfer rewards for fxBASE
     if (pendingRewards > 0) {
       address splitter = rewardSplitter[pool];
       IERC20(collateralToken).safeTransfer(splitter, pendingRewards);
@@ -523,7 +523,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
   /// @dev Internal function to prepare variables before rebalance or liquidate.
   /// @param pool The address of pool to liquidate or rebalance.
   function _beforeRebalanceOrLiquidate(address pool) internal view returns (LiquidateOrRebalanceMemoryVar memory op) {
-    op.stablePrice = IFxUSDSave(fxSAVE).getStableTokenPriceWithScale();
+    op.stablePrice = IFxUSDBasePool(fxBASE).getStableTokenPriceWithScale();
     op.collateralToken = IPool(pool).collateralToken();
     op.scalingFactor = _getTokenScalingFactor(op.collateralToken);
   }
@@ -556,7 +556,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
       IFxUSDRegeneracy(fxUSD).burn(_msgSender(), fxUSDUsed);
     }
     if (stableUsed > 0) {
-      IERC20(IFxUSDSave(fxSAVE).stableToken()).safeTransferFrom(_msgSender(), fxUSD, stableUsed);
+      IERC20(IFxUSDBasePool(fxBASE).stableToken()).safeTransferFrom(_msgSender(), fxUSD, stableUsed);
       IFxUSDRegeneracy(fxUSD).onRebalanceWithStable(stableUsed, op.rawDebts - maxFxUSD);
     }
 

@@ -20,7 +20,7 @@ import {
   PoolManager__factory,
   ProxyAdmin,
   ReservePool,
-  FxSaveRewarder,
+  GaugeRewarder,
 } from "@/types/index";
 import { encodeChainlinkPriceFeed } from "@/utils/index";
 
@@ -38,8 +38,8 @@ describe("PoolManager.spec", async () => {
   let pegKeeper: PegKeeper;
   let poolManager: PoolManager;
   let reservePool: ReservePool;
-  let fxSAVE: MockFxUSDSave;
-  let fxSAVERewarder: FxSaveRewarder;
+  let fxBASE: MockFxUSDSave;
+  let rewarder: GaugeRewarder;
 
   let mockAggregatorV3Interface: MockAggregatorV3Interface;
   let mockCurveStableSwapNG: MockCurveStableSwapNG;
@@ -81,7 +81,7 @@ describe("PoolManager.spec", async () => {
         const PoolManager = await ethers.getContractFactory("PoolManager", deployer);
         const MockFxUSDSave = await ethers.getContractFactory("MockFxUSDSave", deployer);
         const ReservePool = await ethers.getContractFactory("ReservePool", deployer);
-        const FxSaveRewarder = await ethers.getContractFactory("FxSaveRewarder", deployer);
+        const GaugeRewarder = await ethers.getContractFactory("GaugeRewarder", deployer);
         const MultiPathConverter = await ethers.getContractFactory("MultiPathConverter", deployer);
 
         const empty = await EmptyContract.deploy();
@@ -154,10 +154,10 @@ describe("PoolManager.spec", async () => {
           encodeChainlinkPriceFeed(await mockAggregatorV3Interface.getAddress(), 10n ** 10n, 1000000000)
         );
         await proxyAdmin.upgrade(FxUSDSaveProxy.getAddress(), FxUSDSaveImpl.getAddress());
-        fxSAVE = await ethers.getContractAt("MockFxUSDSave", await FxUSDSaveProxy.getAddress(), admin);
+        fxBASE = await ethers.getContractAt("MockFxUSDSave", await FxUSDSaveProxy.getAddress(), admin);
 
         // deploy PegKeeper
-        const PegKeeperImpl = await PegKeeper.deploy(fxSAVE.getAddress());
+        const PegKeeperImpl = await PegKeeper.deploy(fxBASE.getAddress());
         await proxyAdmin.upgradeAndCall(
           PegKeeperProxy.getAddress(),
           PegKeeperImpl.getAddress(),
@@ -186,10 +186,10 @@ describe("PoolManager.spec", async () => {
         await pool.updateRebalanceRatios(ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9));
         await pool.updateLiquidateRatios(ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9));
 
-        fxSAVERewarder = await FxSaveRewarder.deploy(fxSAVE.getAddress());
+        rewarder = await GaugeRewarder.deploy(fxBASE.getAddress());
         await poolManager.registerPool(
           pool.getAddress(),
-          fxSAVERewarder.getAddress(),
+          rewarder.getAddress(),
           ethers.parseUnits("10000", tokenDecimals),
           ethers.parseEther("10000000")
         );
@@ -202,7 +202,7 @@ describe("PoolManager.spec", async () => {
       context("constructor", async () => {
         it("should initialize correctly", async () => {
           expect(await poolManager.fxUSD()).to.eq(await fxUSD.getAddress());
-          expect(await poolManager.fxSAVE()).to.eq(await fxSAVE.getAddress());
+          expect(await poolManager.fxBASE()).to.eq(await fxBASE.getAddress());
           expect(await poolManager.pegKeeper()).to.eq(await pegKeeper.getAddress());
 
           expect(await poolManager.platform()).to.eq(platform.address);
@@ -400,20 +400,20 @@ describe("PoolManager.spec", async () => {
             );
 
             await expect(
-              poolManager.connect(admin).registerPool(newPool.getAddress(), fxSAVERewarder.getAddress(), 1n, 2n)
+              poolManager.connect(admin).registerPool(newPool.getAddress(), rewarder.getAddress(), 1n, 2n)
             )
               .to.emit(poolManager, "RegisterPool")
               .withArgs(await newPool.getAddress())
               .to.emit(poolManager, "UpdatePoolCapacity")
               .withArgs(await newPool.getAddress(), 1n, 2n)
               .to.emit(poolManager, "UpdateRewardSplitter")
-              .withArgs(await newPool.getAddress(), ZeroAddress, await fxSAVERewarder.getAddress());
+              .withArgs(await newPool.getAddress(), ZeroAddress, await rewarder.getAddress());
             expect(await poolManager.getPoolInfo(await newPool.getAddress())).to.deep.eq([1n, 0n, 2n, 0n]);
           });
 
           it("should succeed when register again", async () => {
             await expect(
-              poolManager.connect(admin).registerPool(pool.getAddress(), fxSAVERewarder.getAddress(), 1n, 2n)
+              poolManager.connect(admin).registerPool(pool.getAddress(), rewarder.getAddress(), 1n, 2n)
             )
               .to.not.emit(poolManager, "RegisterPool")
               .to.not.emit(poolManager, "UpdatePoolCapacity")
@@ -483,14 +483,14 @@ describe("PoolManager.spec", async () => {
           it("should succeed", async () => {
             await expect(poolManager.connect(admin).updateRewardSplitter(pool.getAddress(), ZeroAddress))
               .to.emit(poolManager, "UpdateRewardSplitter")
-              .withArgs(await pool.getAddress(), await fxSAVERewarder.getAddress(), ZeroAddress);
+              .withArgs(await pool.getAddress(), await rewarder.getAddress(), ZeroAddress);
             expect(await poolManager.rewardSplitter(pool.getAddress())).to.eq(ZeroAddress);
             await expect(
-              poolManager.connect(admin).updateRewardSplitter(pool.getAddress(), fxSAVERewarder.getAddress())
+              poolManager.connect(admin).updateRewardSplitter(pool.getAddress(), rewarder.getAddress())
             )
               .to.emit(poolManager, "UpdateRewardSplitter")
-              .withArgs(await pool.getAddress(), ZeroAddress, await fxSAVERewarder.getAddress());
-            expect(await poolManager.rewardSplitter(pool.getAddress())).to.eq(await fxSAVERewarder.getAddress());
+              .withArgs(await pool.getAddress(), ZeroAddress, await rewarder.getAddress());
+            expect(await poolManager.rewardSplitter(pool.getAddress())).to.eq(await rewarder.getAddress());
           });
         });
 
@@ -807,20 +807,20 @@ describe("PoolManager.spec", async () => {
           );
 
           // rebalance to 0.88
-          await fxUSD.connect(deployer).transfer(fxSAVE.getAddress(), await fxUSD.balanceOf(deployer.address));
-          const result = await fxSAVE["rebalance(address,int16,uint256,uint256)"].staticCall(
+          await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), await fxUSD.balanceOf(deployer.address));
+          const result = await fxBASE["rebalance(address,int16,uint256,uint256)"].staticCall(
             pool.getAddress(),
             4997,
             MaxUint256,
             0n
           );
-          const fxusdBefore = await fxUSD.balanceOf(fxSAVE.getAddress());
+          const fxusdBefore = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const [, poolCollateralBefore, , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxSAVE
+          await fxBASE
             .connect(deployer)
             ["rebalance(address,int16,uint256,uint256)"](pool.getAddress(), 4997, MaxUint256, 0n);
-          const fxusdAfter = await fxUSD.balanceOf(fxSAVE.getAddress());
+          const fxusdAfter = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const [, poolCollateralAfter, , poolDebtAfter] = await poolManager.getPoolInfo(pool.getAddress());
           expect(fxusdBefore - fxusdAfter).to.eq(result.yieldTokenUsed);
@@ -846,20 +846,20 @@ describe("PoolManager.spec", async () => {
           );
 
           // rebalance to 0.88
-          await stableToken.mint(fxSAVE.getAddress(), ethers.parseEther("1000000"));
-          const result = await fxSAVE["rebalance(address,int16,uint256,uint256)"].staticCall(
+          await stableToken.mint(fxBASE.getAddress(), ethers.parseEther("1000000"));
+          const result = await fxBASE["rebalance(address,int16,uint256,uint256)"].staticCall(
             pool.getAddress(),
             4997,
             0n,
             ethers.parseEther("1000000")
           );
-          const stableBefore = await stableToken.balanceOf(fxSAVE.getAddress());
+          const stableBefore = await stableToken.balanceOf(fxBASE.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const [, poolCollateralBefore, , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxSAVE
+          await fxBASE
             .connect(deployer)
             ["rebalance(address,int16,uint256,uint256)"](pool.getAddress(), 4997, 0n, ethers.parseEther("1000000"));
-          const stableAfter = await stableToken.balanceOf(fxSAVE.getAddress());
+          const stableAfter = await stableToken.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const [, poolCollateralAfter, , poolDebtAfter] = await poolManager.getPoolInfo(pool.getAddress());
           expect(stableBefore - stableAfter).to.eq(result.stableTokenUsed);
@@ -885,18 +885,18 @@ describe("PoolManager.spec", async () => {
           );
 
           // rebalance to 0.88
-          await fxUSD.connect(deployer).transfer(fxSAVE.getAddress(), await fxUSD.balanceOf(deployer.address));
-          await stableToken.mint(fxSAVE.getAddress(), ethers.parseEther("1000000"));
-          const result = await fxSAVE["rebalance(address,int16,uint256,uint256)"].staticCall(
+          await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), await fxUSD.balanceOf(deployer.address));
+          await stableToken.mint(fxBASE.getAddress(), ethers.parseEther("1000000"));
+          const result = await fxBASE["rebalance(address,int16,uint256,uint256)"].staticCall(
             pool.getAddress(),
             4997,
             ethers.parseEther("2000"),
             ethers.parseEther("1000000")
           );
-          const stableBefore = await stableToken.balanceOf(fxSAVE.getAddress());
+          const stableBefore = await stableToken.balanceOf(fxBASE.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const [, poolCollateralBefore, , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxSAVE
+          await fxBASE
             .connect(deployer)
             ["rebalance(address,int16,uint256,uint256)"](
               pool.getAddress(),
@@ -904,7 +904,7 @@ describe("PoolManager.spec", async () => {
               ethers.parseEther("2000"),
               ethers.parseEther("1000000")
             );
-          const stableAfter = await stableToken.balanceOf(fxSAVE.getAddress());
+          const stableAfter = await stableToken.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const [, poolCollateralAfter, , poolDebtAfter] = await poolManager.getPoolInfo(pool.getAddress());
           expect(stableBefore - stableAfter).to.eq(result.stableTokenUsed);
@@ -970,20 +970,20 @@ describe("PoolManager.spec", async () => {
           );
 
           // rebalance to 0.88
-          await fxUSD.connect(deployer).transfer(fxSAVE.getAddress(), await fxUSD.balanceOf(deployer.address));
-          const result = await fxSAVE["rebalance(address,uint32,uint256,uint256)"].staticCall(
+          await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), await fxUSD.balanceOf(deployer.address));
+          const result = await fxBASE["rebalance(address,uint32,uint256,uint256)"].staticCall(
             pool.getAddress(),
             1,
             MaxUint256,
             0n
           );
-          const fxusdBefore = await fxUSD.balanceOf(fxSAVE.getAddress());
+          const fxusdBefore = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const [, poolCollateralBefore, , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxSAVE
+          await fxBASE
             .connect(deployer)
             ["rebalance(address,uint32,uint256,uint256)"](pool.getAddress(), 1, MaxUint256, 0n);
-          const fxusdAfter = await fxUSD.balanceOf(fxSAVE.getAddress());
+          const fxusdAfter = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const [, poolCollateralAfter, , poolDebtAfter] = await poolManager.getPoolInfo(pool.getAddress());
           expect(fxusdBefore - fxusdAfter).to.eq(result.yieldTokenUsed);
@@ -1009,20 +1009,20 @@ describe("PoolManager.spec", async () => {
           );
 
           // rebalance to 0.88
-          await stableToken.mint(fxSAVE.getAddress(), ethers.parseEther("1000000"));
-          const result = await fxSAVE["rebalance(address,uint32,uint256,uint256)"].staticCall(
+          await stableToken.mint(fxBASE.getAddress(), ethers.parseEther("1000000"));
+          const result = await fxBASE["rebalance(address,uint32,uint256,uint256)"].staticCall(
             pool.getAddress(),
             1,
             0n,
             ethers.parseEther("1000000")
           );
-          const stableBefore = await stableToken.balanceOf(fxSAVE.getAddress());
+          const stableBefore = await stableToken.balanceOf(fxBASE.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const [, poolCollateralBefore, , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxSAVE
+          await fxBASE
             .connect(deployer)
             ["rebalance(address,uint32,uint256,uint256)"](pool.getAddress(), 1, 0n, ethers.parseEther("1000000"));
-          const stableAfter = await stableToken.balanceOf(fxSAVE.getAddress());
+          const stableAfter = await stableToken.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const [, poolCollateralAfter, , poolDebtAfter] = await poolManager.getPoolInfo(pool.getAddress());
           expect(stableBefore - stableAfter).to.eq(result.stableTokenUsed);
@@ -1048,18 +1048,18 @@ describe("PoolManager.spec", async () => {
           );
 
           // rebalance to 0.88
-          await fxUSD.connect(deployer).transfer(fxSAVE.getAddress(), await fxUSD.balanceOf(deployer.address));
-          await stableToken.mint(fxSAVE.getAddress(), ethers.parseEther("1000000"));
-          const result = await fxSAVE["rebalance(address,uint32,uint256,uint256)"].staticCall(
+          await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), await fxUSD.balanceOf(deployer.address));
+          await stableToken.mint(fxBASE.getAddress(), ethers.parseEther("1000000"));
+          const result = await fxBASE["rebalance(address,uint32,uint256,uint256)"].staticCall(
             pool.getAddress(),
             1,
             ethers.parseEther("20"),
             ethers.parseEther("1000000")
           );
-          const stableBefore = await stableToken.balanceOf(fxSAVE.getAddress());
+          const stableBefore = await stableToken.balanceOf(fxBASE.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const [, poolCollateralBefore, , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxSAVE
+          await fxBASE
             .connect(deployer)
             ["rebalance(address,uint32,uint256,uint256)"](
               pool.getAddress(),
@@ -1067,7 +1067,7 @@ describe("PoolManager.spec", async () => {
               ethers.parseEther("20"),
               ethers.parseEther("1000000")
             );
-          const stableAfter = await stableToken.balanceOf(fxSAVE.getAddress());
+          const stableAfter = await stableToken.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const [, poolCollateralAfter, , poolDebtAfter] = await poolManager.getPoolInfo(pool.getAddress());
           expect(stableBefore - stableAfter).to.eq(result.stableTokenUsed);
@@ -1128,14 +1128,14 @@ describe("PoolManager.spec", async () => {
           );
 
           // liquidate position 1
-          await fxUSD.connect(deployer).transfer(fxSAVE.getAddress(), await fxUSD.balanceOf(deployer.address));
-          const result = await fxSAVE.liquidate.staticCall(pool.getAddress(), 1, MaxUint256, 0n);
+          await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), await fxUSD.balanceOf(deployer.address));
+          const result = await fxBASE.liquidate.staticCall(pool.getAddress(), 1, MaxUint256, 0n);
 
-          const fxusdBefore = await fxUSD.balanceOf(fxSAVE.getAddress());
+          const fxusdBefore = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const [, poolCollateralBefore, , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxSAVE.connect(deployer).liquidate(pool.getAddress(), 1, MaxUint256, 0n);
-          const fxusdAfter = await fxUSD.balanceOf(fxSAVE.getAddress());
+          await fxBASE.connect(deployer).liquidate(pool.getAddress(), 1, MaxUint256, 0n);
+          const fxusdAfter = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const [, poolCollateralAfter, , poolDebtAfter] = await poolManager.getPoolInfo(pool.getAddress());
           expect(fxusdBefore - fxusdAfter).to.eq(result.yieldTokenUsed);
@@ -1161,16 +1161,16 @@ describe("PoolManager.spec", async () => {
           );
 
           // liquidate position 1
-          await fxUSD.connect(deployer).transfer(fxSAVE.getAddress(), await fxUSD.balanceOf(deployer.address));
+          await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), await fxUSD.balanceOf(deployer.address));
           await collateralToken.mint(reservePool.getAddress(), ethers.parseEther("1") / TokenScale);
-          const result = await fxSAVE.liquidate.staticCall(pool.getAddress(), 1, MaxUint256, 0n);
+          const result = await fxBASE.liquidate.staticCall(pool.getAddress(), 1, MaxUint256, 0n);
 
-          const fxusdBefore = await fxUSD.balanceOf(fxSAVE.getAddress());
+          const fxusdBefore = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const reservePoolBefore = await collateralToken.balanceOf(reservePool.getAddress());
           const [, poolCollateralBefore, , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxSAVE.connect(deployer).liquidate(pool.getAddress(), 1, MaxUint256, 0n);
-          const fxusdAfter = await fxUSD.balanceOf(fxSAVE.getAddress());
+          await fxBASE.connect(deployer).liquidate(pool.getAddress(), 1, MaxUint256, 0n);
+          const fxusdAfter = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const reservePoolAfter = await collateralToken.balanceOf(reservePool.getAddress());
           const [, poolCollateralAfter, , poolDebtAfter] = await poolManager.getPoolInfo(pool.getAddress());
@@ -1198,16 +1198,16 @@ describe("PoolManager.spec", async () => {
           );
 
           // liquidate position 1
-          await fxUSD.connect(deployer).transfer(fxSAVE.getAddress(), await fxUSD.balanceOf(deployer.address));
+          await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), await fxUSD.balanceOf(deployer.address));
           await collateralToken.mint(reservePool.getAddress(), ethers.parseEther("0.001") / TokenScale);
-          const result = await fxSAVE.liquidate.staticCall(pool.getAddress(), 1, MaxUint256, 0n);
+          const result = await fxBASE.liquidate.staticCall(pool.getAddress(), 1, MaxUint256, 0n);
 
-          const fxusdBefore = await fxUSD.balanceOf(fxSAVE.getAddress());
+          const fxusdBefore = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const reservePoolBefore = await collateralToken.balanceOf(reservePool.getAddress());
           const [, poolCollateralBefore, , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxSAVE.connect(deployer).liquidate(pool.getAddress(), 1, MaxUint256, 0n);
-          const fxusdAfter = await fxUSD.balanceOf(fxSAVE.getAddress());
+          await fxBASE.connect(deployer).liquidate(pool.getAddress(), 1, MaxUint256, 0n);
+          const fxusdAfter = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const reservePoolAfter = await collateralToken.balanceOf(reservePool.getAddress());
           const [, poolCollateralAfter, , poolDebtAfter] = await poolManager.getPoolInfo(pool.getAddress());
@@ -1248,12 +1248,12 @@ describe("PoolManager.spec", async () => {
           expect(await poolManager.accumulatedPoolFees(pool.getAddress())).to.eq(0n);
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const platformBefore = await collateralToken.balanceOf(platform.getAddress());
-          const splitterBefore = await collateralToken.balanceOf(fxSAVERewarder.getAddress());
+          const splitterBefore = await collateralToken.balanceOf(rewarder.getAddress());
           const [, poolCollateralBefore, , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
           await poolManager.connect(deployer).harvest(pool.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const platformAfter = await collateralToken.balanceOf(platform.getAddress());
-          const splitterAfter = await collateralToken.balanceOf(fxSAVERewarder.getAddress());
+          const splitterAfter = await collateralToken.balanceOf(rewarder.getAddress());
           const [, poolCollateralAfter, , poolDebtAfter] = await poolManager.getPoolInfo(pool.getAddress());
           expect(await poolManager.accumulatedPoolFees(pool.getAddress())).to.eq(0n);
           expect(poolDebtBefore).to.eq(poolDebtAfter);

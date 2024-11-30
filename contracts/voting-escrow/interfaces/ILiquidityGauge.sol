@@ -93,6 +93,11 @@ interface ILiquidityGauge {
    * Public Mutated Functions *
    ****************************/
 
+  /// @notice Initialize the state of LiquidityGauge.
+  ///
+  /// @param _stakingToken The address of staking token.
+  function initialize(address _stakingToken) external;
+
   /// @notice Deposit some staking token to this contract.
   ///
   /// @dev Use `amount = type(uint256).max`, if caller wants to deposit all held staking tokens.
