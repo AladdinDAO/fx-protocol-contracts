@@ -1,14 +1,12 @@
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { expect } from "chai";
 import { ethers } from "hardhat";
 
 import {
   AaveFundingPool,
   Diamond,
   FxUSDRegeneracy,
-  FxUSDSave,
-  FxUSDSave__factory,
-  MarketV2,
+  FxUSDBasePool,
+  FxUSDBasePool__factory,
   MockERC20,
   MultiPathConverter,
   PegKeeper,
@@ -17,7 +15,7 @@ import {
   PoolManager__factory,
   ProxyAdmin,
   ReservePool,
-  FxSaveRewarder,
+  GaugeRewarder,
   StETHPriceOracle,
   DiamondCutFacet__factory,
   DiamondLoupeFacet__factory,
@@ -73,8 +71,8 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
   let pegKeeper: PegKeeper;
   let poolManager: PoolManager;
   let reservePool: ReservePool;
-  let fxBASE: FxUSDSave;
-  let rewarder: FxSaveRewarder;
+  let fxBASE: FxUSDBasePool;
+  let rewarder: GaugeRewarder;
   let pool: AaveFundingPool;
 
   let converter: MultiPathConverter;
@@ -114,9 +112,9 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
     const FxUSDRegeneracy = await ethers.getContractFactory("FxUSDRegeneracy", deployer);
     const PegKeeper = await ethers.getContractFactory("PegKeeper", deployer);
     const PoolManager = await ethers.getContractFactory("PoolManager", deployer);
-    const FxUSDSave = await ethers.getContractFactory("FxUSDSave", deployer);
+    const FxUSDBasePool = await ethers.getContractFactory("FxUSDBasePool", deployer);
     const ReservePool = await ethers.getContractFactory("ReservePool", deployer);
-    const FxSaveRewarder = await ethers.getContractFactory("FxSaveRewarder", deployer);
+    const GaugeRewarder = await ethers.getContractFactory("GaugeRewarder", deployer);
     const MultiPathConverter = await ethers.getContractFactory("MultiPathConverter", deployer);
 
     const empty = await EmptyContract.deploy();
@@ -128,7 +126,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       proxyAdmin.getAddress(),
       "0x"
     );
-    const FxUSDSaveProxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), proxyAdmin.getAddress(), "0x");
+    const FxUSDBasePoolProxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), proxyAdmin.getAddress(), "0x");
 
     // deploy ReservePool
     reservePool = await ReservePool.deploy(owner.address, PoolManagerProxy.getAddress());
@@ -136,7 +134,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
     // deploy PoolManager
     const PoolManagerImpl = await PoolManager.deploy(
       fxUSD.getAddress(),
-      FxUSDSaveProxy.getAddress(),
+      FxUSDBasePoolProxy.getAddress(),
       PegKeeperProxy.getAddress()
     );
     await proxyAdmin.upgradeAndCall(
@@ -162,8 +160,8 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
     await proxyAdmin.upgrade(fxUSD.getAddress(), FxUSDRegeneracyImpl.getAddress());
     await fxUSD.initializeV2();
 
-    // deploy FxUSDSave
-    const FxUSDSaveImpl = await FxUSDSave.deploy(
+    // deploy FxUSDBasePool
+    const FxUSDBasePoolImpl = await FxUSDBasePool.deploy(
       PoolManagerProxy.getAddress(),
       PegKeeperProxy.getAddress(),
       fxUSD.getAddress(),
@@ -175,16 +173,16 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       )
     );
     await proxyAdmin.upgradeAndCall(
-      FxUSDSaveProxy.getAddress(),
-      FxUSDSaveImpl.getAddress(),
-      FxUSDSave__factory.createInterface().encodeFunctionData("initialize", [
+      FxUSDBasePoolProxy.getAddress(),
+      FxUSDBasePoolImpl.getAddress(),
+      FxUSDBasePool__factory.createInterface().encodeFunctionData("initialize", [
         owner.address,
         "fxUSD Save",
         "fxBASE",
         ethers.parseEther("0.95"),
       ])
     );
-    fxBASE = await ethers.getContractAt("FxUSDSave", await FxUSDSaveProxy.getAddress(), owner);
+    fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), owner);
 
     // deploy PegKeeper
     const PegKeeperImpl = await PegKeeper.deploy(fxBASE.getAddress());
@@ -211,8 +209,8 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
     await pool.updateRebalanceRatios(ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9));
     await pool.updateLiquidateRatios(ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9));
 
-    // FxSaveRewarder
-    rewarder = await FxSaveRewarder.deploy(fxBASE.getAddress());
+    // GaugeRewarder
+    rewarder = await GaugeRewarder.deploy(fxBASE.getAddress());
 
     // deploy Facets and Diamond
     {
@@ -284,7 +282,6 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
     }
 
     // initialization
-    await fxBASE.connect(owner).grantRole(await fxBASE.REWARD_DEPOSITOR_ROLE(), rewarder.getAddress());
     await poolManager
       .connect(owner)
       .registerPool(

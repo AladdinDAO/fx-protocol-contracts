@@ -63,6 +63,7 @@ export const MULTI_PATH_CONVERTER_ROUTES: {
   };
 } = {
   USDC: {
+    WETH: encodeMultiPath([SWAP_PATH["USDC/WETH-UniV3500"]], [100n]),
     fxUSD: encodeMultiPath([SWAP_PATH["USDC/fxUSD-CrvSN193"]], [100n]),
     wstETH: encodeMultiPath(
       [[SWAP_PATH["USDC/WETH-UniV3500"], SWAP_PATH["WETH/stETH-Lido"], SWAP_PATH["stETH/wstETH-Lido"]]],
@@ -70,6 +71,7 @@ export const MULTI_PATH_CONVERTER_ROUTES: {
     ),
   },
   WETH: {
+    USDC: encodeMultiPath([SWAP_PATH["WETH/USDC-UniV3500"]], [100n]),
     wstETH: encodeMultiPath(
       [[SWAP_PATH["WETH/stETH-Lido"], SWAP_PATH["stETH/wstETH-Lido"]]],
       [100n]
@@ -77,6 +79,7 @@ export const MULTI_PATH_CONVERTER_ROUTES: {
   },
   fxUSD: {
     USDC: encodeMultiPath([SWAP_PATH["fxUSD/USDC-CrvSN193"]], [100n]),
+    WETH: encodeMultiPath([[SWAP_PATH["fxUSD/USDC-CrvSN193"], SWAP_PATH["USDC/WETH-UniV3500"]]], [100n]),
     wstETH: encodeMultiPath(
       [[SWAP_PATH["fxUSD/USDC-CrvSN193"], SWAP_PATH["USDC/WETH-UniV3500"], SWAP_PATH["WETH/stETH-Lido"], SWAP_PATH["stETH/wstETH-Lido"]]],
       [100n]

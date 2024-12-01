@@ -225,7 +225,21 @@ describe("FxUSDBasePool.spec", async () => {
   });
 
   context("auth", async () => {
-    context("updateStableDepegPrice", async () => {});
+    context("updateStableDepegPrice", async () => {
+      it("should revert, when caller not admin", async () => {
+        await expect(fxBASE.connect(deployer).updateStableDepegPrice(0n))
+          .to.revertedWithCustomError(fxBASE, "AccessControlUnauthorizedAccount")
+          .withArgs(deployer.address, ZeroHash);
+      });
+
+      it("should succeed", async () => {
+        expect(await fxBASE.stableDepegPrice()).to.eq(ethers.parseEther("0.95"));
+        await expect(fxBASE.connect(admin).updateStableDepegPrice(ethers.parseEther("0.1")))
+          .to.emit(fxBASE, "UpdateStableDepegPrice")
+          .withArgs(ethers.parseEther("0.95"), ethers.parseEther("0.1"));
+        expect(await fxBASE.stableDepegPrice()).to.eq(ethers.parseEther("0.1"));
+      });
+    });
   });
 
   context("deposit", async () => {
@@ -470,6 +484,7 @@ describe("FxUSDBasePool.spec", async () => {
   context("rebalance on tick", async () => {
     beforeEach(async () => {
       await mockAggregatorV3Interface.setPrice(ethers.parseUnits("0.991", 8));
+      await stableToken.mint(deployer.address, ethers.parseUnits("220000", 6));
       await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
       await collateralToken.connect(deployer).approve(poolManager.getAddress(), MaxUint256);
 
@@ -489,11 +504,945 @@ describe("FxUSDBasePool.spec", async () => {
       expect(await pool.getNextTreeNodeId()).to.eq(2);
       expect(await pool.getTopTick()).to.eq(4997);
     });
+
+    it("should succeed, when only use fxUSD, provide fxUSD", async () => {
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("4000"), 0n);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("4000", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 2000, debt ratio became 0.894308943089430894
+      // raw colls = 2.043306122448979591, colls = 2.043306122448979591 / 1.23 = 1.661224489795918366
+      // raw debts = 3986.938775510204081632
+      // fxusd = 3986.938775510204081632
+      await mockPriceOracle.setPrices(ethers.parseEther("2000"), ethers.parseEther("2000"), ethers.parseEther("2000"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // revert ErrorInsufficientOutput
+      await expect(
+        fxBASE
+          .connect(deployer)
+          ["rebalance(address,int16,address,uint256,uint256)"](
+            pool.getAddress(),
+            4997,
+            fxUSD.getAddress(),
+            ethers.parseEther("3990"),
+            ethers.parseEther("1.661224489795918366") + 1n
+          )
+      ).to.revertedWithCustomError(fxBASE, "ErrorInsufficientOutput");
+
+      // rebalance to 0.88
+      // need 3986.938775510204081632 fxUSD and get 1.661224489795918366 collateral
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdBefore = await fxUSD.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        ["rebalance(address,int16,address,uint256,uint256)"](
+          pool.getAddress(),
+          4997,
+          fxUSD.getAddress(),
+          ethers.parseEther("3990"),
+          0n
+        );
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdAfter = await fxUSD.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(0n);
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(0n);
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(0n);
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(0n);
+      expect(fxusdBefore - fxusdAfter).to.eq(ethers.parseEther("3986.938775510204081632"));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("1.661224489795918366"));
+    });
+
+    it("should succeed, when only use fxUSD, provide stable", async () => {
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("4000"), 0n);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("4000", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 2000, debt ratio became 0.894308943089430894
+      // raw colls = 2.043306122448979591, colls = 2.043306122448979591 / 1.23 = 1.661224489795918366
+      // raw debts = 3986.938775510204081632
+      // fxusd = 3986.938775510204081632
+      await mockPriceOracle.setPrices(ethers.parseEther("2000"), ethers.parseEther("2000"), ethers.parseEther("2000"));
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // rebalance to 0.88
+      // need 3986.938775510204081632 fxUSD and get 1.661224489795918366 collateral
+      // 3986.938775510204081632 fxUSD = 4023.147100 USDC
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableBefore = await stableToken.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        ["rebalance(address,int16,address,uint256,uint256)"](
+          pool.getAddress(),
+          4997,
+          stableToken.getAddress(),
+          ethers.parseUnits("4026.236125"),
+          0n
+        );
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableAfter = await stableToken.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(-ethers.parseEther("3986.938775510204081632"));
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(ethers.parseUnits("4023.147100", 6));
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(-ethers.parseEther("3986.938775510204081632"));
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(ethers.parseUnits("4023.147100", 6));
+      expect(stableBefore - stableAfter).to.eq(ethers.parseUnits("4023.147100", 6));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("1.661224489795918366"));
+    });
+
+    it("should succeed, when only use stable, provide fxUSD", async () => {
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("5000", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 2000, debt ratio became 0.894308943089430894
+      // raw colls = 2.043306122448979591, colls = 2.043306122448979591 / 1.23 = 1.661224489795918366
+      // raw debts = 3986.938775510204081632
+      // fxusd = 3986.938775510204081632
+      // stable = ceil(3986.938775510204081632 / 0.991) = 4023.147100
+      await mockPriceOracle.setPrices(ethers.parseEther("2000"), ethers.parseEther("2000"), ethers.parseEther("2000"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // rebalance to 0.88
+      // need 4023.147100 USDC and get 1.661224489795918366 collateral
+      // fxUSD is 4023.147100 * 0.991 = 3986.938776100
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdBefore = await fxUSD.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        ["rebalance(address,int16,address,uint256,uint256)"](
+          pool.getAddress(),
+          4997,
+          fxUSD.getAddress(),
+          ethers.parseEther("3990"),
+          0n
+        );
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdAfter = await fxUSD.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(ethers.parseEther("3986.938776100"));
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(-ethers.parseUnits("4023.147100", 6));
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(ethers.parseEther("3986.938776100"));
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(-ethers.parseUnits("4023.147100", 6));
+      expect(fxusdBefore - fxusdAfter).to.eq(ethers.parseEther("3986.938776100"));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("1.661224489795918366"));
+    });
+
+    it("should succeed, when only use stable, provide stable", async () => {
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("5000", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 2000, debt ratio became 0.894308943089430894
+      // raw colls = 2.043306122448979591, colls = 2.043306122448979591 / 1.23 = 1.661224489795918366
+      // raw debts = 3986.938775510204081632
+      // fxusd = 3986.938775510204081632
+      // stable = ceil(3986.938775510204081632 / 0.991) = 4023.147100
+      await mockPriceOracle.setPrices(ethers.parseEther("2000"), ethers.parseEther("2000"), ethers.parseEther("2000"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // rebalance to 0.88
+      // need 4023.147100 USDC and get 1.661224489795918366 collateral
+      // fxUSD is 4023.147100 * 0.991 = 3986.938776100
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableBefore = await stableToken.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        ["rebalance(address,int16,address,uint256,uint256)"](
+          pool.getAddress(),
+          4997,
+          stableToken.getAddress(),
+          ethers.parseEther("5000"),
+          0n
+        );
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableAfter = await stableToken.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(0n);
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(0n);
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(0n);
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(0n);
+      expect(stableBefore - stableAfter).to.eq(ethers.parseUnits("4023.147100", 6));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("1.661224489795918366"));
+    });
+
+    it("should succeed, when only use fxUSD + stable, provide fxUSD", async () => {
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("2000"), 0n);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("3000", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 2000, debt ratio became 0.894308943089430894
+      // raw colls = 2.043306122448979591, colls = 2.043306122448979591 / 1.23 = 1.661224489795918366
+      // raw debts = 3986.938775510204081632
+      // fxusd = 3986.938775510204081632
+      await mockPriceOracle.setPrices(ethers.parseEther("2000"), ethers.parseEther("2000"), ethers.parseEther("2000"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // rebalance to 0.88
+      // need 3986.938775510204081632 fxUSD and get 1.661224489795918366 collateral
+      // fxUSD = 2000, stable = ceil(1986.938775510204081632 / 0.991) = 2004.983629
+      // fxUSD provided = 2000 + 2004.983629 * 0.991 = 3986.938776339
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdBefore = await fxUSD.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        ["rebalance(address,int16,address,uint256,uint256)"](
+          pool.getAddress(),
+          4997,
+          fxUSD.getAddress(),
+          ethers.parseEther("3990"),
+          0n
+        );
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdAfter = await fxUSD.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(ethers.parseEther("1986.938776339"));
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(-ethers.parseUnits("2004.983629", 6));
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(ethers.parseEther("1986.938776339"));
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(-ethers.parseUnits("2004.983629", 6));
+      expect(fxusdBefore - fxusdAfter).to.eq(ethers.parseEther("3986.938776339"));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("1.661224489795918366"));
+    });
+
+    it("should succeed, when only use fxUSD + stable, provide stable", async () => {
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("2000"), 0n);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("3000", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 2000, debt ratio became 0.894308943089430894
+      // raw colls = 2.043306122448979591, colls = 2.043306122448979591 / 1.23 = 1.661224489795918366
+      // raw debts = 3986.938775510204081632
+      // fxusd = 3986.938775510204081632
+      await mockPriceOracle.setPrices(ethers.parseEther("2000"), ethers.parseEther("2000"), ethers.parseEther("2000"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // rebalance to 0.88
+      // need 3986.938775510204081632 fxUSD and get 1.661224489795918366 collateral
+      // fxUSD = 2000, stable = ceil(1986.938775510204081632 / 0.991) = 2004.983629
+      // stable provided = 2004.983629 + ceil(2000 / 0.991) = 4023.147101
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableBefore = await stableToken.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        ["rebalance(address,int16,address,uint256,uint256)"](
+          pool.getAddress(),
+          4997,
+          stableToken.getAddress(),
+          ethers.parseEther("5000"),
+          0n
+        );
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableAfter = await stableToken.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(-ethers.parseEther("2000"));
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(ethers.parseUnits("2018.163472", 6));
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(-ethers.parseEther("2000"));
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(ethers.parseUnits("2018.163472", 6));
+      expect(stableBefore - stableAfter).to.eq(ethers.parseUnits("4023.147101", 6));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("1.661224489795918366"));
+    });
   });
 
-  context("rebalance on position", async () => {});
+  context("rebalance on position", async () => {
+    beforeEach(async () => {
+      await mockAggregatorV3Interface.setPrice(ethers.parseUnits("0.991", 8));
+      await stableToken.mint(deployer.address, ethers.parseUnits("220000", 6));
+      await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
+      await collateralToken.connect(deployer).approve(poolManager.getAddress(), MaxUint256);
 
-  context("liquidate on position", async () => {});
+      // remove open fee
+      await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
+
+      // open 3 positions on the same tick
+      await poolManager
+        .connect(deployer)
+        .operate(pool.getAddress(), 0, ethers.parseEther("0.1"), ethers.parseEther("220"));
+      await poolManager
+        .connect(deployer)
+        .operate(pool.getAddress(), 0, ethers.parseEther("1"), ethers.parseEther("2200"));
+      await poolManager
+        .connect(deployer)
+        .operate(pool.getAddress(), 0, ethers.parseEther("10"), ethers.parseEther("22000"));
+      expect(await pool.getNextTreeNodeId()).to.eq(2);
+      expect(await pool.getTopTick()).to.eq(4997);
+    });
+
+    it("should succeed, when only use fxUSD, provide fxUSD", async () => {
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("40"), 0n);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("40", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 2000, debt ratio became 0.894308943089430894
+      // raw colls = 0.018408163265306121, colls = 0.018408163265306121 / 1.23 = 0.014965986394557821
+      // raw debts = 35.918367346938775510
+      // fxusd = 35.918367346938775510
+      await mockPriceOracle.setPrices(ethers.parseEther("2000"), ethers.parseEther("2000"), ethers.parseEther("2000"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // revert ErrorInsufficientOutput
+      await expect(
+        fxBASE
+          .connect(deployer)
+          ["rebalance(address,uint32,address,uint256,uint256)"](
+            pool.getAddress(),
+            1,
+            fxUSD.getAddress(),
+            ethers.parseEther("3990"),
+            ethers.parseEther("0.014965986394557821") + 1n
+          )
+      ).to.revertedWithCustomError(fxBASE, "ErrorInsufficientOutput");
+
+      // rebalance to 0.88
+      // need 35.918367346938775510 fxUSD and get 0.014965986394557821 collateral
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdBefore = await fxUSD.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        ["rebalance(address,uint32,address,uint256,uint256)"](
+          pool.getAddress(),
+          1,
+          fxUSD.getAddress(),
+          ethers.parseEther("3990"),
+          0n
+        );
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdAfter = await fxUSD.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(0n);
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(0n);
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(0n);
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(0n);
+      expect(fxusdBefore - fxusdAfter).to.eq(ethers.parseEther("35.918367346938775510"));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("0.014965986394557821"));
+    });
+
+    it("should succeed, when only use fxUSD, provide stable", async () => {
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("40"), 0n);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("40", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 2000, debt ratio became 0.894308943089430894
+      // raw colls = 0.018408163265306121, colls = 0.018408163265306121 / 1.23 = 0.014965986394557821
+      // raw debts = 35.918367346938775510
+      // fxusd = 35.918367346938775510
+      await mockPriceOracle.setPrices(ethers.parseEther("2000"), ethers.parseEther("2000"), ethers.parseEther("2000"));
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // rebalance to 0.88
+      // need 35.918367346938775510 fxUSD and get 0.014965986394557821 collateral
+      // 35.918367346938775510 fxUSD = 36.244569 USDC
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableBefore = await stableToken.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        ["rebalance(address,uint32,address,uint256,uint256)"](
+          pool.getAddress(),
+          1,
+          stableToken.getAddress(),
+          ethers.parseUnits("4026.236125"),
+          0n
+        );
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableAfter = await stableToken.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(-ethers.parseEther("35.918367346938775510"));
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(ethers.parseUnits("36.244569", 6));
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(-ethers.parseEther("35.918367346938775510"));
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(ethers.parseUnits("36.244569", 6));
+      expect(stableBefore - stableAfter).to.eq(ethers.parseUnits("36.244569", 6));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("0.014965986394557821"));
+    });
+
+    it("should succeed, when only use stable, provide fxUSD", async () => {
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("50", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 2000, debt ratio became 0.894308943089430894
+      // raw colls = 0.018408163265306121, colls = 0.018408163265306121 / 1.23 = 0.014965986394557821
+      // raw debts = 35.918367346938775510
+      // fxusd = 0
+      // stable = ceil(35.918367346938775510 / 0.991) = 36.244569
+      await mockPriceOracle.setPrices(ethers.parseEther("2000"), ethers.parseEther("2000"), ethers.parseEther("2000"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // rebalance to 0.88
+      // need 36.244569 stable and get 0.014965986394557821 collateral
+      // fxUSD is 36.244569 * 0.991 = 35.918367879
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdBefore = await fxUSD.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        ["rebalance(address,uint32,address,uint256,uint256)"](
+          pool.getAddress(),
+          1,
+          fxUSD.getAddress(),
+          ethers.parseEther("3990"),
+          0n
+        );
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdAfter = await fxUSD.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(ethers.parseEther("35.918367879"));
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(-ethers.parseUnits("36.244569", 6));
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(ethers.parseEther("35.918367879"));
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(-ethers.parseUnits("36.244569", 6));
+      expect(fxusdBefore - fxusdAfter).to.eq(ethers.parseEther("35.918367879"));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("0.014965986394557821"));
+    });
+
+    it("should succeed, when only use stable, provide stable", async () => {
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("50", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 2000, debt ratio became 0.894308943089430894
+      // raw colls = 0.018408163265306121, colls = 0.018408163265306121 / 1.23 = 0.014965986394557821
+      // raw debts = 35.918367346938775510
+      // fxusd = 0
+      // stable = ceil(35.918367346938775510 / 0.991) = 36.244569
+      await mockPriceOracle.setPrices(ethers.parseEther("2000"), ethers.parseEther("2000"), ethers.parseEther("2000"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // rebalance to 0.88
+      // need 36.244569 stable and get 0.014965986394557821 collateral
+      // fxUSD is 36.244569 * 0.991 = 35.918367879
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableBefore = await stableToken.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        ["rebalance(address,uint32,address,uint256,uint256)"](
+          pool.getAddress(),
+          1,
+          stableToken.getAddress(),
+          ethers.parseEther("5000"),
+          0n
+        );
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableAfter = await stableToken.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(0n);
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(0n);
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(0n);
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(0n);
+      expect(stableBefore - stableAfter).to.eq(ethers.parseUnits("36.244569", 6));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("0.014965986394557821"));
+    });
+
+    it("should succeed, when only use fxUSD + stable, provide fxUSD", async () => {
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("20"), 0n);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("30", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 2000, debt ratio became 0.894308943089430894
+      // raw colls = 0.018408163265306121, colls = 0.018408163265306121 / 1.23 = 0.014965986394557821
+      // raw debts = 35.918367346938775510
+      // fxusd = 20
+      // stable = ceil(15.918367346938775510 / 0.991) = 16.062934
+      await mockPriceOracle.setPrices(ethers.parseEther("2000"), ethers.parseEther("2000"), ethers.parseEther("2000"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // rebalance to 0.88
+      // need 35.918367346938775510 fxUSD and get 0.014965986394557821 collateral
+      // fxUSD = 20, stable = ceil(15.918367346938775510 / 0.991) = 16.062934
+      // fxUSD provided = 20 + 16.062934 * 0.991 = 35.918367594
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdBefore = await fxUSD.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        ["rebalance(address,uint32,address,uint256,uint256)"](
+          pool.getAddress(),
+          1,
+          fxUSD.getAddress(),
+          ethers.parseEther("3990"),
+          0n
+        );
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdAfter = await fxUSD.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(ethers.parseEther("15.918367594"));
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(-ethers.parseUnits("16.062934", 6));
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(ethers.parseEther("15.918367594"));
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(-ethers.parseUnits("16.062934", 6));
+      expect(fxusdBefore - fxusdAfter).to.eq(ethers.parseEther("35.918367594"));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("0.014965986394557821"));
+    });
+
+    it("should succeed, when only use fxUSD + stable, provide stable", async () => {
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("20"), 0n);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("30", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 2000, debt ratio became 0.894308943089430894
+      // raw colls = 0.018408163265306121, colls = 0.018408163265306121 / 1.23 = 0.014965986394557821
+      // raw debts = 35.918367346938775510
+      // fxusd = 20
+      // stable = ceil(15.918367346938775510 / 0.991) = 16.062934
+      await mockPriceOracle.setPrices(ethers.parseEther("2000"), ethers.parseEther("2000"), ethers.parseEther("2000"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // rebalance to 0.88
+      // need 35.918367346938775510 fxUSD and get 0.014965986394557821 collateral
+      // fxUSD = 20, stable = ceil(15.918367346938775510 / 0.991) = 16.062934
+      // stable provided = ceil(20 / 0.991) + 16.062934 = 36.244569
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableBefore = await stableToken.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        ["rebalance(address,uint32,address,uint256,uint256)"](
+          pool.getAddress(),
+          1,
+          stableToken.getAddress(),
+          ethers.parseEther("5000"),
+          0n
+        );
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableAfter = await stableToken.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(-ethers.parseEther("20"));
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(ethers.parseUnits("20.181635", 6));
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(-ethers.parseEther("20"));
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(ethers.parseUnits("20.181635", 6));
+      expect(stableBefore - stableAfter).to.eq(ethers.parseUnits("36.244569", 6));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("0.014965986394557821"));
+    });
+  });
+
+  context("liquidate on position", async () => {
+    beforeEach(async () => {
+      await mockAggregatorV3Interface.setPrice(ethers.parseUnits("0.991", 8));
+      await stableToken.mint(deployer.address, ethers.parseUnits("220000", 6));
+      await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
+      await collateralToken.connect(deployer).approve(poolManager.getAddress(), MaxUint256);
+
+      // remove open fee
+      await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
+
+      // open 3 positions on the same tick
+      await poolManager
+        .connect(deployer)
+        .operate(pool.getAddress(), 0, ethers.parseEther("0.1"), ethers.parseEther("220"));
+      await poolManager
+        .connect(deployer)
+        .operate(pool.getAddress(), 0, ethers.parseEther("1"), ethers.parseEther("2200"));
+      await poolManager
+        .connect(deployer)
+        .operate(pool.getAddress(), 0, ethers.parseEther("10"), ethers.parseEther("22000"));
+      expect(await pool.getNextTreeNodeId()).to.eq(2);
+      expect(await pool.getTopTick()).to.eq(4997);
+    });
+
+    it("should succeed, when only use fxUSD, provide fxUSD", async () => {
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("220"), 0n);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("220", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 1900, debt ratio became 0.941377834830979888
+      // debts = 220
+      // raw colls = 220/1900*1.05 = 0.121578947368421052, colls = 0.121578947368421052/1.23 = 0.098844672657252887
+      await mockPriceOracle.setPrices(ethers.parseEther("1900"), ethers.parseEther("1900"), ethers.parseEther("1900"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // revert ErrorInsufficientOutput
+      await expect(
+        fxBASE
+          .connect(deployer)
+          .liquidate(
+            pool.getAddress(),
+            1,
+            fxUSD.getAddress(),
+            ethers.parseEther("3990"),
+            ethers.parseEther("0.098844672657252887") + 1n
+          )
+      ).to.revertedWithCustomError(fxBASE, "ErrorInsufficientOutput");
+
+      // liquidate position 1
+      // need 220 fxUSD and get 0.098844672657252887 collateral
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdBefore = await fxUSD.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE.connect(deployer).liquidate(pool.getAddress(), 1, fxUSD.getAddress(), ethers.parseEther("3990"), 0n);
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdAfter = await fxUSD.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(0n);
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(0n);
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(0n);
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(0n);
+      expect(fxusdBefore - fxusdAfter).to.eq(ethers.parseEther("220"));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("0.098844672657252887"));
+    });
+
+    it("should succeed, when only use fxUSD, provide stable", async () => {
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("220"), 0n);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("220", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 1900, debt ratio became 0.941377834830979888
+      // debts = 220
+      // raw colls = 220/1900*1.05 = 0.121578947368421052, colls = 0.121578947368421052/1.23 = 0.098844672657252887
+      await mockPriceOracle.setPrices(ethers.parseEther("1900"), ethers.parseEther("1900"), ethers.parseEther("1900"));
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // liquidate position 1
+      // need 220 fxUSD and get 0.098844672657252887 collateral
+      // 220 fxUSD = 221.997982 USDC
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableBefore = await stableToken.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        .liquidate(pool.getAddress(), 1, stableToken.getAddress(), ethers.parseUnits("4026.236125"), 0n);
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableAfter = await stableToken.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(-ethers.parseEther("220"));
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(ethers.parseUnits("221.997982", 6));
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(-ethers.parseEther("220"));
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(ethers.parseUnits("221.997982", 6));
+      expect(stableBefore - stableAfter).to.eq(ethers.parseUnits("221.997982", 6));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("0.098844672657252887"));
+    });
+
+    it("should succeed, when only use stable, provide fxUSD", async () => {
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("300", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 1900, debt ratio became 0.941377834830979888
+      // debts = 220
+      // raw colls = 220/1900*1.05 = 0.121578947368421052, colls = 0.121578947368421052/1.23 = 0.098844672657252887
+      await mockPriceOracle.setPrices(ethers.parseEther("1900"), ethers.parseEther("1900"), ethers.parseEther("1900"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // liquidate position 1
+      // need 221.997982 stable and get 0.098844672657252887 collateral
+      // fxUSD is 221.997982 * 0.991 = 220.000000162
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdBefore = await fxUSD.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE.connect(deployer).liquidate(pool.getAddress(), 1, fxUSD.getAddress(), ethers.parseEther("3990"), 0n);
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdAfter = await fxUSD.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(ethers.parseEther("220.000000162"));
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(-ethers.parseUnits("221.997982", 6));
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(ethers.parseEther("220.000000162"));
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(-ethers.parseUnits("221.997982", 6));
+      expect(fxusdBefore - fxusdAfter).to.eq(ethers.parseEther("220.000000162"));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("0.098844672657252887"));
+    });
+
+    it("should succeed, when only use stable, provide stable", async () => {
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("300", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 1900, debt ratio became 0.941377834830979888
+      // debts = 220
+      // raw colls = 220/1900*1.05 = 0.121578947368421052, colls = 0.121578947368421052/1.23 = 0.098844672657252887
+      await mockPriceOracle.setPrices(ethers.parseEther("1900"), ethers.parseEther("1900"), ethers.parseEther("1900"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // liquidate position 1
+      // need 221.997982 stable and get 0.098844672657252887 collateral
+      // fxUSD is 221.997982 * 0.991 = 220.000000162
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableBefore = await stableToken.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        .liquidate(pool.getAddress(), 1, stableToken.getAddress(), ethers.parseEther("5000"), 0n);
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableAfter = await stableToken.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(0n);
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(0n);
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(0n);
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(0n);
+      expect(stableBefore - stableAfter).to.eq(ethers.parseUnits("221.997982", 6));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("0.098844672657252887"));
+    });
+
+    it("should succeed, when only use fxUSD + stable, provide fxUSD", async () => {
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("200"), 0n);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("400", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 1900, debt ratio became 0.941377834830979888
+      // debts = 220
+      // raw colls = 220/1900*1.05 = 0.121578947368421052, colls = 0.121578947368421052/1.23 = 0.098844672657252887
+      await mockPriceOracle.setPrices(ethers.parseEther("1900"), ethers.parseEther("1900"), ethers.parseEther("1900"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // liquidate position 1
+      // need 220 fxUSD and get 0.098844672657252887 collateral
+      // fxUSD = 200, stable = ceil(20 / 0.991) = 20.181635
+      // fxUSD provided = 200 + 20.181635 * 0.991 = 220.000000285
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdBefore = await fxUSD.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE.connect(deployer).liquidate(pool.getAddress(), 1, fxUSD.getAddress(), ethers.parseEther("3990"), 0n);
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const fxusdAfter = await fxUSD.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(ethers.parseEther("20.000000285"));
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(-ethers.parseUnits("20.181635", 6));
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(ethers.parseEther("20.000000285"));
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(-ethers.parseUnits("20.181635", 6));
+      expect(fxusdBefore - fxusdAfter).to.eq(ethers.parseEther("220.000000285"));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("0.098844672657252887"));
+    });
+
+    it("should succeed, when only use fxUSD + stable, provide stable", async () => {
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("200"), 0n);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("500", 6), 0n);
+
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 1900, debt ratio became 0.941377834830979888
+      // debts = 220
+      // raw colls = 220/1900*1.05 = 0.121578947368421052, colls = 0.121578947368421052/1.23 = 0.098844672657252887
+      await mockPriceOracle.setPrices(ethers.parseEther("1900"), ethers.parseEther("1900"), ethers.parseEther("1900"));
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+
+      // liquidate position 1
+      // need 220 fxUSD and get 0.098844672657252887 collateral
+      // fxUSD = 200, stable = ceil(20 / 0.991) = 20.181635
+      // stable provided = ceil(200 / 0.991) + 20.181635 = 221.997983
+      const totalYieldTokenBefore = await fxBASE.totalYieldToken();
+      const totalStableTokenBefore = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseBefore = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableBefore = await stableToken.balanceOf(deployer.address);
+      const collateralBefore = await collateralToken.balanceOf(deployer.address);
+      await fxBASE
+        .connect(deployer)
+        .liquidate(pool.getAddress(), 1, stableToken.getAddress(), ethers.parseEther("5000"), 0n);
+      const totalYieldTokenAfter = await fxBASE.totalYieldToken();
+      const totalStableTokenAfter = await fxBASE.totalStableToken();
+      const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+      const stableBalanceInBaseAfter = await stableToken.balanceOf(fxBASE.getAddress());
+      const stableAfter = await stableToken.balanceOf(deployer.address);
+      const collateralAfter = await collateralToken.balanceOf(deployer.address);
+      expect(totalYieldTokenAfter).to.eq(fxusdBalanceInBaseAfter);
+      expect(totalStableTokenAfter).to.eq(stableBalanceInBaseAfter);
+      expect(totalYieldTokenAfter - totalYieldTokenBefore).to.eq(-ethers.parseEther("200"));
+      expect(totalStableTokenAfter - totalStableTokenBefore).to.eq(ethers.parseUnits("201.816348", 6));
+      expect(fxusdBalanceInBaseAfter - fxusdBalanceInBaseBefore).to.eq(-ethers.parseEther("200"));
+      expect(stableBalanceInBaseAfter - stableBalanceInBaseBefore).to.eq(ethers.parseUnits("201.816348", 6));
+      expect(stableBefore - stableAfter).to.eq(ethers.parseUnits("221.997983", 6));
+      expect(collateralAfter - collateralBefore).to.eq(ethers.parseEther("0.098844672657252887"));
+    });
+  });
 
   context("arbitrage", async () => {});
 });

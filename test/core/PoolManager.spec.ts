@@ -867,7 +867,7 @@ describe("PoolManager.spec", async () => {
           expect(collateralAfter - collateralBefore).to.eq(result.colls);
           expect(poolCollateralBefore - poolCollateralAfter).to.eq(result.colls);
           expect(result.colls).to.eq(ethers.parseEther("1.661224489795918366") / TokenScale);
-          expect(result.stableTokenUsed).to.eq(ethers.parseUnits("4023.147099", 6));
+          expect(result.stableTokenUsed).to.eq(ethers.parseUnits("4023.147100", 6)); // rounding up
           expect(result.yieldTokenUsed).to.eq(0n);
         });
 
@@ -912,7 +912,7 @@ describe("PoolManager.spec", async () => {
           expect(collateralAfter - collateralBefore).to.eq(result.colls);
           expect(poolCollateralBefore - poolCollateralAfter).to.eq(result.colls);
           expect(result.colls).to.eq(ethers.parseEther("1.661224489795918366") / TokenScale);
-          expect(result.stableTokenUsed).to.eq(ethers.parseUnits("2004.983628", 6));
+          expect(result.stableTokenUsed).to.eq(ethers.parseUnits("2004.983629", 6)); // rounding up
           expect(result.yieldTokenUsed).to.eq(ethers.parseEther("2000"));
         });
       });
@@ -1030,7 +1030,7 @@ describe("PoolManager.spec", async () => {
           expect(collateralAfter - collateralBefore).to.eq(result.colls);
           expect(poolCollateralBefore - poolCollateralAfter).to.eq(result.colls);
           expect(result.colls).to.eq(ethers.parseEther("0.014965986394557821") / TokenScale);
-          expect(result.stableTokenUsed).to.eq(ethers.parseUnits("36.244568", 6));
+          expect(result.stableTokenUsed).to.eq(ethers.parseUnits("36.244569", 6)); // rounding up
           expect(result.yieldTokenUsed).to.eq(0n);
         });
 
@@ -1075,7 +1075,7 @@ describe("PoolManager.spec", async () => {
           expect(collateralAfter - collateralBefore).to.eq(result.colls);
           expect(poolCollateralBefore - poolCollateralAfter).to.eq(result.colls);
           expect(result.colls).to.eq(ethers.parseEther("0.014965986394557821") / TokenScale);
-          expect(result.stableTokenUsed).to.eq(ethers.parseUnits("16.062933", 6));
+          expect(result.stableTokenUsed).to.eq(ethers.parseUnits("16.062934", 6)); // rounding up
           expect(result.yieldTokenUsed).to.eq(ethers.parseEther("20"));
         });
       });

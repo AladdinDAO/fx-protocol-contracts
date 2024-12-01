@@ -518,7 +518,7 @@ contract FxUSDBasePool is ERC20PermitUpgradeable, AccessControlUpgradeable, Reen
       op.totalYieldToken += tokenUsed;
     } else {
       // rounding up
-      tokenUsed = (amountUSD * PRECISION) / op.stablePrice + 1;
+      tokenUsed = (amountUSD * PRECISION + op.stablePrice - 1) / op.stablePrice;
       op.totalStableToken += tokenUsed;
     }
 

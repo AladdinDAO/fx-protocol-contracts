@@ -7,6 +7,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 
 import { IFxUSDBasePool } from "../../interfaces/IFxUSDBasePool.sol";
 import { IFxShareableRebalancePool } from "../../v2/interfaces/IFxShareableRebalancePool.sol";
+import { IFxUSD } from "../../v2/interfaces/IFxUSD.sol";
 import { ILiquidityGauge } from "../../voting-escrow/interfaces/ILiquidityGauge.sol";
 
 import { WordCodec } from "../../common/codec/WordCodec.sol";
@@ -59,6 +60,10 @@ contract FxUSDBasePoolFacet {
   /// @param receiver The address of fxBASE share recipient.
   function migrateToFxBase(address pool, uint256 amountIn, uint256 minShares, address receiver) external {
     IFxShareableRebalancePool(pool).withdrawFrom(msg.sender, amountIn, address(this));
+    address baseToken = IFxShareableRebalancePool(pool).baseToken();
+    address asset = IFxShareableRebalancePool(pool).asset();
+    LibRouter.approve(asset, fxUSD, amountIn);
+    IFxUSD(fxUSD).wrap(baseToken, amountIn, address(this));
     LibRouter.approve(fxUSD, fxBASE, amountIn);
     IFxUSDBasePool(fxBASE).deposit(receiver, fxUSD, amountIn, minShares);
   }
@@ -70,6 +75,10 @@ contract FxUSDBasePoolFacet {
   /// @param receiver The address of fxBASE share recipient.
   function migrateToFxBaseGauge(address pool, uint256 amountIn, uint256 minShares, address receiver) external {
     IFxShareableRebalancePool(pool).withdrawFrom(msg.sender, amountIn, address(this));
+    address baseToken = IFxShareableRebalancePool(pool).baseToken();
+    address asset = IFxShareableRebalancePool(pool).asset();
+    LibRouter.approve(asset, fxUSD, amountIn);
+    IFxUSD(fxUSD).wrap(baseToken, amountIn, address(this));
     LibRouter.approve(fxUSD, fxBASE, amountIn);
     uint256 shares = IFxUSDBasePool(fxBASE).deposit(address(this), fxUSD, amountIn, minShares);
     LibRouter.approve(fxBASE, gauge, shares);
@@ -86,7 +95,7 @@ contract FxUSDBasePoolFacet {
     address tokenOut,
     uint256 minShares,
     address receiver
-  ) external {
+  ) external payable {
     uint256 amountIn = LibRouter.transferInAndConvert(params, tokenOut);
     LibRouter.approve(tokenOut, fxBASE, amountIn);
     IFxUSDBasePool(fxBASE).deposit(receiver, tokenOut, amountIn, minShares);
@@ -102,7 +111,7 @@ contract FxUSDBasePoolFacet {
     address tokenOut,
     uint256 minShares,
     address receiver
-  ) external {
+  ) external payable {
     uint256 amountIn = LibRouter.transferInAndConvert(params, tokenOut);
     LibRouter.approve(tokenOut, fxBASE, amountIn);
     uint256 shares = IFxUSDBasePool(fxBASE).deposit(address(this), tokenOut, amountIn, minShares);

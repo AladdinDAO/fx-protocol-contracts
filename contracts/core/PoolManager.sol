@@ -510,9 +510,14 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     return (value * int256(scale)) / PRECISION_I256;
   }
 
-  /// @dev Internal function to scaler down for `uint256`.
+  /// @dev Internal function to scaler down for `uint256`, rounding down.
   function _scaleDown(uint256 value, uint256 scale) internal pure returns (uint256) {
     return (value * PRECISION) / scale;
+  }
+
+  /// @dev Internal function to scaler down for `uint256`, rounding up.
+  function _scaleDownRoundingUp(uint256 value, uint256 scale) internal pure returns (uint256) {
+    return (value * PRECISION + scale - 1) / scale;
   }
 
   /// @dev Internal function to scaler down for `int256`.
@@ -549,7 +554,8 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     // burn fxUSD or transfer USDC
     fxUSDUsed = op.rawDebts;
     if (fxUSDUsed > maxFxUSD) {
-      stableUsed = _scaleDown(fxUSDUsed - maxFxUSD, op.stablePrice);
+      // rounding up here
+      stableUsed = _scaleDownRoundingUp(fxUSDUsed - maxFxUSD, op.stablePrice);
       fxUSDUsed = maxFxUSD;
     }
     if (fxUSDUsed > 0) {
