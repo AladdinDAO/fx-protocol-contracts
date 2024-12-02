@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { MaxInt256, MaxUint256, MinInt256, ZeroAddress, ZeroHash } from "ethers";
+import { MaxUint256, MinInt256, ZeroAddress, ZeroHash } from "ethers";
 import { ethers, network } from "hardhat";
 
 import {
@@ -18,9 +18,9 @@ import {
   PoolManager__factory,
   ProxyAdmin,
   ReservePool,
-  SfxUSDRewarder,
-  StakedFxUSD,
-  StakedFxUSD__factory,
+  FxUSDBasePool,
+  FxUSDBasePool__factory,
+  GaugeRewarder,
 } from "@/types/index";
 import { encodeChainlinkPriceFeed } from "@/utils/index";
 import { mockETHBalance, unlockAccounts } from "@/test/utils";
@@ -37,8 +37,8 @@ describe("AaveFundingPool.spec", async () => {
   let pegKeeper: PegKeeper;
   let poolManager: PoolManager;
   let reservePool: ReservePool;
-  let sfxUSD: StakedFxUSD;
-  let sfxUSDRewarder: SfxUSDRewarder;
+  let fxBASE: FxUSDBasePool;
+  let fxBASERewarder: GaugeRewarder;
 
   let mockAggregatorV3Interface: MockAggregatorV3Interface;
   let mockCurveStableSwapNG: MockCurveStableSwapNG;
@@ -71,9 +71,9 @@ describe("AaveFundingPool.spec", async () => {
     const FxUSDRegeneracy = await ethers.getContractFactory("FxUSDRegeneracy", deployer);
     const PegKeeper = await ethers.getContractFactory("PegKeeper", deployer);
     const PoolManager = await ethers.getContractFactory("PoolManager", deployer);
-    const StakedFxUSD = await ethers.getContractFactory("StakedFxUSD", deployer);
+    const FxUSDBasePool = await ethers.getContractFactory("FxUSDBasePool", deployer);
     const ReservePool = await ethers.getContractFactory("ReservePool", deployer);
-    const SfxUSDRewarder = await ethers.getContractFactory("SfxUSDRewarder", deployer);
+    const GaugeRewarder = await ethers.getContractFactory("GaugeRewarder", deployer);
     const MultiPathConverter = await ethers.getContractFactory("MultiPathConverter", deployer);
 
     const empty = await EmptyContract.deploy();
@@ -93,7 +93,7 @@ describe("AaveFundingPool.spec", async () => {
       proxyAdmin.getAddress(),
       "0x"
     );
-    const StakedFxUSDProxy = await TransparentUpgradeableProxy.deploy(
+    const FxUSDBasePoolProxy = await TransparentUpgradeableProxy.deploy(
       empty.getAddress(),
       proxyAdmin.getAddress(),
       "0x"
@@ -105,7 +105,7 @@ describe("AaveFundingPool.spec", async () => {
     // deploy PoolManager
     const PoolManagerImpl = await PoolManager.deploy(
       FxUSDRegeneracyProxy.getAddress(),
-      StakedFxUSDProxy.getAddress(),
+      FxUSDBasePoolProxy.getAddress(),
       PegKeeperProxy.getAddress()
     );
     await proxyAdmin.upgradeAndCall(
@@ -133,8 +133,8 @@ describe("AaveFundingPool.spec", async () => {
     await fxUSD.initialize("f(x) USD", "fxUSD");
     await fxUSD.initializeV2();
 
-    // deploy StakedFxUSD
-    const StakedFxUSDImpl = await StakedFxUSD.deploy(
+    // deploy FxUSDBasePool
+    const FxUSDBasePoolImpl = await FxUSDBasePool.deploy(
       PoolManagerProxy.getAddress(),
       PegKeeperProxy.getAddress(),
       FxUSDRegeneracyProxy.getAddress(),
@@ -142,19 +142,19 @@ describe("AaveFundingPool.spec", async () => {
       encodeChainlinkPriceFeed(await mockAggregatorV3Interface.getAddress(), 10n ** 10n, 1000000000)
     );
     await proxyAdmin.upgradeAndCall(
-      StakedFxUSDProxy.getAddress(),
-      StakedFxUSDImpl.getAddress(),
-      StakedFxUSD__factory.createInterface().encodeFunctionData("initialize", [
+      FxUSDBasePoolProxy.getAddress(),
+      FxUSDBasePoolImpl.getAddress(),
+      FxUSDBasePool__factory.createInterface().encodeFunctionData("initialize", [
         admin.address,
-        "Staked f(x) USD",
-        "sfxUSD",
+        "fxUSD Base Pool Token",
+        "fxUSDBase",
         ethers.parseEther("0.995"),
       ])
     );
-    sfxUSD = await ethers.getContractAt("StakedFxUSD", await StakedFxUSDProxy.getAddress(), admin);
+    fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), admin);
 
     // deploy PegKeeper
-    const PegKeeperImpl = await PegKeeper.deploy(sfxUSD.getAddress());
+    const PegKeeperImpl = await PegKeeper.deploy(fxBASE.getAddress());
     await proxyAdmin.upgradeAndCall(
       PegKeeperProxy.getAddress(),
       PegKeeperImpl.getAddress(),
@@ -183,11 +183,10 @@ describe("AaveFundingPool.spec", async () => {
     await pool.updateRebalanceRatios(ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9));
     await pool.updateLiquidateRatios(ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9));
 
-    sfxUSDRewarder = await SfxUSDRewarder.deploy(sfxUSD.getAddress());
-    await sfxUSD.grantRole(await sfxUSD.REWARD_DEPOSITOR_ROLE(), sfxUSDRewarder.getAddress());
+    fxBASERewarder = await GaugeRewarder.deploy(fxBASE.getAddress());
     await poolManager.registerPool(
       pool.getAddress(),
-      sfxUSDRewarder.getAddress(),
+      fxBASERewarder.getAddress(),
       ethers.parseEther("10000"),
       ethers.parseEther("10000000")
     );
@@ -580,7 +579,7 @@ describe("AaveFundingPool.spec", async () => {
       expect(result[3]).to.eq(protocolFees); // protocol fee
       await expect(pool.connect(signer).operate(0, newRawColl, ethers.parseEther("2000"), deployer.address))
         .to.emit(pool, "PositionSnapshot")
-        .withArgs(1, newRawColl - protocolFees, ethers.parseEther("2000"), ethers.parseEther("2999"));
+        .withArgs(1, 4934, newRawColl - protocolFees, ethers.parseEther("2000"), ethers.parseEther("2999"));
       expect(await pool.ownerOf(1)).to.eq(deployer.address);
       expect(await pool.getPosition(1)).to.deep.eq([newRawColl - protocolFees, ethers.parseEther("2000")]);
       expect(await pool.getNextPositionId()).to.eq(2);
@@ -609,7 +608,7 @@ describe("AaveFundingPool.spec", async () => {
       expect(result[3]).to.eq(protocolFees); // protocol fee
       await expect(pool.connect(signer).operate(0, newRawColl, ethers.parseEther("2000"), deployer.address))
         .to.emit(pool, "PositionSnapshot")
-        .withArgs(1, newRawColl - protocolFees, ethers.parseEther("2000"), ethers.parseEther("2999"));
+        .withArgs(1, 4934, newRawColl - protocolFees, ethers.parseEther("2000"), ethers.parseEther("2999"));
       expect(await pool.ownerOf(1)).to.eq(deployer.address);
       expect(await pool.getPosition(1)).to.deep.eq([newRawColl - protocolFees, ethers.parseEther("2000")]);
       expect(await pool.getNextPositionId()).to.eq(2);
@@ -623,7 +622,7 @@ describe("AaveFundingPool.spec", async () => {
       // another position in same tick, top tick not change
       await expect(pool.connect(signer).operate(0, newRawColl, ethers.parseEther("2000"), deployer.address))
         .to.emit(pool, "PositionSnapshot")
-        .withArgs(2, newRawColl - protocolFees, ethers.parseEther("2000"), ethers.parseEther("2999"));
+        .withArgs(2, 4934, newRawColl - protocolFees, ethers.parseEther("2000"), ethers.parseEther("2999"));
       expect(await pool.ownerOf(2)).to.eq(deployer.address);
       expect(await pool.getPosition(2)).to.deep.eq([newRawColl - protocolFees, ethers.parseEther("2000")]);
       expect(await pool.getNextPositionId()).to.eq(3);
@@ -640,7 +639,7 @@ describe("AaveFundingPool.spec", async () => {
       // another position in with smaller tick, top tick not change
       await expect(pool.connect(signer).operate(0, newRawColl, ethers.parseEther("1900"), deployer.address))
         .to.emit(pool, "PositionSnapshot")
-        .withArgs(3, newRawColl - protocolFees, ethers.parseEther("1900"), ethers.parseEther("2999"));
+        .withArgs(3, 4900, newRawColl - protocolFees, ethers.parseEther("1900"), ethers.parseEther("2999"));
       expect(await pool.ownerOf(3)).to.eq(deployer.address);
       expect(await pool.getPosition(3)).to.deep.eq([newRawColl - protocolFees, ethers.parseEther("1900")]);
       expect(await pool.getNextPositionId()).to.eq(4);
@@ -657,7 +656,7 @@ describe("AaveFundingPool.spec", async () => {
       // another position in with larger tick, top tick change
       await expect(pool.connect(signer).operate(0, newRawColl, ethers.parseEther("2100"), deployer.address))
         .to.emit(pool, "PositionSnapshot")
-        .withArgs(4, newRawColl - protocolFees, ethers.parseEther("2100"), ethers.parseEther("2999"));
+        .withArgs(4, 4967, newRawColl - protocolFees, ethers.parseEther("2100"), ethers.parseEther("2999"));
       expect(await pool.ownerOf(4)).to.eq(deployer.address);
       expect(await pool.getPosition(4)).to.deep.eq([newRawColl - protocolFees, ethers.parseEther("2100")]);
       expect(await pool.getNextPositionId()).to.eq(5);

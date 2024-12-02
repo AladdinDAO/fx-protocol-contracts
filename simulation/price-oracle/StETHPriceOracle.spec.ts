@@ -37,7 +37,7 @@ describe("StETHPriceOracle.spec", async () => {
         ChainlinkPriceFeed.ethereum["ETH-USD"].scale,
         ChainlinkPriceFeed.ethereum["ETH-USD"].heartbeat
       ),
-      Addresses["CRV_P_ETH/stETH_303"]
+      Addresses["CRV_SP_ETH/stETH_303"]
     );
 
     await oracle.updateOnchainSpotEncodings(SpotPriceEncodings["WETH/USDC"], 0);

@@ -31,12 +31,15 @@ interface IPegKeeper {
 
   /// @notice Return whether funding costs is enabled.
   function isFundingEnabled() external view returns (bool);
+  
+  /// @notice Return the price of fxUSD, multiplied by 1e18
+  function getFxUSDPrice() external view returns (uint256);
 
   /****************************
    * Public Mutated Functions *
    ****************************/
 
-  /// @notice Buyback fxUSD with stable reserve in StakedFxUSD.
+  /// @notice Buyback fxUSD with stable reserve in FxUSDSave.
   /// @param amountIn the amount of stable token to use.
   /// @param data The hook data to `onSwap`.
   /// @return amountOut The amount of fxUSD swapped.

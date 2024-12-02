@@ -16,6 +16,8 @@ import { IFxShareableRebalancePool } from "../v2/interfaces/IFxShareableRebalanc
 import { IFxUSDRegeneracy } from "../interfaces/IFxUSDRegeneracy.sol";
 import { IPegKeeper } from "../interfaces/IPegKeeper.sol";
 
+import { Math } from "../libraries/Math.sol";
+
 /// @dev It has the same storage layout with `https://github.com/AladdinDAO/aladdin-v3-contracts/contracts/f(x)/v2/FxUSD.sol`.
 contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IFxUSD, IFxUSDRegeneracy {
   using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -156,6 +158,7 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
   }
 
   function initializeV2() external reinitializer(2) {
+    stableReserve.decimals = FxUSDRegeneracy(stableToken).decimals();
     legacyTotalSupply = totalSupply();
   }
 
@@ -410,7 +413,7 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
     if (amountIn > cachedStableReserve.owned) revert ErrorExceedStableReserve();
 
     // rounding up
-    uint256 expectedFxUSD = (amountIn * cachedStableReserve.managed) / cachedStableReserve.owned + 1;
+    uint256 expectedFxUSD = Math.mulDivUp(amountIn, cachedStableReserve.managed, cachedStableReserve.owned);
 
     // convert USDC to fxUSD
     IERC20Upgradeable(stableToken).safeTransfer(pegKeeper, amountIn);
@@ -475,6 +478,7 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
   function _mintShares(address _baseToken, address _receiver, uint256 _amount) private {
     unchecked {
       markets[_baseToken].managed += _amount;
+      legacyTotalSupply += _amount;
     }
 
     _mint(_receiver, _amount);

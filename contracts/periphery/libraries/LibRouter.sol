@@ -2,11 +2,13 @@
 
 pragma solidity ^0.8.0;
 
-import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
 import { IMultiPathConverter } from "../../helpers/interfaces/IMultiPathConverter.sol";
+import { IWrappedEther } from "../../interfaces/IWrappedEther.sol";
 
 library LibRouter {
   using SafeERC20 for IERC20;
@@ -35,6 +37,9 @@ library LibRouter {
   /// @dev The storage slot for router storage.
   bytes32 private constant ROUTER_STORAGE_SLOT = keccak256("diamond.router.storage");
 
+  /// @dev The address of WETH token.
+  address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+
   uint8 internal constant NOT_FLASH_LOAN = 0;
 
   uint8 internal constant HAS_FLASH_LOAN = 1;
@@ -60,12 +65,14 @@ library LibRouter {
   /// @param target The address of converter contract.
   /// @param data The calldata passing to the target contract.
   /// @param minOut The minimum amount of output token should receive.
+  /// @param signature The optional data for future usage.
   struct ConvertInParams {
     address tokenIn;
     uint256 amount;
     address target;
     bytes data;
     uint256 minOut;
+    bytes signature;
   }
 
   /// @notice The struct for output token convert parameters.
@@ -74,12 +81,14 @@ library LibRouter {
   /// @param encodings The encodings for `MultiPathConverter`.
   /// @param minOut The minimum amount of output token should receive.
   /// @param routes The convert route encodings.
+  /// @param signature The optional data for future usage.
   struct ConvertOutParams {
     address tokenOut;
     address converter;
     uint256 encodings;
     uint256[] routes;
     uint256 minOut;
+    bytes signature;
   }
 
   /**********************
@@ -194,7 +203,12 @@ library LibRouter {
       amountOut = IMultiPathConverter(params.converter).convert(tokenIn, amountIn, params.encodings, params.routes);
     }
     if (amountOut < params.minOut) revert ErrorInsufficientOutput();
-    IERC20(params.tokenOut).safeTransfer(receiver, amountOut);
+    if (params.tokenOut == address(0)) {
+      IWrappedEther(WETH).withdraw(amountOut);
+      Address.sendValue(payable(receiver), amountOut);
+    } else {
+      IERC20(params.tokenOut).safeTransfer(receiver, amountOut);
+    }
   }
 
   /// @dev Internal function to transfer token to this contract.

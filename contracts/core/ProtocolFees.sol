@@ -51,8 +51,8 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
   /// @dev The maximum redeem fee ratio.
   uint256 private constant MAX_REDEEM_FEE_RATIO = 1e8; // 10%
 
-  /// @dev The offset of expense ratio in `_miscData`.
-  uint256 private constant EXPENSE_RATIO_OFFSET = 0;
+  /// @dev The offset of general expense ratio in `_miscData`.
+  uint256 private constant REWARDS_EXPENSE_RATIO_OFFSET = 0;
 
   /// @dev The offset of harvester ratio in `_miscData`.
   uint256 private constant HARVESTER_RATIO_OFFSET = 30;
@@ -62,6 +62,9 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
 
   /// @dev The offset of redeem fee ratio in `_miscData`.
   uint256 private constant REDEEM_FEE_RATIO_OFFSET = 90;
+
+  /// @dev The offset of funding expense ratio in `_miscData`.
+  uint256 private constant FUNDING_EXPENSE_RATIO_OFFSET = 120;
 
   /// @dev The precision used to compute fees.
   uint256 internal constant FEE_PRECISION = 1e9;
@@ -82,9 +85,9 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
   /// - The *expense ratio* and *harvester ratio* are charged each time when harvester harvest the pool revenue.
   /// - The *withdraw fee percentage* is charged each time when user try to withdraw assets from the pool.
   ///
-  /// [ expense ratio | harvester ratio | flash loan ratio | redeem ratio | available ]
-  /// [    30 bits    |     30 bits     |     30  bits     |   30  bits   |  136 bits ]
-  /// [ MSB                                                                       LSB ]
+  /// [ rewards expense ratio | harvester ratio | flash loan ratio | redeem ratio | funding expense ratio | available ]
+  /// [        30 bits        |     30 bits     |     30  bits     |   30  bits   |        30 bits        |  106 bits ]
+  /// [ MSB                                                                                                       LSB ]
   bytes32 internal _miscData;
 
   /// @inheritdoc IProtocolFees
@@ -107,7 +110,8 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
     address _platform,
     address _reservePool
   ) internal onlyInitializing {
-    _updateExpenseRatio(_expenseRatio);
+    _updateFundingExpenseRatio(_expenseRatio);
+    _updateRewardsExpenseRatio(_expenseRatio);
     _updateHarvesterRatio(_harvesterRatio);
     _updateFlashLoanFeeRatio(_flashLoanFeeRatio);
     _updatePlatform(_platform);
@@ -119,8 +123,13 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
    *************************/
 
   /// @inheritdoc IProtocolFees
-  function getExpenseRatio() public view returns (uint256) {
-    return _miscData.decodeUint(EXPENSE_RATIO_OFFSET, 30);
+  function getFundingExpenseRatio() public view returns (uint256) {
+    return _miscData.decodeUint(FUNDING_EXPENSE_RATIO_OFFSET, 30);
+  }
+
+  /// @inheritdoc IProtocolFees
+  function getRewardsExpenseRatio() public view returns (uint256) {
+    return _miscData.decodeUint(REWARDS_EXPENSE_RATIO_OFFSET, 30);
   }
 
   /// @inheritdoc IProtocolFees
@@ -129,8 +138,13 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
   }
 
   /// @inheritdoc IProtocolFees
-  function getRebalancePoolRatio() external view returns (uint256) {
-    return FEE_PRECISION - getExpenseRatio() - getHarvesterRatio();
+  function getFundingFxSaveRatio() external view returns (uint256) {
+    return FEE_PRECISION - getFundingExpenseRatio() - getHarvesterRatio();
+  }
+
+  /// @inheritdoc IProtocolFees
+  function getRewardsFxSaveRatio() external view returns (uint256) {
+    return FEE_PRECISION - getRewardsExpenseRatio() - getHarvesterRatio();
   }
 
   /// @inheritdoc IProtocolFees
@@ -171,9 +185,11 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
   }
 
   /// @notice Update the fee ratio distributed to treasury.
-  /// @param newRatio The new ratio to update, multiplied by 1e9.
-  function updateExpenseRatio(uint32 newRatio) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    _updateExpenseRatio(newRatio);
+  /// @param newRewardsRatio The new ratio for rewards to update, multiplied by 1e9.
+  /// @param newFundingRatio The new ratio for funding to update, multiplied by 1e9.
+  function updateExpenseRatio(uint32 newRewardsRatio, uint32 newFundingRatio) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateRewardsExpenseRatio(newRewardsRatio);
+    _updateFundingExpenseRatio(newFundingRatio);
   }
 
   /// @notice Update the fee ratio distributed to harvester.
@@ -222,16 +238,30 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
 
   /// @dev Internal function to update the fee ratio distributed to treasury.
   /// @param newRatio The new ratio to update, multiplied by 1e9.
-  function _updateExpenseRatio(uint256 newRatio) private {
+  function _updateRewardsExpenseRatio(uint256 newRatio) private {
     if (uint256(newRatio) > MAX_EXPENSE_RATIO) {
       revert ErrorExpenseRatioTooLarge();
     }
 
     bytes32 _data = _miscData;
-    uint256 _oldRatio = _miscData.decodeUint(EXPENSE_RATIO_OFFSET, 30);
-    _miscData = _data.insertUint(newRatio, EXPENSE_RATIO_OFFSET, 30);
+    uint256 _oldRatio = _miscData.decodeUint(REWARDS_EXPENSE_RATIO_OFFSET, 30);
+    _miscData = _data.insertUint(newRatio, REWARDS_EXPENSE_RATIO_OFFSET, 30);
 
-    emit UpdateExpenseRatio(_oldRatio, newRatio);
+    emit UpdateRewardsExpenseRatio(_oldRatio, newRatio);
+  }
+
+  /// @dev Internal function to update the fee ratio distributed to treasury.
+  /// @param newRatio The new ratio to update, multiplied by 1e9.
+  function _updateFundingExpenseRatio(uint256 newRatio) private {
+    if (uint256(newRatio) > MAX_EXPENSE_RATIO) {
+      revert ErrorExpenseRatioTooLarge();
+    }
+
+    bytes32 _data = _miscData;
+    uint256 _oldRatio = _miscData.decodeUint(FUNDING_EXPENSE_RATIO_OFFSET, 30);
+    _miscData = _data.insertUint(newRatio, FUNDING_EXPENSE_RATIO_OFFSET, 30);
+
+    emit UpdateFundingExpenseRatio(_oldRatio, newRatio);
   }
 
   /// @dev Internal function to update the fee ratio distributed to harvester.

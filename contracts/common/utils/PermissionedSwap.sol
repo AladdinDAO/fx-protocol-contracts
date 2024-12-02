@@ -51,6 +51,18 @@ abstract contract PermissionedSwap is AccessControlUpgradeable {
   /// @dev reserved slots.
   uint256[50] private __gap;
 
+  /************************
+   * Restricted Functions *
+   ************************/
+
+  /// @notice Withdraw base token to someone else.
+  /// @dev This should be only used when we are retiring this contract.
+  /// @param baseToken The address of base token.
+  function withdraw(address baseToken, address recipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    uint256 amountIn = IERC20(baseToken).balanceOf(address(this));
+    IERC20(baseToken).safeTransfer(recipient, amountIn);
+  }
+
   /**********************
    * Internal Functions *
    **********************/

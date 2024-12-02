@@ -3,6 +3,7 @@
 pragma solidity ^0.8.26;
 
 import { IPool } from "../../interfaces/IPool.sol";
+import { IPriceOracle } from "../../price-oracle/interfaces/IPriceOracle.sol";
 
 import { Math } from "../../libraries/Math.sol";
 import { TickLogic } from "./TickLogic.sol";
@@ -21,7 +22,7 @@ abstract contract PositionLogic is TickLogic {
    *************************/
 
   /// @inheritdoc IPool
-  function getPosition(uint256 tokenId) external view returns (uint256 rawColls, uint256 rawDebts) {
+  function getPosition(uint256 tokenId) public view returns (uint256 rawColls, uint256 rawDebts) {
     // compute actual shares
     PositionInfo memory position = positionData[tokenId];
     rawColls = position.colls;
@@ -36,6 +37,15 @@ abstract contract PositionLogic is TickLogic {
     (uint256 debtIndex, uint256 collIndex) = _getDebtAndCollateralIndex();
     rawColls = _convertToRawColl(rawColls, collIndex, Math.Rounding.Down);
     rawDebts = _convertToRawDebt(rawDebts, debtIndex, Math.Rounding.Down);
+  }
+
+  /// @inheritdoc IPool
+  function getPositionDebtRatio(uint256 tokenId) external view returns (uint256 debtRatio) {
+    (uint256 rawColls, uint256 rawDebts) = getPosition(tokenId);
+    // price precision and ratio precision are both 1e18, use anchor price here
+    (uint256 price, , ) = IPriceOracle(priceOracle).getPrice();
+    if (rawColls == 0) return 0;
+    return (rawDebts * PRECISION * PRECISION) / (price * rawColls);
   }
 
   /// @inheritdoc IPool

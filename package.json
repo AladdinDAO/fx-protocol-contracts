@@ -5,6 +5,13 @@
   "repository": "git@github.com:AladdinDAO/fx-protocol-contracts.git",
   "author": "chiaki.hoshin <chiaki.hoshin@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "build": "npx hardhat compile",
+    "test:hardhat": "npx hardhat test",
+    "test:simulation": "npx hardhat test simulation/**/*.ts",
+    "test:foundry": "forge test -vvv",
+    "coverage": "npx hardhat coverage"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
     "@nomicfoundation/hardhat-ethers": "^3.0.0",

@@ -35,10 +35,7 @@ contract ReservePool is AccessControl, IReservePool {
    * Constants *
    *************/
 
-  /// @dev The precision use to calculation.
-  uint256 private constant PRECISION = 1e18;
-
-  /// @dev The address of `FxOmniVault` contract.
+  /// @dev The address of `PoolManager` contract.
   address public immutable poolManager;
 
   /*************

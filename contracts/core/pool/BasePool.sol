@@ -32,6 +32,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
     uint256 debtIndex;
     uint256 globalColl;
     uint256 globalDebt;
+    uint256 price;
   }
 
   /*************
@@ -91,8 +92,8 @@ abstract contract BasePool is TickLogic, PositionLogic {
     if (positionId == 0) {
       positionId = _mintPosition(owner);
     } else {
-      // checking owner only in case of withdraw or borrow
-      if ((newRawColl < 0 || newRawDebt > 0) && ownerOf(positionId) != owner) {
+      // make sure position is owned and check owner only in case of withdraw or borrow
+      if (ownerOf(positionId) != owner && (newRawColl < 0 || newRawDebt > 0)) {
         revert ErrorNotPositionOwner();
       }
       PositionInfo memory position = _getAndUpdatePosition(positionId);
@@ -155,21 +156,19 @@ abstract contract BasePool is TickLogic, PositionLogic {
     // debt ratio check
     {
       // price precision and ratio precision are both 1e18, use min price here
-      (, uint256 price, ) = IPriceOracle(priceOracle).getPrice();
+      (, op.price, ) = IPriceOracle(priceOracle).getPrice();
 
       // check position debt ratio is between `minDebtRatio` and `maxDebtRatio`.
       uint256 rawColls = _convertToRawColl(op.positionColl, op.collIndex, Math.Rounding.Down);
       uint256 rawDebts = _convertToRawDebt(op.positionDebt, op.debtIndex, Math.Rounding.Down);
       (uint256 minDebtRatio, uint256 maxDebtRatio) = _getDebtRatioRange();
-      if (rawDebts * PRECISION * PRECISION > maxDebtRatio * rawColls * price) revert ErrorDebtRatioTooLarge();
-      if (rawDebts * PRECISION * PRECISION < minDebtRatio * rawColls * price) revert ErrorDebtRatioTooSmall();
-
-      emit PositionSnapshot(positionId, rawColls, rawDebts, price);
+      if (rawDebts * PRECISION * PRECISION > maxDebtRatio * rawColls * op.price) revert ErrorDebtRatioTooLarge();
+      if (rawDebts * PRECISION * PRECISION < minDebtRatio * rawColls * op.price) revert ErrorDebtRatioTooSmall();
 
       // if global debt ratio >= 1, only allow supply and repay
       rawColls = _convertToRawColl(op.globalColl, op.collIndex, Math.Rounding.Down);
       rawDebts = _convertToRawDebt(op.globalDebt, op.debtIndex, Math.Rounding.Down);
-      if (rawDebts > 0 && rawDebts * PRECISION >= rawColls * price) {
+      if (rawDebts > 0 && rawDebts * PRECISION >= rawColls * op.price) {
         if (newRawColl < 0 || newRawDebt > 0) revert ErrorPoolUnderCollateral();
       }
     }
@@ -185,6 +184,8 @@ abstract contract BasePool is TickLogic, PositionLogic {
 
     // update global state to storage
     _updateDebtAndCollateralShares(op.globalDebt, op.globalColl);
+
+    emit PositionSnapshot(positionId, int16(op.tick), op.positionColl, op.positionDebt, op.price);
 
     return (positionId, newRawColl, newRawDebt, protocolFees);
   }
@@ -283,6 +284,8 @@ abstract contract BasePool is TickLogic, PositionLogic {
     uint32 positionId,
     uint256 maxRawDebts
   ) external onlyPoolManager returns (RebalanceResult memory result) {
+    _requireOwned(positionId);
+
     (uint256 cachedCollIndex, uint256 cachedDebtIndex) = _updateCollAndDebtIndex();
     (, uint256 price, ) = IPriceOracle(priceOracle).getPrice(); // use min price
     PositionInfo memory position = _getAndUpdatePosition(positionId);
@@ -330,12 +333,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
       _updateDebtAndCollateralShares(totalDebts - debtShareToRebalance, totalColls - collShareToRebalance);
     }
 
-    emit PositionSnapshot(
-      positionId,
-      _convertToRawColl(position.colls, cachedCollIndex, Math.Rounding.Down),
-      _convertToRawDebt(position.debts, cachedDebtIndex, Math.Rounding.Down),
-      price
-    );
+    emit PositionSnapshot(positionId, position.tick, position.colls, position.debts, price);
   }
 
   /// @inheritdoc IPool
@@ -344,6 +342,8 @@ abstract contract BasePool is TickLogic, PositionLogic {
     uint256 maxRawDebts,
     uint256 reservedRawColls
   ) external onlyPoolManager returns (LiquidateResult memory result) {
+    _requireOwned(positionId);
+
     (uint256 cachedCollIndex, uint256 cachedDebtIndex) = _updateCollAndDebtIndex();
     (, uint256 price, ) = IPriceOracle(priceOracle).getPrice(); // use min price
     PositionInfo memory position = _getAndUpdatePosition(positionId);
@@ -407,12 +407,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
     }
     positionData[positionId] = position;
 
-    emit PositionSnapshot(
-      positionId,
-      _convertToRawColl(position.colls, cachedCollIndex, Math.Rounding.Down),
-      _convertToRawDebt(position.debts, cachedDebtIndex, Math.Rounding.Down),
-      price
-    );
+    emit PositionSnapshot(positionId, position.tick, position.colls, position.debts, price);
   }
 
   /************************

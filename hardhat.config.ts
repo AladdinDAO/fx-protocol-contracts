@@ -104,6 +104,12 @@ const config: HardhatUserConfig = {
       },
     ],
   },
+  paths: {
+    artifacts: "./artifacts-hardhat",
+    cache: "./cache-hardhat",
+    sources: "./contracts",
+    tests: "./test",
+  },
   sourcify: {
     enabled: false,
   },

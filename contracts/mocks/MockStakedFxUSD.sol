@@ -7,7 +7,7 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 import { AggregatorV3Interface } from "../interfaces/Chainlink/AggregatorV3Interface.sol";
 import { IPoolManager } from "../interfaces/IPoolManager.sol";
 
-contract MockStakedFxUSD {
+contract MockFxUSDSave {
   /// @notice The address of `PoolManager` contract.
   address public immutable poolManager;
 
