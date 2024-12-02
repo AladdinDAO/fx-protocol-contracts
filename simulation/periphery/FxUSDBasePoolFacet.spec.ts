@@ -37,14 +37,13 @@ import {
   same,
   SpotPriceEncodings,
 } from "@/utils/index";
-import { Contract, Interface, MaxInt256, ZeroAddress } from "ethers";
+import { Interface, ZeroAddress } from "ethers";
 
 const FORK_HEIGHT = 21234850;
 const FORK_URL = process.env.MAINNET_FORK_RPC || "";
 const PLATFORM = "0x0084C2e1B1823564e597Ff4848a88D61ac63D703";
 const OWNER = "0x26B2ec4E02ebe2F54583af25b647b1D619e67BbF";
 const DEPLOYER = "0x1000000000000000000000000000000000000001";
-const PRECISION = 10n ** 18n;
 
 const getAllSignatures = (e: Interface): string[] => {
   const sigs: string[] = [];

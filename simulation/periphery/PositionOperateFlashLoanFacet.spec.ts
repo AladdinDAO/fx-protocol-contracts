@@ -38,7 +38,7 @@ import {
   same,
   SpotPriceEncodings,
 } from "@/utils/index";
-import { Contract, Interface, MaxInt256, ZeroAddress } from "ethers";
+import { Contract, Interface, ZeroAddress } from "ethers";
 
 const FORK_HEIGHT = 21234850;
 const FORK_URL = process.env.MAINNET_FORK_RPC || "";

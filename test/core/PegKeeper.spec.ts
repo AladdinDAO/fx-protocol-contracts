@@ -25,7 +25,6 @@ import {
   MockMultiPathConverter,
 } from "@/types/index";
 import { encodeChainlinkPriceFeed } from "@/utils/index";
-import { mockETHBalance, unlockAccounts } from "../utils";
 
 const TokenRate = ethers.parseEther("1.23");
 
