@@ -1,8 +1,8 @@
 /* eslint-disable camelcase */
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { MaxInt256, MaxUint256, MinInt256, ZeroAddress, ZeroHash } from "ethers";
-import { ethers, network } from "hardhat";
+import { AbiCoder, id, MaxUint256, ZeroAddress, ZeroHash } from "ethers";
+import { ethers } from "hardhat";
 
 import {
   AaveFundingPool,
@@ -22,8 +22,10 @@ import {
   GaugeRewarder,
   FxUSDBasePool,
   FxUSDBasePool__factory,
+  MockMultiPathConverter,
 } from "@/types/index";
 import { encodeChainlinkPriceFeed } from "@/utils/index";
+import { mockETHBalance, unlockAccounts } from "../utils";
 
 const TokenRate = ethers.parseEther("1.23");
 
@@ -42,6 +44,7 @@ describe("FxUSDBasePool.spec", async () => {
   let fxBASE: FxUSDBasePool;
   let rewarder: GaugeRewarder;
 
+  let mockConverter: MockMultiPathConverter;
   let mockAggregatorV3Interface: MockAggregatorV3Interface;
   let mockCurveStableSwapNG: MockCurveStableSwapNG;
   let mockPriceOracle: MockPriceOracle;
@@ -79,13 +82,13 @@ describe("FxUSDBasePool.spec", async () => {
     const FxUSDBasePool = await ethers.getContractFactory("FxUSDBasePool", deployer);
     const ReservePool = await ethers.getContractFactory("ReservePool", deployer);
     const GaugeRewarder = await ethers.getContractFactory("GaugeRewarder", deployer);
-    const MultiPathConverter = await ethers.getContractFactory("MultiPathConverter", deployer);
+    const MockMultiPathConverter = await ethers.getContractFactory("MockMultiPathConverter", deployer);
 
     const empty = await EmptyContract.deploy();
     stableToken = await MockERC20.deploy("USDC", "USDC", 6);
     collateralToken = await MockERC20.deploy("X", "Y", 18);
     proxyAdmin = await ProxyAdmin.connect(admin).deploy();
-    const converter = await MultiPathConverter.deploy(ZeroAddress);
+    mockConverter = await MockMultiPathConverter.deploy();
 
     const FxUSDRegeneracyProxy = await TransparentUpgradeableProxy.deploy(
       empty.getAddress(),
@@ -165,7 +168,7 @@ describe("FxUSDBasePool.spec", async () => {
       PegKeeperImpl.getAddress(),
       PegKeeper__factory.createInterface().encodeFunctionData("initialize", [
         admin.address,
-        await converter.getAddress(),
+        await mockConverter.getAddress(),
         await mockCurveStableSwapNG.getAddress(),
       ])
     );
@@ -1444,5 +1447,290 @@ describe("FxUSDBasePool.spec", async () => {
     });
   });
 
-  context("arbitrage", async () => {});
+  context("arbitrage", async () => {
+    beforeEach(async () => {
+      await mockAggregatorV3Interface.setPrice(ethers.parseUnits("0.991", 8));
+      await stableToken.mint(deployer.address, ethers.parseUnits("220000", 6));
+      await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
+      await collateralToken.connect(deployer).approve(poolManager.getAddress(), MaxUint256);
+
+      // open a position
+      await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
+      await poolManager
+        .connect(deployer)
+        .operate(pool.getAddress(), 0, ethers.parseEther("100"), ethers.parseEther("220000"));
+
+      // deposit to fxBase
+      await fxUSD.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await stableToken.connect(deployer).approve(fxBASE.getAddress(), MaxUint256);
+      await fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("1000"), 0n);
+      await fxBASE
+        .connect(deployer)
+        .deposit(deployer.address, stableToken.getAddress(), ethers.parseUnits("1000", 6), 0n);
+    });
+
+    it("should revert, when invalid token", async () => {
+      await unlockAccounts([await pegKeeper.getAddress()]);
+      const signer = await ethers.getSigner(await pegKeeper.getAddress());
+      await mockETHBalance(signer.address, ethers.parseEther("100"));
+      await expect(fxBASE.connect(signer).arbitrage(ZeroAddress, 0n, ZeroAddress, "0x")).to.revertedWithCustomError(
+        fxBASE,
+        "ErrInvalidTokenIn"
+      );
+    });
+
+    it("should revert, when caller not peg keeper", async () => {
+      await expect(
+        fxBASE.connect(deployer).arbitrage(fxUSD.getAddress(), 0n, ZeroAddress, "0x")
+      ).to.revertedWithCustomError(fxBASE, "ErrorCallerNotPegKeeper");
+    });
+
+    it("should revert, when ErrorStableTokenDepeg", async () => {
+      await unlockAccounts([await pegKeeper.getAddress()]);
+      const signer = await ethers.getSigner(await pegKeeper.getAddress());
+      await mockETHBalance(signer.address, ethers.parseEther("100"));
+      await mockAggregatorV3Interface.setPrice(ethers.parseUnits("0.95", 8) - 1n);
+      await expect(
+        fxBASE.connect(signer).arbitrage(fxUSD.getAddress(), 0n, ZeroAddress, "0x")
+      ).to.revertedWithCustomError(fxBASE, "ErrorStableTokenDepeg");
+    });
+
+    it("should revert, when ErrorSwapExceedBalance, input is fxUSD", async () => {
+      await unlockAccounts([await pegKeeper.getAddress()]);
+      const signer = await ethers.getSigner(await pegKeeper.getAddress());
+      await mockETHBalance(signer.address, ethers.parseEther("100"));
+      await expect(
+        fxBASE.connect(signer).arbitrage(fxUSD.getAddress(), ethers.parseEther("1000") + 1n, ZeroAddress, "0x")
+      ).to.revertedWithCustomError(fxBASE, "ErrorSwapExceedBalance");
+    });
+
+    it("should revert, when ErrorSwapExceedBalance, input is stable", async () => {
+      await unlockAccounts([await pegKeeper.getAddress()]);
+      const signer = await ethers.getSigner(await pegKeeper.getAddress());
+      await mockETHBalance(signer.address, ethers.parseEther("100"));
+      await expect(
+        fxBASE.connect(signer).arbitrage(stableToken.getAddress(), ethers.parseUnits("1000", 6) + 1n, ZeroAddress, "0x")
+      ).to.revertedWithCustomError(fxBASE, "ErrorSwapExceedBalance");
+    });
+
+    context("arbitrage with fxUSD", async () => {
+      beforeEach(async () => {
+        await pegKeeper.connect(admin).grantRole(id("STABILIZE_ROLE"), deployer.address);
+      });
+
+      it("should revert, when ErrorInsufficientArbitrage", async () => {
+        // 1 fxUSD => 1.009081 stable, 1 stable => 0.991 fxUSD
+        await mockConverter.setTokenOut(stableToken.getAddress(), ethers.parseUnits("1.009080", 6));
+        await stableToken.transfer(mockConverter.getAddress(), ethers.parseUnits("1.009080", 6));
+        await expect(
+          pegKeeper
+            .connect(deployer)
+            .stabilize(
+              fxUSD,
+              ethers.parseEther("1"),
+              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []])
+            )
+        ).to.revertedWithCustomError(fxBASE, "ErrorInsufficientArbitrage");
+      });
+
+      it("should succeed, when no bonus", async () => {
+        // 1 fxUSD => 1.009082 stable, 1 stable => 0.991 fxUSD
+        await mockConverter.setTokenOut(stableToken.getAddress(), ethers.parseUnits("1.009082", 6));
+        await stableToken.transfer(mockConverter.getAddress(), ethers.parseUnits("1.009082", 6));
+        const totalYieldBefore = await fxBASE.totalYieldToken();
+        const totalStableBefore = await fxBASE.totalStableToken();
+        const yieldBalanceBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+        const stableBalanceBefore = await stableToken.balanceOf(fxBASE.getAddress());
+        const callerYieldBalanceBefore = await fxUSD.balanceOf(deployer.getAddress());
+        const callerStableBalanceBefore = await stableToken.balanceOf(deployer.getAddress());
+        await expect(
+          pegKeeper
+            .connect(deployer)
+            .stabilize(
+              fxUSD,
+              ethers.parseEther("1"),
+              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []])
+            )
+        )
+          .to.emit(fxBASE, "Arbitrage")
+          .withArgs(
+            await pegKeeper.getAddress(),
+            await fxUSD.getAddress(),
+            ethers.parseEther("1"),
+            ethers.parseUnits("1.009082", 6),
+            0n
+          );
+        const totalYieldAfter = await fxBASE.totalYieldToken();
+        const totalStableAfter = await fxBASE.totalStableToken();
+        const yieldBalanceAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+        const stableBalanceAfter = await stableToken.balanceOf(fxBASE.getAddress());
+        const callerYieldBalanceAfter = await fxUSD.balanceOf(deployer.getAddress());
+        const callerStableBalanceAfter = await stableToken.balanceOf(deployer.getAddress());
+        expect(totalYieldAfter).to.eq(yieldBalanceAfter);
+        expect(totalStableAfter).to.eq(stableBalanceAfter);
+        expect(totalYieldAfter - totalYieldBefore).to.eq(-ethers.parseEther("1"));
+        expect(totalStableAfter - totalStableBefore).to.eq(ethers.parseUnits("1.009082", 6));
+        expect(yieldBalanceAfter - yieldBalanceBefore).to.eq(-ethers.parseEther("1"));
+        expect(stableBalanceAfter - stableBalanceBefore).to.eq(ethers.parseUnits("1.009082", 6));
+        expect(callerYieldBalanceAfter - callerYieldBalanceBefore).to.eq(0n);
+        expect(callerStableBalanceAfter - callerStableBalanceBefore).to.eq(0n);
+      });
+
+      it("should succeed, when with bonus", async () => {
+        // 1 fxUSD => 1.009082 stable, 1 stable => 0.991 fxUSD
+        await mockConverter.setTokenOut(
+          stableToken.getAddress(),
+          ethers.parseUnits("1.009082", 6) + ethers.parseUnits("1", 6)
+        );
+        await stableToken.transfer(
+          mockConverter.getAddress(),
+          ethers.parseUnits("1.009082", 6) + ethers.parseUnits("1", 6)
+        );
+        const totalYieldBefore = await fxBASE.totalYieldToken();
+        const totalStableBefore = await fxBASE.totalStableToken();
+        const yieldBalanceBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+        const stableBalanceBefore = await stableToken.balanceOf(fxBASE.getAddress());
+        const callerYieldBalanceBefore = await fxUSD.balanceOf(deployer.getAddress());
+        const callerStableBalanceBefore = await stableToken.balanceOf(deployer.getAddress());
+        await expect(
+          pegKeeper
+            .connect(deployer)
+            .stabilize(
+              fxUSD,
+              ethers.parseEther("1"),
+              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []])
+            )
+        )
+          .to.emit(fxBASE, "Arbitrage")
+          .withArgs(
+            await pegKeeper.getAddress(),
+            await fxUSD.getAddress(),
+            ethers.parseEther("1"),
+            ethers.parseUnits("1.009082", 6) + ethers.parseUnits("1", 6),
+            ethers.parseUnits("1", 6)
+          );
+        const totalYieldAfter = await fxBASE.totalYieldToken();
+        const totalStableAfter = await fxBASE.totalStableToken();
+        const yieldBalanceAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+        const stableBalanceAfter = await stableToken.balanceOf(fxBASE.getAddress());
+        const callerYieldBalanceAfter = await fxUSD.balanceOf(deployer.getAddress());
+        const callerStableBalanceAfter = await stableToken.balanceOf(deployer.getAddress());
+        expect(totalYieldAfter).to.eq(yieldBalanceAfter);
+        expect(totalStableAfter).to.eq(stableBalanceAfter);
+        expect(totalYieldAfter - totalYieldBefore).to.eq(-ethers.parseEther("1"));
+        expect(totalStableAfter - totalStableBefore).to.eq(ethers.parseUnits("1.009082", 6));
+        expect(yieldBalanceAfter - yieldBalanceBefore).to.eq(-ethers.parseEther("1"));
+        expect(stableBalanceAfter - stableBalanceBefore).to.eq(ethers.parseUnits("1.009082", 6));
+        expect(callerYieldBalanceAfter - callerYieldBalanceBefore).to.eq(0n);
+        expect(callerStableBalanceAfter - callerStableBalanceBefore).to.eq(ethers.parseUnits("1", 6));
+      });
+    });
+
+    context("arbitrage with stable", async () => {
+      beforeEach(async () => {
+        await pegKeeper.connect(admin).grantRole(id("STABILIZE_ROLE"), deployer.address);
+      });
+
+      it("should revert, when ErrorInsufficientArbitrage", async () => {
+        // 1 fxUSD => 1.009081 stable, 1 stable => 0.991 fxUSD
+        await mockConverter.setTokenOut(fxUSD.getAddress(), ethers.parseEther("0.991") - 1n);
+        await fxUSD.connect(deployer).transfer(mockConverter.getAddress(), ethers.parseEther("0.991") - 1n);
+        await expect(
+          pegKeeper
+            .connect(deployer)
+            .stabilize(
+              stableToken,
+              ethers.parseUnits("1", 6),
+              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []])
+            )
+        ).to.revertedWithCustomError(fxBASE, "ErrorInsufficientArbitrage");
+      });
+
+      it("should succeed, when no bonus", async () => {
+        // 1 fxUSD => 1.009082 stable, 1 stable => 0.991 fxUSD
+        await mockConverter.setTokenOut(fxUSD.getAddress(), ethers.parseEther("0.991"));
+        await fxUSD.connect(deployer).transfer(mockConverter.getAddress(), ethers.parseEther("0.991"));
+        const totalYieldBefore = await fxBASE.totalYieldToken();
+        const totalStableBefore = await fxBASE.totalStableToken();
+        const yieldBalanceBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+        const stableBalanceBefore = await stableToken.balanceOf(fxBASE.getAddress());
+        const callerYieldBalanceBefore = await fxUSD.balanceOf(deployer.getAddress());
+        const callerStableBalanceBefore = await stableToken.balanceOf(deployer.getAddress());
+        await expect(
+          pegKeeper
+            .connect(deployer)
+            .stabilize(
+              stableToken,
+              ethers.parseUnits("1", 6),
+              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []])
+            )
+        )
+          .to.emit(fxBASE, "Arbitrage")
+          .withArgs(
+            await pegKeeper.getAddress(),
+            await stableToken.getAddress(),
+            ethers.parseUnits("1", 6),
+            ethers.parseEther("0.991"),
+            0n
+          );
+        const totalYieldAfter = await fxBASE.totalYieldToken();
+        const totalStableAfter = await fxBASE.totalStableToken();
+        const yieldBalanceAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+        const stableBalanceAfter = await stableToken.balanceOf(fxBASE.getAddress());
+        const callerYieldBalanceAfter = await fxUSD.balanceOf(deployer.getAddress());
+        const callerStableBalanceAfter = await stableToken.balanceOf(deployer.getAddress());
+        expect(totalYieldAfter).to.eq(yieldBalanceAfter);
+        expect(totalStableAfter).to.eq(stableBalanceAfter);
+        expect(totalYieldAfter - totalYieldBefore).to.eq(ethers.parseEther("0.991"));
+        expect(totalStableAfter - totalStableBefore).to.eq(-ethers.parseUnits("1", 6));
+        expect(yieldBalanceAfter - yieldBalanceBefore).to.eq(ethers.parseEther("0.991"));
+        expect(stableBalanceAfter - stableBalanceBefore).to.eq(-ethers.parseUnits("1", 6));
+        expect(callerYieldBalanceAfter - callerYieldBalanceBefore).to.eq(0n);
+        expect(callerStableBalanceAfter - callerStableBalanceBefore).to.eq(0n);
+      });
+
+      it("should succeed, when with bonus", async () => {
+        // 1 fxUSD => 1.009082 stable, 1 stable => 0.991 fxUSD
+        await mockConverter.setTokenOut(fxUSD.getAddress(), ethers.parseEther("1.991"));
+        await fxUSD.connect(deployer).transfer(mockConverter.getAddress(), ethers.parseEther("1.991"));
+        const totalYieldBefore = await fxBASE.totalYieldToken();
+        const totalStableBefore = await fxBASE.totalStableToken();
+        const yieldBalanceBefore = await fxUSD.balanceOf(fxBASE.getAddress());
+        const stableBalanceBefore = await stableToken.balanceOf(fxBASE.getAddress());
+        const callerYieldBalanceBefore = await fxUSD.balanceOf(deployer.getAddress());
+        const callerStableBalanceBefore = await stableToken.balanceOf(deployer.getAddress());
+        await expect(
+          pegKeeper
+            .connect(deployer)
+            .stabilize(
+              stableToken,
+              ethers.parseUnits("1", 6),
+              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []])
+            )
+        )
+          .to.emit(fxBASE, "Arbitrage")
+          .withArgs(
+            await pegKeeper.getAddress(),
+            await stableToken.getAddress(),
+            ethers.parseUnits("1", 6),
+            ethers.parseEther("1.991"),
+            ethers.parseEther("1")
+          );
+        const totalYieldAfter = await fxBASE.totalYieldToken();
+        const totalStableAfter = await fxBASE.totalStableToken();
+        const yieldBalanceAfter = await fxUSD.balanceOf(fxBASE.getAddress());
+        const stableBalanceAfter = await stableToken.balanceOf(fxBASE.getAddress());
+        const callerYieldBalanceAfter = await fxUSD.balanceOf(deployer.getAddress());
+        const callerStableBalanceAfter = await stableToken.balanceOf(deployer.getAddress());
+        expect(totalYieldAfter).to.eq(yieldBalanceAfter);
+        expect(totalStableAfter).to.eq(stableBalanceAfter);
+        expect(totalYieldAfter - totalYieldBefore).to.eq(ethers.parseEther("0.991"));
+        expect(totalStableAfter - totalStableBefore).to.eq(-ethers.parseUnits("1", 6));
+        expect(yieldBalanceAfter - yieldBalanceBefore).to.eq(ethers.parseEther("0.991"));
+        expect(stableBalanceAfter - stableBalanceBefore).to.eq(-ethers.parseUnits("1", 6));
+        expect(callerYieldBalanceAfter - callerYieldBalanceBefore).to.eq(ethers.parseEther("1"));
+        expect(callerStableBalanceAfter - callerStableBalanceBefore).to.eq(0n);
+      });
+    });
+  });
 });

@@ -17,9 +17,6 @@ contract GaugeRewarder is PermissionedSwap, IRewardSplitter {
    * Immutable Variables *
    ***********************/
 
-  /// @notice The address of `FxUSD` contract.
-  address public immutable fxUSD;
-
   /// @notice The address of `LiquidityGauge` contract.
   address public immutable gauge;
 
@@ -46,10 +43,11 @@ contract GaugeRewarder is PermissionedSwap, IRewardSplitter {
     // do nothing
   }
 
-  /// @notice Harvest base token to fxUSD by amm trading and distribute to fxBASE.
+  /// @notice Harvest base token to target token by amm trading and distribute to fxBASE gauge.
   /// @param baseToken The address of base token to use.
+  /// @param targetToken The address target token.
   /// @param params The parameters used for trading.
-  /// @return amountOut The amount of fxUSD received.
+  /// @return amountOut The amount of target token received.
   function swapAndDistribute(
     address baseToken,
     address targetToken,
@@ -63,17 +61,5 @@ contract GaugeRewarder is PermissionedSwap, IRewardSplitter {
     // deposit target token to gauge
     IERC20(targetToken).forceApprove(gauge, amountOut);
     IMultipleRewardDistributor(gauge).depositReward(targetToken, amountOut);
-  }
-
-  /************************
-   * Restricted Functions *
-   ************************/
-
-  /// @notice Withdraw base token to someone else.
-  /// @dev This should be only used when we are retiring this contract.
-  /// @param baseToken The address of base token.
-  function withdraw(address baseToken, address recipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    uint256 amountIn = IERC20(baseToken).balanceOf(address(this));
-    IERC20(baseToken).safeTransfer(recipient, amountIn);
   }
 }

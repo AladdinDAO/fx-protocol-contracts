@@ -16,6 +16,8 @@ import { IPool } from "../interfaces/IPool.sol";
 import { IPoolManager } from "../interfaces/IPoolManager.sol";
 import { IFxUSDBasePool } from "../interfaces/IFxUSDBasePool.sol";
 
+import { Math } from "../libraries/Math.sol";
+
 contract FxUSDBasePool is ERC20PermitUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, IFxUSDBasePool {
   using SafeERC20 for IERC20;
 
@@ -374,7 +376,7 @@ contract FxUSDBasePool is ERC20PermitUpgradeable, AccessControlUpgradeable, Reen
         dstToken = stableToken;
         unchecked {
           // rounding up
-          expectedOut = (amountIn * PRECISION) / scaledPrice + 1;
+          expectedOut = Math.mulDivUp(amountIn, PRECISION, scaledPrice);
           cachedTotalYieldToken -= amountIn;
           cachedTotalStableToken += expectedOut;
         }
@@ -383,14 +385,15 @@ contract FxUSDBasePool is ERC20PermitUpgradeable, AccessControlUpgradeable, Reen
         dstToken = yieldToken;
         unchecked {
           // rounding up
-          expectedOut = (amountIn * scaledPrice) / PRECISION + 1;
+          expectedOut = Math.mulDivUp(amountIn, scaledPrice, PRECISION);
           cachedTotalStableToken -= amountIn;
           cachedTotalYieldToken += expectedOut;
         }
       }
     }
+    IERC20(srcToken).safeTransfer(pegKeeper, amountIn);
     uint256 actualOut = IERC20(dstToken).balanceOf(address(this));
-    amountOut = IPegKeeper(pegKeeper).onSwap(stableToken, dstToken, amountIn, data);
+    amountOut = IPegKeeper(pegKeeper).onSwap(srcToken, dstToken, amountIn, data);
     actualOut = IERC20(dstToken).balanceOf(address(this)) - actualOut;
     // check actual fxUSD swapped in case peg keeper is hacked.
     if (amountOut > actualOut) revert ErrorInsufficientOutput();
@@ -518,7 +521,7 @@ contract FxUSDBasePool is ERC20PermitUpgradeable, AccessControlUpgradeable, Reen
       op.totalYieldToken += tokenUsed;
     } else {
       // rounding up
-      tokenUsed = (amountUSD * PRECISION + op.stablePrice - 1) / op.stablePrice;
+      tokenUsed = Math.mulDivUp(amountUSD, PRECISION, op.stablePrice);
       op.totalStableToken += tokenUsed;
     }
 

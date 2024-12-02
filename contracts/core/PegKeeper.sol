@@ -147,6 +147,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     (amountOut, bonus) = IFxUSDBasePool(fxBASE).arbitrage(srcToken, amountIn, _msgSender(), data);
   }
 
+  /// @inheritdoc IPegKeeper
   /// @dev This function will be called in `buyback`, `stabilize`.
   function onSwap(
     address srcToken,

@@ -3,7 +3,6 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 
 import {
-  AaveFundingPool,
   Diamond,
   FxUSDRegeneracy,
   FxUSDBasePool,
@@ -16,15 +15,11 @@ import {
   PoolManager__factory,
   ProxyAdmin,
   ReservePool,
-  GaugeRewarder,
   StETHPriceOracle,
   DiamondCutFacet__factory,
   DiamondLoupeFacet__factory,
   OwnershipFacet__factory,
   RouterManagementFacet__factory,
-  FlashLoanCallbackFacet__factory,
-  PositionOperateFlashLoanFacet__factory,
-  MigrateFacet__factory,
   IRateProvider,
   ILiquidityGauge,
   FxUSDBasePoolFacet__factory,

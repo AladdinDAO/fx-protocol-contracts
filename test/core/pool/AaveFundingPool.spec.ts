@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { MaxInt256, MaxUint256, MinInt256, ZeroAddress, ZeroHash } from "ethers";
+import { MaxUint256, MinInt256, ZeroAddress, ZeroHash } from "ethers";
 import { ethers, network } from "hardhat";
 
 import {
