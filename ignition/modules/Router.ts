@@ -13,6 +13,7 @@ import {
 } from "@/types/index";
 
 import ERC2535Module from "./ERC2535";
+import TokenConverterModule from "./TokenConverter";
 
 const getAllSignatures = (e: Interface): string[] => {
   const sigs: string[] = [];
@@ -25,6 +26,7 @@ const getAllSignatures = (e: Interface): string[] => {
 export default buildModule("Router", (m) => {
   const owner = m.getAccount(0);
   const facets = m.useModule(ERC2535Module);
+  const { MultiPathConverter } = m.useModule(TokenConverterModule);
 
   const diamondCuts = [
     {
@@ -77,6 +79,9 @@ export default buildModule("Router", (m) => {
       initCalldata: "0x",
     },
   ]);
+
+  const RouterManagementFacet = m.contractAt("RouterManagementFacet", Router);
+  m.call(RouterManagementFacet, "approveTarget", [MultiPathConverter, MultiPathConverter]);
 
   return { Router };
 });
