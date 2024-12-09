@@ -146,6 +146,7 @@ describe("FxUSDBasePoolFacet.spec", async () => {
         ethers.parseUnits("0.01", 9),
         ethers.parseUnits("0.0001", 9),
         PLATFORM,
+        PLATFORM,
         await reservePool.getAddress(),
       ])
     );

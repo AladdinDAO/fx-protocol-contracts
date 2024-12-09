@@ -89,7 +89,7 @@ contract FlashLoans is ProtocolFees, ReentrancyGuardUpgradeable, IERC3156FlashLe
     }
 
     if (fee > 0) {
-      IERC20(token).safeTransfer(platform, fee);
+      IERC20(token).safeTransfer(treasury, fee);
     }
 
     return true;

@@ -32,7 +32,8 @@ const TokenRate = ethers.parseEther("1.23");
 describe("FxUSDBasePool.spec", async () => {
   let deployer: HardhatEthersSigner;
   let admin: HardhatEthersSigner;
-  let platform: HardhatEthersSigner;
+  let treasury: HardhatEthersSigner;
+  let revenuePool: HardhatEthersSigner;
 
   let proxyAdmin: ProxyAdmin;
   let fxUSD: FxUSDRegeneracy;
@@ -54,7 +55,7 @@ describe("FxUSDBasePool.spec", async () => {
   let pool: AaveFundingPool;
 
   beforeEach(async () => {
-    [deployer, admin, platform] = await ethers.getSigners();
+    [deployer, admin, treasury, revenuePool] = await ethers.getSigners();
 
     const MockAggregatorV3Interface = await ethers.getContractFactory("MockAggregatorV3Interface", deployer);
     const MockCurveStableSwapNG = await ethers.getContractFactory("MockCurveStableSwapNG", deployer);
@@ -124,7 +125,8 @@ describe("FxUSDBasePool.spec", async () => {
         ethers.parseUnits("0.1", 9),
         ethers.parseUnits("0.01", 9),
         ethers.parseUnits("0.0001", 9),
-        platform.address,
+        treasury.address,
+        revenuePool.address,
         await reservePool.getAddress(),
       ])
     );
@@ -493,6 +495,8 @@ describe("FxUSDBasePool.spec", async () => {
 
       // remove open fee
       await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
+      // remove liquidation expense fee
+      await poolManager.connect(admin).updateExpenseRatio(0n, 0n, 0n);
 
       // open 3 positions on the same tick
       await poolManager
@@ -830,6 +834,8 @@ describe("FxUSDBasePool.spec", async () => {
 
       // remove open fee
       await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
+      // remove liquidation expense fee
+      await poolManager.connect(admin).updateExpenseRatio(0n, 0n, 0n);
 
       // open 3 positions on the same tick
       await poolManager
@@ -1169,6 +1175,8 @@ describe("FxUSDBasePool.spec", async () => {
 
       // remove open fee
       await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
+      // remove liquidation expense fee
+      await poolManager.connect(admin).updateExpenseRatio(0n, 0n, 0n);
 
       // open 3 positions on the same tick
       await poolManager

@@ -32,7 +32,8 @@ const TokenRate = ethers.parseEther("1.23");
 describe("FxUSDRegeneracy.spec", async () => {
   let deployer: HardhatEthersSigner;
   let admin: HardhatEthersSigner;
-  let platform: HardhatEthersSigner;
+  let treasury: HardhatEthersSigner;
+  let revenuePool: HardhatEthersSigner;
 
   let proxyAdmin: ProxyAdmin;
   let fxUSD: FxUSDRegeneracy;
@@ -54,7 +55,7 @@ describe("FxUSDRegeneracy.spec", async () => {
   let pool: AaveFundingPool;
 
   beforeEach(async () => {
-    [deployer, admin, platform] = await ethers.getSigners();
+    [deployer, admin, treasury, revenuePool] = await ethers.getSigners();
 
     const MockAggregatorV3Interface = await ethers.getContractFactory("MockAggregatorV3Interface", deployer);
     const MockCurveStableSwapNG = await ethers.getContractFactory("MockCurveStableSwapNG", deployer);
@@ -124,7 +125,8 @@ describe("FxUSDRegeneracy.spec", async () => {
         ethers.parseUnits("0.1", 9),
         ethers.parseUnits("0.01", 9),
         ethers.parseUnits("0.0001", 9),
-        platform.address,
+        treasury.address,
+        revenuePool.address,
         await reservePool.getAddress(),
       ])
     );

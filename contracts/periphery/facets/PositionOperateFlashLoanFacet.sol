@@ -49,6 +49,9 @@ contract PositionOperateFlashLoanFacet {
 
   /// @dev The address of `MultiPathConverter` contract.
   address private immutable converter;
+  
+  /// @dev The address of revenue pool.
+  address private immutable revenuePool;
 
   /*************
    * Modifiers *
@@ -70,10 +73,11 @@ contract PositionOperateFlashLoanFacet {
    * Constructor *
    ***************/
 
-  constructor(address _balancer, address _poolManager, address _converter) {
+  constructor(address _balancer, address _poolManager, address _converter, address _revenuePool) {
     balancer = _balancer;
     poolManager = _poolManager;
     converter = _converter;
+    revenuePool = _revenuePool;
   }
 
   /****************************
@@ -110,7 +114,7 @@ contract PositionOperateFlashLoanFacet {
     );
 
     // refund collateral token to caller
-    LibRouter.refundERC20(IPool(pool).collateralToken(), msg.sender);
+    LibRouter.refundERC20(IPool(pool).collateralToken(), revenuePool);
   }
 
   /// @notice Close a position or remove collateral from position.
@@ -148,7 +152,7 @@ contract PositionOperateFlashLoanFacet {
     LibRouter.convertAndTransferOut(params, collateralToken, amountOut, msg.sender);
 
     // refund rest fxUSD and leveraged token
-    LibRouter.refundERC20(fxUSD, msg.sender);
+    LibRouter.refundERC20(fxUSD, revenuePool);
   }
 
   /// @notice Hook for `openOrAddPositionFlashLoan`.

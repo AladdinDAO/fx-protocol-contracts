@@ -66,6 +66,9 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
   /// @dev The offset of funding expense ratio in `_miscData`.
   uint256 private constant FUNDING_EXPENSE_RATIO_OFFSET = 120;
 
+  /// @dev The offset of liquidation expense ratio in `_miscData`.
+  uint256 private constant LIQUIDATION_EXPENSE_RATIO_OFFSET = 150;
+
   /// @dev The precision used to compute fees.
   uint256 internal constant FEE_PRECISION = 1e9;
 
@@ -85,13 +88,17 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
   /// - The *expense ratio* and *harvester ratio* are charged each time when harvester harvest the pool revenue.
   /// - The *withdraw fee percentage* is charged each time when user try to withdraw assets from the pool.
   ///
-  /// [ rewards expense ratio | harvester ratio | flash loan ratio | redeem ratio | funding expense ratio | available ]
-  /// [        30 bits        |     30 bits     |     30  bits     |   30  bits   |        30 bits        |  106 bits ]
-  /// [ MSB                                                                                                       LSB ]
+  /// [ rewards expense ratio | harvester ratio | flash loan ratio | redeem ratio | funding expense ratio | liquidation expense ratio | available ]
+  /// [        30 bits        |     30 bits     |     30  bits     |   30  bits   |        30 bits        |          30 bits          |  76 bits  ]
+  /// [ MSB                                                                                                                                   LSB ]
   bytes32 internal _miscData;
 
   /// @inheritdoc IProtocolFees
-  address public platform;
+  address public treasury;
+
+  /// @inheritdoc IProtocolFees
+  /// @dev Hold fees including open, close, redeem, liquidation and rebalance.
+  address public revenuePool;
 
   /// @inheritdoc IProtocolFees
   address public reservePool;
@@ -107,14 +114,17 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
     uint256 _expenseRatio,
     uint256 _harvesterRatio,
     uint256 _flashLoanFeeRatio,
-    address _platform,
+    address _treasury,
+    address _revenuePool,
     address _reservePool
   ) internal onlyInitializing {
     _updateFundingExpenseRatio(_expenseRatio);
     _updateRewardsExpenseRatio(_expenseRatio);
+    _updateLiquidationExpenseRatio(_expenseRatio);
     _updateHarvesterRatio(_harvesterRatio);
     _updateFlashLoanFeeRatio(_flashLoanFeeRatio);
-    _updatePlatform(_platform);
+    _updateTreasury(_treasury);
+    _updateRevenuePool(_revenuePool);
     _updateReservePool(_reservePool);
   }
 
@@ -130,6 +140,11 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
   /// @inheritdoc IProtocolFees
   function getRewardsExpenseRatio() public view returns (uint256) {
     return _miscData.decodeUint(REWARDS_EXPENSE_RATIO_OFFSET, 30);
+  }
+
+  /// @inheritdoc IProtocolFees
+  function getLiquidationExpenseRatio() public view returns (uint256) {
+    return _miscData.decodeUint(LIQUIDATION_EXPENSE_RATIO_OFFSET, 30);
   }
 
   /// @inheritdoc IProtocolFees
@@ -178,18 +193,30 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
     _updateReservePool(_newReservePool);
   }
 
-  /// @notice Change address of platform contract.
-  /// @param _newPlatform The new address of platform contract.
-  function updatePlatform(address _newPlatform) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    _updatePlatform(_newPlatform);
+  /// @notice Change address of treasury contract.
+  /// @param _newTreasury The new address of treasury contract.
+  function updateTreasury(address _newTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateTreasury(_newTreasury);
+  }
+
+  /// @notice Change address of revenue pool contract.
+  /// @param _newPool The new address of revenue pool contract.
+  function updateRevenuePool(address _newPool) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateRevenuePool(_newPool);
   }
 
   /// @notice Update the fee ratio distributed to treasury.
   /// @param newRewardsRatio The new ratio for rewards to update, multiplied by 1e9.
   /// @param newFundingRatio The new ratio for funding to update, multiplied by 1e9.
-  function updateExpenseRatio(uint32 newRewardsRatio, uint32 newFundingRatio) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  /// @param newLiquidationRatio The new ratio for liquidation/rebalance to update, multiplied by 1e9.
+  function updateExpenseRatio(
+    uint32 newRewardsRatio,
+    uint32 newFundingRatio,
+    uint32 newLiquidationRatio
+  ) external onlyRole(DEFAULT_ADMIN_ROLE) {
     _updateRewardsExpenseRatio(newRewardsRatio);
     _updateFundingExpenseRatio(newFundingRatio);
+    _updateLiquidationExpenseRatio(newLiquidationRatio);
   }
 
   /// @notice Update the fee ratio distributed to harvester.
@@ -214,15 +241,26 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
    * Internal Functions *
    **********************/
 
-  /// @dev Internal function to change address of platform contract.
-  /// @param _newPlatform The new address of platform contract.
-  function _updatePlatform(address _newPlatform) private {
-    if (_newPlatform == address(0)) revert ErrorZeroAddress();
+  /// @dev Internal function to change address of treasury contract.
+  /// @param _newTreasury The new address of treasury contract.
+  function _updateTreasury(address _newTreasury) private {
+    if (_newTreasury == address(0)) revert ErrorZeroAddress();
 
-    address _oldPlatform = platform;
-    platform = _newPlatform;
+    address _oldTreasury = treasury;
+    treasury = _newTreasury;
 
-    emit UpdatePlatform(_oldPlatform, _newPlatform);
+    emit UpdateTreasury(_oldTreasury, _newTreasury);
+  }
+
+  /// @dev Internal function to change address of revenue pool contract.
+  /// @param _newPool The new address of revenue pool contract.
+  function _updateRevenuePool(address _newPool) private {
+    if (_newPool == address(0)) revert ErrorZeroAddress();
+
+    address _oldPool = revenuePool;
+    revenuePool = _newPool;
+
+    emit UpdateRevenuePool(_oldPool, _newPool);
   }
 
   /// @dev Internal function to change the address of reserve pool contract.
@@ -248,6 +286,20 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
     _miscData = _data.insertUint(newRatio, REWARDS_EXPENSE_RATIO_OFFSET, 30);
 
     emit UpdateRewardsExpenseRatio(_oldRatio, newRatio);
+  }
+
+  /// @dev Internal function to update the fee ratio distributed to treasury.
+  /// @param newRatio The new ratio to update, multiplied by 1e9.
+  function _updateLiquidationExpenseRatio(uint256 newRatio) private {
+    if (uint256(newRatio) > MAX_EXPENSE_RATIO) {
+      revert ErrorExpenseRatioTooLarge();
+    }
+
+    bytes32 _data = _miscData;
+    uint256 _oldRatio = _miscData.decodeUint(LIQUIDATION_EXPENSE_RATIO_OFFSET, 30);
+    _miscData = _data.insertUint(newRatio, LIQUIDATION_EXPENSE_RATIO_OFFSET, 30);
+
+    emit UpdateLiquidationExpenseRatio(_oldRatio, newRatio);
   }
 
   /// @dev Internal function to update the fee ratio distributed to treasury.
@@ -321,7 +373,7 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
     fees = accumulatedPoolFees[pool];
     if (fees > 0) {
       address collateralToken = IPool(pool).collateralToken();
-      IERC20(collateralToken).safeTransfer(platform, fees);
+      IERC20(collateralToken).safeTransfer(revenuePool, fees);
 
       accumulatedPoolFees[pool] = 0;
     }
@@ -331,5 +383,5 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
    * @dev This empty reserved space is put in place to allow future versions to add new
    * variables without shifting down storage in the inheritance chain.
    */
-  uint256[46] private __gap;
+  uint256[45] private __gap;
 }

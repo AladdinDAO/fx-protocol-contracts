@@ -149,6 +149,7 @@ describe("MigrateFacet.spec", async () => {
         ethers.parseUnits("0.01", 9),
         ethers.parseUnits("0.0001", 9),
         PLATFORM,
+        PLATFORM,
         await reservePool.getAddress(),
       ])
     );
@@ -240,7 +241,8 @@ describe("MigrateFacet.spec", async () => {
       const flashSwap = await PositionOperateFlashLoanFacet.deploy(
         "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
         poolManager.getAddress(),
-        converter.getAddress()
+        converter.getAddress(),
+        PLATFORM
       );
       const migrate = await MigrateFacet.deploy(
         "0xBA12222222228d8Ba445958a75a0704d566BF2C8",

@@ -52,7 +52,8 @@ interface IPool {
   /// @param newTick The index of the current tick.
   /// @param collShares The amount of collateral shares added to new tick.
   /// @param debtShares The amount of debt shares added to new tick.
-  event TickMovement(int16 oldTick, int16 newTick, uint256 collShares, uint256 debtShares);
+  /// @param price The price used for this operation.
+  event TickMovement(int16 oldTick, int16 newTick, uint256 collShares, uint256 debtShares, uint256 price);
 
   /// @notice Emitted when debt index increase.
   event DebtIndexSnapshot(uint256 index);

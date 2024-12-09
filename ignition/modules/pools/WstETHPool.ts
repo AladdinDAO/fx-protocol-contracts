@@ -6,13 +6,14 @@ import FxProtocolModule from "../FxProtocol";
 import PriceOracleModule from "../PriceOracle";
 import ProxyAdminModule from "../ProxyAdmin";
 import AaveFundingPoolModule from "./AaveFundingPool";
+import { ethers } from "ethers";
 
 export default buildModule("WstETHPool", (m) => {
   const admin = m.getAccount(0);
   const { fx: ProxyAdmin } = m.useModule(ProxyAdminModule);
   const { AaveFundingPoolImplementation } = m.useModule(AaveFundingPoolModule);
   const { StETHPriceOracle } = m.useModule(PriceOracleModule);
-  const { PoolManagerProxy, GaugeRewarder } = m.useModule(FxProtocolModule);
+  const { PoolManagerProxy, GaugeRewarder, RevenuePool } = m.useModule(FxProtocolModule);
 
   // deploy WstETHPool proxy
   const WstETHPoolInitializer = m.encodeFunctionCall(AaveFundingPoolImplementation, "initialize", [
@@ -47,6 +48,15 @@ export default buildModule("WstETHPool", (m) => {
 
   // register wstETH rate provider
   m.call(PoolManagerProxy, "updateRateProvider", [EthereumTokens.wstETH.address, m.getParameter("RateProvider")]);
+
+  // add reward token, 70% to fxSave, 30% to treasury
+  m.call(RevenuePool, "addRewardToken", [
+    EthereumTokens.wstETH.address,
+    GaugeRewarder,
+    0n,
+    ethers.parseUnits("0.3", 9),
+    ethers.parseUnits("0.7", 9),
+  ]);
 
   return {
     WstETHPool,

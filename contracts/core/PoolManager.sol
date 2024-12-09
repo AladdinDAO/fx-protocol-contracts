@@ -101,13 +101,15 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
   /// @param stablePrice The USD price of stable token (with scalar).
   /// @param scalingFactor The scaling factor for collateral token.
   /// @param collateralToken The address of collateral token.
-  /// @param rawColls The amount of raw collateral tokens liquidated or rebalanced.
+  /// @param rawColls The amount of raw collateral tokens liquidated or rebalanced, including bonus.
+  /// @param bonusRawColls The amount of raw collateral tokens used as bonus.
   /// @param rawDebts The amount of raw debt tokens liquidated or rebalanced.
   struct LiquidateOrRebalanceMemoryVar {
     uint256 stablePrice;
     uint256 scalingFactor;
     address collateralToken;
     uint256 rawColls;
+    uint256 bonusRawColls;
     uint256 rawDebts;
   }
 
@@ -156,7 +158,8 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     uint256 _expenseRatio,
     uint256 _harvesterRatio,
     uint256 _flashLoanFeeRatio,
-    address _platform,
+    address _treasury,
+    address _revenuePool,
     address _reservePool
   ) external initializer {
     __Context_init();
@@ -165,7 +168,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
 
     _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
-    __ProtocolFees_init(_expenseRatio, _harvesterRatio, _flashLoanFeeRatio, _platform, _reservePool);
+    __ProtocolFees_init(_expenseRatio, _harvesterRatio, _flashLoanFeeRatio, _treasury, _revenuePool, _reservePool);
     __FlashLoans_init();
   }
 
@@ -246,7 +249,11 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
   }
 
   /// @inheritdoc IPoolManager
-  function redeem(address pool, uint256 debts, uint256 minColls) external onlyRegisteredPool(pool) nonReentrant returns (uint256 colls) {
+  function redeem(
+    address pool,
+    uint256 debts,
+    uint256 minColls
+  ) external onlyRegisteredPool(pool) nonReentrant returns (uint256 colls) {
     if (debts > IERC20(fxUSD).balanceOf(_msgSender())) {
       revert ErrorRedeemExceedBalance();
     }
@@ -288,6 +295,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     LiquidateOrRebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(pool);
     IPool.RebalanceResult memory result = IPool(pool).rebalance(tick, maxFxUSD + _scaleUp(maxStable, op.stablePrice));
     op.rawColls = result.rawColls + result.bonusRawColls;
+    op.bonusRawColls = result.bonusRawColls;
     op.rawDebts = result.rawDebts;
     (colls, fxUSDUsed, stableUsed) = _afterRebalanceOrLiquidate(pool, maxFxUSD, op, receiver);
 
@@ -314,6 +322,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
       maxFxUSD + _scaleUp(maxStable, op.stablePrice)
     );
     op.rawColls = result.rawColls + result.bonusRawColls;
+    op.bonusRawColls = result.bonusRawColls;
     op.rawDebts = result.rawDebts;
     (colls, fxUSDUsed, stableUsed) = _afterRebalanceOrLiquidate(pool, maxFxUSD, op, receiver);
 
@@ -341,6 +350,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
       reservedRawColls = _scaleUp(reservedRawColls, op.scalingFactor);
       result = IPool(pool).liquidate(position, maxFxUSD + _scaleUp(maxStable, op.stablePrice), reservedRawColls);
       op.rawColls = result.rawColls + result.bonusRawColls;
+      op.bonusRawColls = result.bonusRawColls;
       op.rawDebts = result.rawDebts;
 
       // take bonus from reserve pool
@@ -403,8 +413,11 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
       }
     }
 
-    // transfer platform fee
-    _accumulatePoolFee(pool, performanceFee);
+    // transfer performance fee to treasury
+    if (performanceFee > 0) {
+      IERC20(collateralToken).safeTransfer(treasury, performanceFee);
+    }
+    // transfer various fees to revenue pool
     _takeAccumulatedPoolFee(pool);
     // transfer harvest bounty
     if (harvestBounty > 0) {
@@ -567,6 +580,12 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     }
 
     // transfer collateral
+    uint256 protocolRevenue = (_scaleDown(op.bonusRawColls, op.scalingFactor) * getLiquidationExpenseRatio()) /
+      FEE_PRECISION;
+    _accumulatePoolFee(pool, protocolRevenue);
+    unchecked {
+      colls -= protocolRevenue;
+    }
     IERC20(op.collateralToken).safeTransfer(receiver, colls);
   }
 

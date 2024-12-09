@@ -146,6 +146,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
         ethers.parseUnits("0.01", 9),
         ethers.parseUnits("0.0001", 9),
         PLATFORM,
+        PLATFORM,
         await reservePool.getAddress(),
       ])
     );
@@ -230,7 +231,8 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       const flashSwap = await PositionOperateFlashLoanFacet.deploy(
         "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
         poolManager.getAddress(),
-        converter.getAddress()
+        converter.getAddress(),
+        PLATFORM
       );
       const migrate = await MigrateFacet.deploy(
         "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
@@ -424,7 +426,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       `fxUSDToMint[${ethers.formatEther(fxUSDAmount)}]`,
       `TargetDebtRatio[${ethers.formatEther(targetDebtRatio)}]`
     );
-    const wstETHBefore = await wstETH.balanceOf(holder.address);
+    const wstETHBefore = await wstETH.balanceOf(PLATFORM);
     if (positionId > 0) {
       await pool.connect(holder).approve(facet.getAddress(), positionId);
     }
@@ -451,15 +453,14 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       }
     );
     if (positionId === 0) positionId = 1;
-    const wstETHAfter = await wstETH.balanceOf(holder.address);
+    const wstETHAfter = await wstETH.balanceOf(PLATFORM);
     const [colls, debts] = await pool.getPosition(positionId);
     const debtRatio = await pool.getPositionDebtRatio(positionId);
-    const wstETHRefund = isWstETH ? wstETHAfter - wstETHBefore + amountIn : wstETHAfter - wstETHBefore;
     console.log(
       `RawColl[${ethers.formatEther(colls)}]`,
       `RawDebt[${ethers.formatEther(debts)}]`,
       `DebtRatio[${ethers.formatEther(debtRatio)}]`,
-      `wstETHRefund[${ethers.formatEther(wstETHRefund)}]`
+      `wstETHRefund[${ethers.formatEther(wstETHAfter - wstETHBefore)}]`
     );
     return positionId;
   };
@@ -718,7 +719,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
         routeWstETHToFxUSD.routes,
       ]
     );
-    const fxUSDBefore = await fxUSD.balanceOf(holder.address);
+    const fxUSDBefore = await fxUSD.balanceOf(PLATFORM);
     const balanceBefore = isETH
       ? await ethers.provider.getBalance(holder.address)
       : await token.balanceOf(holder.address);
@@ -739,7 +740,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       data
     );
     const r = await tx.wait();
-    const fxUSDAfter = await fxUSD.balanceOf(holder.address);
+    const fxUSDAfter = await fxUSD.balanceOf(PLATFORM);
     const balanceAfter = isETH
       ? await ethers.provider.getBalance(holder.address)
       : await token.balanceOf(holder.address);

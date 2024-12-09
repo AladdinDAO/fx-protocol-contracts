@@ -88,7 +88,10 @@ abstract contract BasePool is TickLogic, PositionLogic {
     }
 
     OperationMemoryVar memory op;
+    // price precision and ratio precision are both 1e18, use min price here
+    (, op.price, ) = IPriceOracle(priceOracle).getPrice();
     (op.globalDebt, op.globalColl) = _getDebtAndCollateralShares();
+    (op.collIndex, op.debtIndex) = _updateCollAndDebtIndex();
     if (positionId == 0) {
       positionId = _mintPosition(owner);
     } else {
@@ -103,11 +106,17 @@ abstract contract BasePool is TickLogic, PositionLogic {
       op.node = position.nodeId;
       op.positionDebt = position.debts;
       op.positionColl = position.colls;
+
+      // cannot withdraw or borrow when the position is above liquidation ratio
+      if (newRawColl < 0 || newRawDebt > 0) {
+        uint256 rawColls = _convertToRawColl(op.positionColl, op.collIndex, Math.Rounding.Down);
+        uint256 rawDebts = _convertToRawDebt(op.positionDebt, op.debtIndex, Math.Rounding.Down);
+        (uint256 debtRatio, ) = _getLiquidateRatios();
+        if (rawDebts * PRECISION * PRECISION > debtRatio * rawColls * op.price) revert ErrorPositionInLiquidationMode();
+      }
     }
 
-    (op.collIndex, op.debtIndex) = _updateCollAndDebtIndex();
     uint256 protocolFees;
-
     // supply or withdraw
     if (newRawColl > 0) {
       protocolFees = _deductProtocolFees(newRawColl);
@@ -153,24 +162,14 @@ abstract contract BasePool is TickLogic, PositionLogic {
       op.globalDebt -= uint256(-op.newDebt);
     }
 
-    // debt ratio check
+    // final debt ratio check
     {
-      // price precision and ratio precision are both 1e18, use min price here
-      (, op.price, ) = IPriceOracle(priceOracle).getPrice();
-
       // check position debt ratio is between `minDebtRatio` and `maxDebtRatio`.
       uint256 rawColls = _convertToRawColl(op.positionColl, op.collIndex, Math.Rounding.Down);
       uint256 rawDebts = _convertToRawDebt(op.positionDebt, op.debtIndex, Math.Rounding.Down);
       (uint256 minDebtRatio, uint256 maxDebtRatio) = _getDebtRatioRange();
       if (rawDebts * PRECISION * PRECISION > maxDebtRatio * rawColls * op.price) revert ErrorDebtRatioTooLarge();
       if (rawDebts * PRECISION * PRECISION < minDebtRatio * rawColls * op.price) revert ErrorDebtRatioTooSmall();
-
-      // if global debt ratio >= 1, only allow supply and repay
-      rawColls = _convertToRawColl(op.globalColl, op.collIndex, Math.Rounding.Down);
-      rawDebts = _convertToRawDebt(op.globalDebt, op.debtIndex, Math.Rounding.Down);
-      if (rawDebts > 0 && rawDebts * PRECISION >= rawColls * op.price) {
-        if (newRawColl < 0 || newRawDebt > 0) revert ErrorPoolUnderCollateral();
-      }
     }
 
     // update position state to storage
@@ -195,13 +194,18 @@ abstract contract BasePool is TickLogic, PositionLogic {
     if (_isRedeemPaused()) revert ErrorRedeemPaused();
 
     (uint256 cachedCollIndex, uint256 cachedDebtIndex) = _updateCollAndDebtIndex();
+    (uint256 cachedTotalDebts, uint256 cachedTotalColls) = _getDebtAndCollateralShares();
     (, , uint256 price) = IPriceOracle(priceOracle).getPrice(); // use max price
-    uint256 debtShare = _convertToDebtShares(rawDebts, cachedDebtIndex, Math.Rounding.Down);
+    // check global debt ratio, if global debt ratio >= 1, disable redeem
+    {
+      uint256 totalRawColls = _convertToRawColl(cachedTotalColls, cachedCollIndex, Math.Rounding.Down);
+      uint256 totalRawDebts = _convertToRawDebt(cachedTotalDebts, cachedDebtIndex, Math.Rounding.Down);
+      if (totalRawDebts * PRECISION >= totalRawColls * price) revert ErrorPoolUnderCollateral();
+    }
 
     int16 tick = _getTopTick();
     bool hasDebt = true;
-
-    (uint256 cachedTotalDebts, uint256 cachedTotalColls) = _getDebtAndCollateralShares();
+    uint256 debtShare = _convertToDebtShares(rawDebts, cachedDebtIndex, Math.Rounding.Down);
     while (debtShare > 0) {
       if (!hasDebt) {
         (tick, hasDebt) = tickBitmap.nextDebtPositionWithinOneWord(tick - 1);
@@ -228,7 +232,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
         uint256 rawCollRedeemed = (_convertToRawDebt(debtShareToRedeem, cachedDebtIndex, Math.Rounding.Down) *
           PRECISION) / price;
         uint256 collShareRedeemed = _convertToCollShares(rawCollRedeemed, cachedCollIndex, Math.Rounding.Down);
-        _liquidateTick(tick, collShareRedeemed, debtShareToRedeem);
+        _liquidateTick(tick, collShareRedeemed, debtShareToRedeem, price);
         debtShare -= debtShareToRedeem;
         rawColls += rawCollRedeemed;
 
@@ -272,7 +276,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
       Math.Rounding.Down
     );
 
-    _liquidateTick(tick, collShareToRebalance, debtShareToRebalance);
+    _liquidateTick(tick, collShareToRebalance, debtShareToRebalance, price);
     unchecked {
       (uint256 totalDebts, uint256 totalColls) = _getDebtAndCollateralShares();
       _updateDebtAndCollateralShares(totalDebts - debtShareToRebalance, totalColls - collShareToRebalance);

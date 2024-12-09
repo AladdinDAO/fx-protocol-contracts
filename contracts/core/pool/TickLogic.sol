@@ -177,7 +177,7 @@ abstract contract TickLogic is PoolStorage {
   /// @param tick The id of tick to liquidate.
   /// @param liquidatedColl The amount of collateral shares liquidated.
   /// @param liquidatedDebt The amount of debt shares liquidated.
-  function _liquidateTick(int16 tick, uint256 liquidatedColl, uint256 liquidatedDebt) internal {
+  function _liquidateTick(int16 tick, uint256 liquidatedColl, uint256 liquidatedDebt, uint256 price) internal {
     uint32 node = tickData[tick];
     // create new tree node for this tick
     _newTickTreeNode(tick);
@@ -204,7 +204,7 @@ abstract contract TickLogic is PoolStorage {
       (newTick, parentNode) = _addPositionToTick(tickCollAfter, tickDebtAfter, false);
       metadata = metadata.insertUint(parentNode, 0, 32);
     }
-    emit TickMovement(tick, int16(newTick), tickCollAfter, tickDebtAfter);
+    emit TickMovement(tick, int16(newTick), tickCollAfter, tickDebtAfter, price);
 
     // top tick liquidated, update it to new one
     int16 topTick = _getTopTick();

@@ -36,6 +36,8 @@ export default buildModule("FxProtocol", (m) => {
 
   // deploy ReservePool
   const ReservePool = m.contract("ReservePool", [admin, PoolManagerProxy]);
+  // deploy ReservePool
+  const RevenuePool = m.contract("RevenuePool", [m.getParameter("Treasury"), m.getParameter("Treasury"), admin]);
 
   // deploy PoolManager implementation and initialize PoolManager proxy
   const PoolManagerImplementation = m.contract("PoolManager", [FxUSDProxy, FxUSDBasePoolProxy, PegKeeperProxy], {
@@ -46,7 +48,8 @@ export default buildModule("FxProtocol", (m) => {
     m.getParameter("ExpenseRatio"),
     m.getParameter("HarvesterRatio"),
     m.getParameter("FlashLoanFeeRatio"),
-    m.getParameter("Platform"),
+    m.getParameter("Treasury"),
+    RevenuePool,
     ReservePool,
   ]);
   m.call(ProxyAdmin, "upgradeAndCall", [PoolManagerProxy, PoolManagerImplementation, PoolManagerInitializer], {
@@ -141,6 +144,7 @@ export default buildModule("FxProtocol", (m) => {
     FxUSDProxy: m.contractAt("FxUSDRegeneracy", FxUSDProxy, { id: "FxUSD" }),
     FxUSDImplementation,
     FxUSDBasePoolGaugeProxy,
+    RevenuePool,
     GaugeRewarder,
   };
 });
