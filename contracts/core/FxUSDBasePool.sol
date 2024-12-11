@@ -16,9 +16,16 @@ import { IPool } from "../interfaces/IPool.sol";
 import { IPoolManager } from "../interfaces/IPoolManager.sol";
 import { IFxUSDBasePool } from "../interfaces/IFxUSDBasePool.sol";
 
+import { AssetManagement } from "../fund/AssetManagement.sol";
 import { Math } from "../libraries/Math.sol";
 
-contract FxUSDBasePool is ERC20PermitUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, IFxUSDBasePool {
+contract FxUSDBasePool is
+  ERC20PermitUpgradeable,
+  AccessControlUpgradeable,
+  ReentrancyGuardUpgradeable,
+  AssetManagement,
+  IFxUSDBasePool
+{
   using SafeERC20 for IERC20;
 
   /**********

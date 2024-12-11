@@ -16,10 +16,11 @@ import { IFxUSDBasePool } from "../interfaces/IFxUSDBasePool.sol";
 import { IRateProvider } from "../rate-provider/interfaces/IRateProvider.sol";
 
 import { WordCodec } from "../common/codec/WordCodec.sol";
+import { AssetManagement } from "../fund/AssetManagement.sol";
 import { FlashLoans } from "./FlashLoans.sol";
 import { ProtocolFees } from "./ProtocolFees.sol";
 
-contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
+contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager {
   using EnumerableSet for EnumerableSet.AddressSet;
   using SafeERC20 for IERC20;
   using WordCodec for bytes32;
