@@ -13,7 +13,7 @@
     "ExpenseRatio": "100000000",
     "HarvesterRatio": "10000000",
     "FlashLoanFeeRatio": "0",
-    "Platform": "0x0084C2e1B1823564e597Ff4848a88D61ac63D703"
+    "Treasury": "0x0084C2e1B1823564e597Ff4848a88D61ac63D703"
   },
   "PriceOracle": {
     "SpotPriceOracle": "0xc2312CaF0De62eC9b4ADC785C79851Cb989C9abc"

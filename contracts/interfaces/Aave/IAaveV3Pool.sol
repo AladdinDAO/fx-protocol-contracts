@@ -72,4 +72,18 @@ interface IAaveV3Pool {
    * @return The state and configuration data of the reserve
    */
   function getReserveData(address asset) external view returns (ReserveDataLegacy memory);
+
+  /**
+   * @notice Returns the normalized variable debt per unit of asset
+   * @dev WARNING: This function is intended to be used primarily by the protocol itself to get a
+   * "dynamic" variable index based on time, current stored index and virtual rate at the current
+   * moment (approx. a borrower would get if opening a position). This means that is always used in
+   * combination with variable debt supply/balances.
+   * If using this function externally, consider that is possible to have an increasing normalized
+   * variable debt that is not equivalent to how the variable debt index would be updated in storage
+   * (e.g. only updates with non-zero variable debt supply)
+   * @param asset The address of the underlying asset of the reserve
+   * @return The reserve normalized variable debt
+   */
+  function getReserveNormalizedVariableDebt(address asset) external view returns (uint256);
 }

@@ -38,8 +38,8 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
   /// @dev The maximum value of *funding ratio*.
   uint256 private constant MAX_FUNDING_RATIO = 4294967295;
 
-  /// @dev The maximum value of *interest rate*.
-  uint256 private constant MAX_INTEREST_RATE = 295147905179352825855;
+  /// @dev The minimum Aave borrow index snapshot delay.
+  uint256 private constant MIN_SNAPSHOT_DELAY = 30 minutes;
 
   /***********************
    * Immutable Variables *
@@ -50,6 +50,21 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
 
   /// @dev The address of asset used for interest calculation.
   address private immutable baseAsset;
+
+  /***********
+   * Structs *
+   ***********/
+
+  /// @dev The struct for AAVE borrow rate snapshot.
+  /// @param borrowIndex The current borrow index of AAVE, multiplied by 1e27.
+  /// @param lastInterestRate The last recorded interest rate, multiplied by 1e18.
+  /// @param timestamp The timestamp when the snapshot is taken.
+  struct BorrowRateSnapshot {
+    // The initial value of `borrowIndex` is `10^27`, it is very unlikely this value will exceed `2^128`.
+    uint128 borrowIndex;
+    uint80 lastInterestRate;
+    uint48 timestamp;
+  }
 
   /*********************
    * Storage Variables *
@@ -62,15 +77,14 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
   /// - The *close fee ratio* is the fee ratio for closing position, multiplied by 1e9.
   /// - The *funding ratio* is the scalar for funding rate, multiplied by 1e9.
   ///   The maximum value is `4.294967296`.
-  /// - The *interest ratio* is the annual interest rate for the given asset, multiplied by 1e18.
-  ///   The maximum value is `295.147905179352825856`.
-  /// - The *timestamp* is the timestamp when the *interest ratio* snapshot was taken.
-  ///   The maximum value is `68719476735`, enough for about `2179` years.
   ///
-  /// [ open ratio | open ratio step | close fee ratio | funding ratio | interest rate | timestamp ]
-  /// [  30  bits  |     60 bits     |     30 bits     |    32 bits    |    68 bits    |  36 bits  ]
-  /// [ MSB                                                                                    LSB ]
+  /// [ open ratio | open ratio step | close fee ratio | funding ratio | reserved ]
+  /// [  30  bits  |     60 bits     |     30 bits     |    32 bits    | 104 bits ]
+  /// [ MSB                                                                   LSB ]
   bytes32 private fundingMiscData;
+
+  /// @notice The snapshot for AAVE borrow rate.
+  BorrowRateSnapshot public borrowRateSnapshot;
 
   /***************
    * Constructor *
@@ -105,7 +119,10 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
 
     _updateOpenRatio(1000000, 50000000000000000); // 0.1% and 5%
     _updateCloseFeeRatio(1000000); // 0.1%
-    _updateInterestRate();
+
+    uint256 borrowIndex = IAaveV3Pool(lendingPool).getReserveNormalizedVariableDebt(baseAsset);
+    IAaveV3Pool.ReserveDataLegacy memory reserveData = IAaveV3Pool(lendingPool).getReserveData(baseAsset);
+    _updateInterestRate(borrowIndex, reserveData.currentVariableBorrowRate / 1e9);
   }
 
   /*************************
@@ -124,17 +141,10 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
     return _getFundingRatio();
   }
 
-  /// @notice Get the interest rate snapshot.
-  /// @return rate The snapshot interest rate, multiplied by 1e18.
-  /// @return timestamp The snapshot timestamp.
-  function getInterestRateSnapshot() external view returns (uint256, uint256) {
-    return _getInterestRate();
-  }
-
   /// @notice Return the fee ratio for opening position, multiplied by 1e9.
   function getOpenFeeRatio() public view returns (uint256) {
     (uint256 openRatio, uint256 openRatioStep) = _getOpenRatio();
-    (uint256 rate, ) = _getInterestRate();
+    (, uint256 rate) = _getAverageInterestRate(borrowRateSnapshot);
     unchecked {
       uint256 aaveRatio = rate <= openRatioStep ? 1 : (rate - 1) / openRatioStep;
       return aaveRatio * openRatio;
@@ -231,39 +241,51 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
   }
 
   /// @dev Internal function to return interest rate snapshot.
-  /// @return rate The snapshot interest rate, multiplied by 1e18.
-  /// @return timestamp The snapshot timestamp.
-  function _getInterestRate() internal view returns (uint256 rate, uint256 timestamp) {
-    bytes32 data = fundingMiscData;
-    rate = data.decodeUint(INTEREST_RATE_OFFSET, 68);
-    timestamp = data.decodeUint(TIMESTAMP_OFFSET, 36);
+  /// @param snapshot The previous borrow index snapshot.
+  /// @return newBorrowIndex The current borrow index, multiplied by 1e27.
+  /// @return rate The annual interest rate, multiplied by 1e18.
+  function _getAverageInterestRate(
+    BorrowRateSnapshot memory snapshot
+  ) internal view returns (uint256 newBorrowIndex, uint256 rate) {
+    uint256 prevBorrowIndex = snapshot.borrowIndex;
+    newBorrowIndex = IAaveV3Pool(lendingPool).getReserveNormalizedVariableDebt(baseAsset);
+    // absolute rate change is (new - prev) / prev
+    // annual interest rate is (new - prev) / prev / duration * 365 days
+    uint256 duration = block.timestamp - snapshot.timestamp;
+    if (duration < MIN_SNAPSHOT_DELAY) {
+      rate = snapshot.lastInterestRate;
+    } else {
+      rate = ((newBorrowIndex - prevBorrowIndex) * 365 days * PRECISION) / (prevBorrowIndex * duration);
+      if (rate == 0) rate = snapshot.lastInterestRate;
+    }
   }
 
   /// @dev Internal function to update interest rate snapshot.
-  function _updateInterestRate() internal {
-    IAaveV3Pool.ReserveDataLegacy memory reserveData = IAaveV3Pool(lendingPool).getReserveData(baseAsset);
-    // the interest rate from aave is scaled by 1e27, we want 1e18 scale.
-    uint256 rate = reserveData.currentVariableBorrowRate / 1e9;
-    if (rate > MAX_INTEREST_RATE) rate = MAX_INTEREST_RATE;
+  function _updateInterestRate(uint256 newBorrowIndex, uint256 lastInterestRate) internal {
+    BorrowRateSnapshot memory snapshot = borrowRateSnapshot;
+    // don't update snapshot when the duration is too small.
+    if (snapshot.timestamp > 0 && block.timestamp - snapshot.timestamp < MIN_SNAPSHOT_DELAY) return;
 
-    bytes32 data = fundingMiscData;
-    data = data.insertUint(rate, INTEREST_RATE_OFFSET, 68);
-    fundingMiscData = data.insertUint(block.timestamp, TIMESTAMP_OFFSET, 36);
+    snapshot.borrowIndex = uint128(newBorrowIndex);
+    snapshot.lastInterestRate = uint80(lastInterestRate);
+    snapshot.timestamp = uint48(block.timestamp);
+    borrowRateSnapshot = snapshot;
 
-    emit SnapshotAaveInterestRate(rate, block.timestamp);
+    emit SnapshotAaveBorrowIndex(newBorrowIndex, block.timestamp);
   }
 
   /// @inheritdoc BasePool
   function _updateCollAndDebtIndex() internal virtual override returns (uint256 newCollIndex, uint256 newDebtIndex) {
     (newDebtIndex, newCollIndex) = _getDebtAndCollateralIndex();
 
-    (uint256 oldInterestRate, uint256 snapshotTimestamp) = _getInterestRate();
-    if (block.timestamp > snapshotTimestamp) {
+    BorrowRateSnapshot memory snapshot = borrowRateSnapshot;
+    uint256 duration = block.timestamp - snapshot.timestamp;
+    if (duration > 0) {
+      (uint256 borrowIndex, uint256 interestRate) = _getAverageInterestRate(snapshot);
       if (IPegKeeper(pegKeeper).isFundingEnabled()) {
         (, uint256 totalColls) = _getDebtAndCollateralShares();
         uint256 totalRawColls = _convertToRawColl(totalColls, newCollIndex, Math.Rounding.Down);
-        uint256 funding = (totalRawColls * oldInterestRate * (block.timestamp - snapshotTimestamp)) /
-          (365 * 86400 * PRECISION);
+        uint256 funding = (totalRawColls * interestRate * duration) / (365 days * PRECISION);
         funding = ((funding * _getFundingRatio()) / FEE_PRECISION);
 
         // update collateral index with funding costs
@@ -272,7 +294,7 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
       }
 
       // update interest snapshot
-      _updateInterestRate();
+      _updateInterestRate(borrowIndex, interestRate);
     }
   }
 

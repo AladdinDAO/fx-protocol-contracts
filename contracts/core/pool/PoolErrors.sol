@@ -55,6 +55,10 @@ abstract contract PoolErrors {
   /// @dev Thrown when the current debt ratio > liquidate debt ratio.
   error ErrorPositionInLiquidationMode();
 
+  error ErrorRebalanceOnLiquidatableTick();
+
+  error ErrorRebalanceOnLiquidatablePosition();
+
   /**********************
    * Internal Functions *
    **********************/

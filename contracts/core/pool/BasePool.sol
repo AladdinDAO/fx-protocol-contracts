@@ -255,9 +255,13 @@ abstract contract BasePool is TickLogic, PositionLogic {
     uint256 tickRawColl = _convertToRawColl(value.decodeUint(0, 128), cachedCollIndex, Math.Rounding.Down);
     uint256 tickRawDebt = _convertToRawDebt(value.decodeUint(128, 128), cachedDebtIndex, Math.Rounding.Down);
     (uint256 rebalanceDebtRatio, uint256 rebalanceBonusRatio) = _getRebalanceRatios();
-    // rebalance only debt ratio >= `rebalanceDebtRatio`
+    (uint256 liquidateDebtRatio, ) = _getLiquidateRatios();
+    // rebalance only debt ratio >= `rebalanceDebtRatio` and ratio < `liquidateDebtRatio`
     if (tickRawDebt * PRECISION * PRECISION < rebalanceDebtRatio * tickRawColl * price) {
       revert ErrorRebalanceDebtRatioNotReached();
+    }
+    if (tickRawDebt * PRECISION * PRECISION >= liquidateDebtRatio * tickRawColl * price) {
+      revert ErrorRebalanceOnLiquidatableTick();
     }
 
     // compute debts to rebalance to make debt ratio to `rebalanceDebtRatio`
@@ -296,9 +300,15 @@ abstract contract BasePool is TickLogic, PositionLogic {
     uint256 positionRawColl = _convertToRawColl(position.colls, cachedCollIndex, Math.Rounding.Down);
     uint256 positionRawDebt = _convertToRawDebt(position.debts, cachedDebtIndex, Math.Rounding.Down);
     (uint256 rebalanceDebtRatio, uint256 rebalanceBonusRatio) = _getRebalanceRatios();
-    // rebalance only debt ratio >= `rebalanceDebtRatio`
+    // rebalance only debt ratio >= `rebalanceDebtRatio` and ratio < `liquidateDebtRatio`
     if (positionRawDebt * PRECISION * PRECISION < rebalanceDebtRatio * positionRawColl * price) {
       revert ErrorRebalanceDebtRatioNotReached();
+    }
+    {
+      (uint256 liquidateDebtRatio, ) = _getLiquidateRatios();
+      if (positionRawDebt * PRECISION * PRECISION >= liquidateDebtRatio * positionRawColl * price) {
+        revert ErrorRebalanceOnLiquidatableTick();
+      }
     }
     _removePositionFromTick(position);
 

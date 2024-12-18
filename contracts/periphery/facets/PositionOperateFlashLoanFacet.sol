@@ -194,7 +194,7 @@ contract PositionOperateFlashLoanFacet {
   /// @param amount The amount of collateral token to withdraw.
   /// @param repayAmount The amount of collateral token to repay.
   /// @param recipient The address of position holder.
-  /// @param data Hook data passing to `onOpenOrAddPositionFlashLoan`.
+  /// @param data Hook data passing to `onCloseOrRemovePositionFlashLoan`.
   function onCloseOrRemovePositionFlashLoan(
     address pool,
     uint256 position,
