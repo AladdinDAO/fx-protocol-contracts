@@ -44,6 +44,10 @@ library LibRouter {
 
   uint8 internal constant HAS_FLASH_LOAN = 1;
 
+  uint8 internal constant NOT_ENTRANT = 0;
+
+  uint8 internal constant HAS_ENTRANT = 1;
+
   /***********
    * Structs *
    ***********/
@@ -56,6 +60,7 @@ library LibRouter {
     EnumerableSet.AddressSet approvedTargets;
     EnumerableSet.AddressSet whitelisted;
     uint8 flashLoanContext;
+    uint8 reentrantContext;
   }
 
   /// @notice The struct for input token convert parameters.

@@ -7,23 +7,20 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import { IMultiPathConverter } from "../../helpers/interfaces/IMultiPathConverter.sol";
-import { IBalancerVault } from "../../interfaces/Balancer/IBalancerVault.sol";
 import { IPoolManager } from "../../interfaces/IPoolManager.sol";
 import { IPool } from "../../interfaces/IPool.sol";
 
 import { WordCodec } from "../../common/codec/WordCodec.sol";
 import { LibRouter } from "../libraries/LibRouter.sol";
+import { FlashLoanFacetBase } from "./FlashLoanFacetBase.sol";
 
-contract PositionOperateFlashLoanFacet {
+contract PositionOperateFlashLoanFacet is FlashLoanFacetBase {
   using SafeERC20 for IERC20;
   using WordCodec for bytes32;
 
   /**********
    * Errors *
    **********/
-
-  /// @dev Thrown when the caller is not self.
-  error ErrorNotFromSelf();
 
   /// @dev Thrown when the amount of tokens swapped are not enough.
   error ErrorInsufficientAmountSwapped();
@@ -41,40 +38,25 @@ contract PositionOperateFlashLoanFacet {
    * Immutable Variables *
    ***********************/
 
-  /// @dev The address of Balancer V2 Vault.
-  address private immutable balancer;
-
   /// @dev The address of `PoolManager` contract.
   address private immutable poolManager;
 
   /// @dev The address of `MultiPathConverter` contract.
   address private immutable converter;
-  
+
   /// @dev The address of revenue pool.
   address private immutable revenuePool;
-
-  /*************
-   * Modifiers *
-   *************/
-
-  modifier onlySelf() {
-    if (msg.sender != address(this)) revert ErrorNotFromSelf();
-    _;
-  }
-
-  modifier onFlashLoan() {
-    LibRouter.RouterStorage storage $ = LibRouter.routerStorage();
-    $.flashLoanContext = LibRouter.HAS_FLASH_LOAN;
-    _;
-    $.flashLoanContext = LibRouter.NOT_FLASH_LOAN;
-  }
 
   /***************
    * Constructor *
    ***************/
 
-  constructor(address _balancer, address _poolManager, address _converter, address _revenuePool) {
-    balancer = _balancer;
+  constructor(
+    address _balancer,
+    address _poolManager,
+    address _converter,
+    address _revenuePool
+  ) FlashLoanFacetBase(_balancer) {
     poolManager = _poolManager;
     converter = _converter;
     revenuePool = _revenuePool;
@@ -96,23 +78,16 @@ contract PositionOperateFlashLoanFacet {
     uint256 positionId,
     uint256 borrowAmount,
     bytes calldata data
-  ) external payable onFlashLoan {
+  ) external payable nonReentrant {
     uint256 amountIn = LibRouter.transferInAndConvert(params, IPool(pool).collateralToken()) + borrowAmount;
-
-    address[] memory tokens = new address[](1);
-    uint256[] memory amounts = new uint256[](1);
-    tokens[0] = IPool(pool).collateralToken();
-    amounts[0] = borrowAmount;
-    IBalancerVault(balancer).flashLoan(
-      address(this),
-      tokens,
-      amounts,
+    _invokeFlashLoan(
+      IPool(pool).collateralToken(),
+      borrowAmount,
       abi.encodeCall(
         PositionOperateFlashLoanFacet.onOpenOrAddPositionFlashLoan,
         (pool, positionId, amountIn, borrowAmount, msg.sender, data)
       )
     );
-
     // refund collateral token to caller
     LibRouter.refundERC20(IPool(pool).collateralToken(), revenuePool);
   }
@@ -130,17 +105,12 @@ contract PositionOperateFlashLoanFacet {
     uint256 amountOut,
     uint256 borrowAmount,
     bytes calldata data
-  ) external onFlashLoan {
+  ) external nonReentrant {
     address collateralToken = IPool(pool).collateralToken();
 
-    address[] memory tokens = new address[](1);
-    uint256[] memory amounts = new uint256[](1);
-    tokens[0] = collateralToken;
-    amounts[0] = borrowAmount;
-    IBalancerVault(balancer).flashLoan(
-      address(this),
-      tokens,
-      amounts,
+    _invokeFlashLoan(
+      collateralToken,
+      borrowAmount,
       abi.encodeCall(
         PositionOperateFlashLoanFacet.onCloseOrRemovePositionFlashLoan,
         (pool, positionId, amountOut, borrowAmount, msg.sender, data)
