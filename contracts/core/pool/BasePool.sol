@@ -382,6 +382,16 @@ abstract contract BasePool is TickLogic, PositionLogic {
       : _convertToDebtShares(result.rawDebts, cachedDebtIndex, Math.Rounding.Down);
     uint256 collShareToLiquidate;
     result.rawColls = (result.rawDebts * PRECISION) / price;
+    if (positionRawColl < result.rawColls) {
+      // adjust result.rawColls, result.rawDebts and debtShareToLiquidate
+      result.rawColls = positionRawColl;
+      result.rawDebts = (positionRawColl * price) / PRECISION;
+      if (result.rawDebts > positionRawDebt) result.rawDebts = positionRawDebt;
+      debtShareToLiquidate = result.rawDebts == positionRawDebt
+        ? position.debts
+        : _convertToDebtShares(result.rawDebts, cachedDebtIndex, Math.Rounding.Down);
+    }
+
     result.bonusRawColls = (result.rawColls * liquidateBonusRatio) / FEE_PRECISION;
     if (result.bonusRawColls > positionRawColl - result.rawColls) {
       uint256 diff = result.bonusRawColls - (positionRawColl - result.rawColls);

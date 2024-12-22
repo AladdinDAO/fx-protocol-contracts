@@ -59,6 +59,8 @@ abstract contract PoolErrors {
 
   error ErrorRebalanceOnLiquidatablePosition();
 
+  error ErrorInsufficientCollateralToLiquidate();
+
   /**********************
    * Internal Functions *
    **********************/
