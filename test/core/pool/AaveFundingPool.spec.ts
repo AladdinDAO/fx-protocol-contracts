@@ -64,6 +64,7 @@ describe("AaveFundingPool.spec", async () => {
       ethers.parseEther("3001")
     );
     mockAaveV3Pool = await MockAaveV3Pool.deploy(ethers.parseUnits("0.05", 27));
+    await mockAaveV3Pool.setReserveNormalizedVariableDebt(ethers.parseUnits("1", 27));
 
     const MockERC20 = await ethers.getContractFactory("MockERC20", deployer);
     const EmptyContract = await ethers.getContractFactory("EmptyContract", deployer);
@@ -221,6 +222,10 @@ describe("AaveFundingPool.spec", async () => {
       expect(await pool.getFundingRatio()).to.eq(0n);
       expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.001", 9));
       expect(await pool.getCloseFeeRatio()).to.eq(ethers.parseUnits("0.001", 9));
+
+      expect((await pool.borrowRateSnapshot()).lastInterestRate).to.eq(ethers.parseUnits("0.05", 18));
+      expect((await pool.borrowRateSnapshot()).borrowIndex).to.eq(ethers.parseUnits("1", 27));
+      expect((await pool.borrowRateSnapshot()).timestamp).to.gt(0);
     });
 
     it("should revert, when initialize again", async () => {
@@ -413,28 +418,38 @@ describe("AaveFundingPool.spec", async () => {
         await mockETHBalance(signer.address, ethers.parseEther("100"));
 
         await pool.updateOpenRatio(ethers.parseUnits("0.001", 9), ethers.parseEther("0.05"));
-        await mockAaveV3Pool.setVariableBorrowRate(ethers.parseUnits("0.01", 27));
+
+        const lastTimestamp = Number((await pool.borrowRateSnapshot()).timestamp);
+        // < 30 minutes, use last interest = 5%
+        await network.provider.send("evm_setNextBlockTimestamp", [lastTimestamp + 60]);
+        await mockAaveV3Pool.setReserveNormalizedVariableDebt(ethers.parseUnits("1.1", 27));
         await pool.connect(signer).operate(0, ethers.parseEther("1"), ethers.parseEther("2000"), deployer.address);
         expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.001", 9));
-        await mockAaveV3Pool.setVariableBorrowRate(ethers.parseUnits("0.06", 27));
+        expect((await pool.borrowRateSnapshot()).timestamp).to.eq(lastTimestamp);
+        await network.provider.send("evm_setNextBlockTimestamp", [lastTimestamp + 60 * 2]);
+        await mockAaveV3Pool.setReserveNormalizedVariableDebt(ethers.parseUnits("1.2", 27));
         await pool.connect(signer).operate(0, ethers.parseEther("1"), ethers.parseEther("2000"), deployer.address);
         expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.001", 9));
-        await mockAaveV3Pool.setVariableBorrowRate(ethers.parseUnits("0.1", 27));
+        expect((await pool.borrowRateSnapshot()).timestamp).to.eq(lastTimestamp);
+
+        // = 30, use ((newBorrowIndex - prevBorrowIndex) * 365 days) / (prevBorrowIndex * duration)
+        // increase 0.01%, apr is 175.2%, open fee multiple is (1.752 - eps) / 0.05 = 35
+        await mockAaveV3Pool.setReserveNormalizedVariableDebt(ethers.parseUnits("1.0001", 27));
+        await network.provider.send("evm_setNextBlockTimestamp", [lastTimestamp + 60 * 30]);
         await pool.connect(signer).operate(0, ethers.parseEther("1"), ethers.parseEther("2000"), deployer.address);
-        expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.001", 9));
-        await mockAaveV3Pool.setVariableBorrowRate(ethers.parseUnits("0.11", 27));
+        expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.035", 9));
+        expect((await pool.borrowRateSnapshot()).timestamp).to.eq(lastTimestamp + 60 * 30);
+        expect((await pool.borrowRateSnapshot()).lastInterestRate).to.eq(ethers.parseEther("1.752"));
+        expect((await pool.borrowRateSnapshot()).borrowIndex).to.eq(ethers.parseUnits("1.0001", 27));
+        // > 30, use ((newBorrowIndex - prevBorrowIndex) * 365 days) / (prevBorrowIndex * duration)
+        // increase 0.01%, apr is 174.9880505845086967%, open fee multiple is (1.752 - eps) / 0.05 = 34
+        await mockAaveV3Pool.setReserveNormalizedVariableDebt(ethers.parseUnits("1.0002", 27));
+        await network.provider.send("evm_setNextBlockTimestamp", [lastTimestamp + 60 * 60 + 2]);
         await pool.connect(signer).operate(0, ethers.parseEther("1"), ethers.parseEther("2000"), deployer.address);
-        expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.001", 9) * 2n);
-        await mockAaveV3Pool.setVariableBorrowRate(ethers.parseUnits("0.16", 27));
-        await pool.connect(signer).operate(0, ethers.parseEther("1"), ethers.parseEther("2000"), deployer.address);
-        expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.001", 9) * 3n);
-        await pool.updateOpenRatio(ethers.parseUnits("0.000001", 9), ethers.parseEther("0.05"));
-        await mockAaveV3Pool.setVariableBorrowRate(295147905179352825855000000000n);
-        await pool.connect(signer).operate(0, ethers.parseEther("1"), ethers.parseEther("2000"), deployer.address);
-        expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.000001", 9) * 5902n);
-        await mockAaveV3Pool.setVariableBorrowRate(395147905179352825855000000000n);
-        await pool.connect(signer).operate(0, ethers.parseEther("1"), ethers.parseEther("2000"), deployer.address);
-        expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.000001", 9) * 5902n);
+        expect(await pool.getOpenFeeRatio()).to.eq(ethers.parseUnits("0.034", 9));
+        expect((await pool.borrowRateSnapshot()).timestamp).to.eq(lastTimestamp + 60 * 60 + 2);
+        expect((await pool.borrowRateSnapshot()).lastInterestRate).to.eq(ethers.parseEther("1.749880505845086967"));
+        expect((await pool.borrowRateSnapshot()).borrowIndex).to.eq(ethers.parseUnits("1.0002", 27));
       });
     });
 
@@ -689,8 +704,8 @@ describe("AaveFundingPool.spec", async () => {
         expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([2n ** 96n, 2n ** 96n]);
       });
 
-      it("should charge funding fee, when enabled and funding ratio is zero", async () => {
-        const [, startTime] = await pool.getInterestRateSnapshot();
+      it("should charge no funding, when enabled and funding ratio is zero", async () => {
+        const [borrowIndex, lastRate, startTime] = await pool.borrowRateSnapshot();
         await network.provider.send("evm_setNextBlockTimestamp", [Number(startTime) + 86400 * 7]);
         await mockCurveStableSwapNG.setPriceOracle(0, ethers.parseEther("0.8"));
         expect(await pegKeeper.isFundingEnabled()).to.eq(true);
@@ -702,7 +717,7 @@ describe("AaveFundingPool.spec", async () => {
       it("should charge funding fee, when enable", async () => {
         expect(await pool.getTotalRawCollaterals()).to.eq(InitialRawCollateral);
         await pool.updateFundingRatio(ethers.parseUnits("0.1", 9));
-        const [rate, startTime] = await pool.getInterestRateSnapshot();
+        const [borrowIndex, lastRate, startTime] = await pool.borrowRateSnapshot();
         await mockCurveStableSwapNG.setPriceOracle(0, ethers.parseEther("0.8"));
         expect(await pegKeeper.isFundingEnabled()).to.eq(true);
         expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([2n ** 96n, 2n ** 96n]);
@@ -710,7 +725,7 @@ describe("AaveFundingPool.spec", async () => {
         await pool.connect(signer).operate(1, ethers.parseEther("0.01"), 0n, deployer.address);
         const timestamp = (await ethers.provider.getBlock("latest"))!.timestamp;
         const funding =
-          (InitialRawCollateral * rate * (BigInt(timestamp) - startTime)) / (86400n * 365n * 10n ** 18n) / 10n;
+          (InitialRawCollateral * lastRate * (BigInt(timestamp) - startTime)) / (86400n * 365n * 10n ** 18n) / 10n;
         // 1.22877 * 0.05 * 7 / 365 * 0.1 = 0.000117827260273972
         expect(funding).to.eq(ethers.parseEther(".000117827260273972"));
         // 1.23 - 1.23 / 1000 + 0.01 - 0.01 / 1000 - 0.000117827260273972 = 1.238642172739726028
@@ -985,6 +1000,17 @@ describe("AaveFundingPool.spec", async () => {
       );
     });
 
+    it("should revert, when ErrorRebalanceOnLiquidatableTick", async () => {
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 1000,
+      await mockPriceOracle.setPrices(ethers.parseEther("1000"), ethers.parseEther("1000"), ethers.parseEther("1000"));
+
+      await expect(pool.connect(signer)["rebalance(int16,uint256)"](4997, MaxUint256)).to.revertedWithCustomError(
+        pool,
+        "ErrorRebalanceOnLiquidatableTick"
+      );
+    });
+
     it("should ok", async () => {
       // current debt ratio is 0.596404763647503097 for min price = 2999
       // min price drop to 2000, debt ratio became 0.894308943089430894
@@ -1051,6 +1077,17 @@ describe("AaveFundingPool.spec", async () => {
       await expect(pool.connect(signer)["rebalance(uint32,uint256)"](1, MaxUint256)).to.revertedWithCustomError(
         pool,
         "ErrorRebalanceDebtRatioNotReached"
+      );
+    });
+
+    it("should revert, when ErrorRebalanceOnLiquidatableTick", async () => {
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 1000,
+      await mockPriceOracle.setPrices(ethers.parseEther("1000"), ethers.parseEther("1000"), ethers.parseEther("1000"));
+
+      await expect(pool.connect(signer)["rebalance(uint32,uint256)"](1, MaxUint256)).to.revertedWithCustomError(
+        pool,
+        "ErrorRebalanceOnLiquidatableTick"
       );
     });
 
@@ -1224,6 +1261,32 @@ describe("AaveFundingPool.spec", async () => {
       expect((await pool.getPosition(2)).rawDebts).to.closeTo(ethers.parseEther("2201"), 1000000n);
       expect((await pool.getPosition(3)).rawColls).to.eq(ethers.parseEther("12.3"));
       expect((await pool.getPosition(3)).rawDebts).to.closeTo(ethers.parseEther("22010"), 1000000n);
+    });
+
+    it("should ok, when distribute bad debts with maximum input", async () => {
+      // current debt ratio is 0.596404763647503097 for min price = 2999
+      // min price drop to 1700, debt ratio became 1.052128168340506934
+      await mockPriceOracle.setPrices(ethers.parseEther("1700"), ethers.parseEther("1700"), ethers.parseEther("1700"));
+
+      // liquidate position 1, and bad debt distribute to position 2 and 3
+      let [rawColls, rawDebts, bonusRawColls, bonusFromReserve] = await pool
+        .connect(signer)
+        .liquidate.staticCall(1, MaxUint256, 0n);
+      expect(rawColls).to.closeTo(ethers.parseEther("0.123"), 1000000n);
+      expect(rawDebts).to.eq(ethers.parseEther("209.1"));
+      expect(bonusRawColls).to.eq(0n);
+      expect(bonusFromReserve).to.eq(0n);
+      expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([2n ** 96n, 2n ** 96n]);
+      await pool.connect(signer).liquidate(1, MaxUint256, 0n);
+      expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([79263847926305886406757571371n, 2n ** 96n]);
+      expect(await pool.getTotalRawCollaterals()).to.closeTo(ethers.parseEther("13.53"), 1000000n);
+      expect(await pool.getTotalRawDebts()).to.closeTo(ethers.parseEther("24210.899999999999999999"), 1000000n);
+      expect((await pool.getPosition(1)).rawColls).to.eq(0n);
+      expect((await pool.getPosition(1)).rawDebts).to.eq(0n);
+      expect((await pool.getPosition(2)).rawColls).to.eq(ethers.parseEther("1.23"));
+      expect((await pool.getPosition(2)).rawDebts).to.closeTo(ethers.parseEther("2200.990909090909090909"), 1000000n);
+      expect((await pool.getPosition(3)).rawColls).to.eq(ethers.parseEther("12.3"));
+      expect((await pool.getPosition(3)).rawDebts).to.closeTo(ethers.parseEther("22009.909090909090909090"), 1000000n);
     });
   });
 });

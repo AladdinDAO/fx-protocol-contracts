@@ -61,6 +61,8 @@ abstract contract PoolErrors {
 
   error ErrorInsufficientCollateralToLiquidate();
 
+  error ErrorOverflow();
+
   /**********************
    * Internal Functions *
    **********************/

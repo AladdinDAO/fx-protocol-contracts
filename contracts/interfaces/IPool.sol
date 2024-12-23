@@ -116,10 +116,10 @@ interface IPool {
   function getTopTick() external view returns (int16);
 
   /// @notice Return the next position id.
-  function getNextPositionId() external view returns (uint256);
+  function getNextPositionId() external view returns (uint32);
 
   /// @notice Return the next tick tree node id.
-  function getNextTreeNodeId() external view returns (uint256);
+  function getNextTreeNodeId() external view returns (uint48);
 
   /// @notice Return the debt ratio range.
   /// @param minDebtRatio The minimum required debt ratio, multiplied by 1e18.

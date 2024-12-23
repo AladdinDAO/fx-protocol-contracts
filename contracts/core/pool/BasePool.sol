@@ -23,7 +23,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
 
   struct OperationMemoryVar {
     int256 tick;
-    uint32 node;
+    uint48 node;
     uint256 positionColl;
     uint256 positionDebt;
     int256 newColl;
@@ -174,12 +174,10 @@ abstract contract BasePool is TickLogic, PositionLogic {
 
     // update position state to storage
     (op.tick, op.node) = _addPositionToTick(op.positionColl, op.positionDebt, true);
-    positionData[positionId] = PositionInfo(
-      int16(op.tick),
-      uint32(op.node),
-      uint104(op.positionColl),
-      uint104(op.positionDebt)
-    );
+
+    if (op.positionColl > type(uint96).max) revert ErrorOverflow();
+    if (op.positionDebt > type(uint96).max) revert ErrorOverflow();
+    positionData[positionId] = PositionInfo(int16(op.tick), op.node, uint96(op.positionColl), uint96(op.positionDebt));
 
     // update global state to storage
     _updateDebtAndCollateralShares(op.globalDebt, op.globalColl);
@@ -212,10 +210,10 @@ abstract contract BasePool is TickLogic, PositionLogic {
       } else {
         uint256 node = tickData[tick];
         bytes32 value = tickTreeData[node].value;
-        uint256 tickDebtShare = value.decodeUint(128, 128);
+        uint256 tickDebtShare = value.decodeUint(DEBT_SHARE_OFFSET, 128);
         // skip bad debt
         {
-          uint256 tickCollShare = value.decodeUint(0, 128);
+          uint256 tickCollShare = value.decodeUint(COLL_SHARE_OFFSET, 128);
           if (
             _convertToRawDebt(tickDebtShare, cachedDebtIndex, Math.Rounding.Down) * PRECISION >
             _convertToRawColl(tickCollShare, cachedCollIndex, Math.Rounding.Down) * price
@@ -252,8 +250,16 @@ abstract contract BasePool is TickLogic, PositionLogic {
     (, uint256 price, ) = IPriceOracle(priceOracle).getPrice(); // use min price
     uint256 node = tickData[tick];
     bytes32 value = tickTreeData[node].value;
-    uint256 tickRawColl = _convertToRawColl(value.decodeUint(0, 128), cachedCollIndex, Math.Rounding.Down);
-    uint256 tickRawDebt = _convertToRawDebt(value.decodeUint(128, 128), cachedDebtIndex, Math.Rounding.Down);
+    uint256 tickRawColl = _convertToRawColl(
+      value.decodeUint(COLL_SHARE_OFFSET, 128),
+      cachedCollIndex,
+      Math.Rounding.Down
+    );
+    uint256 tickRawDebt = _convertToRawDebt(
+      value.decodeUint(DEBT_SHARE_OFFSET, 128),
+      cachedDebtIndex,
+      Math.Rounding.Down
+    );
     (uint256 rebalanceDebtRatio, uint256 rebalanceBonusRatio) = _getRebalanceRatios();
     (uint256 liquidateDebtRatio, ) = _getLiquidateRatios();
     // rebalance only debt ratio >= `rebalanceDebtRatio` and ratio < `liquidateDebtRatio`
@@ -333,8 +339,8 @@ abstract contract BasePool is TickLogic, PositionLogic {
       cachedCollIndex,
       Math.Rounding.Down
     );
-    position.debts -= uint104(debtShareToRebalance);
-    position.colls -= uint104(collShareToRebalance);
+    position.debts -= uint96(debtShareToRebalance);
+    position.colls -= uint96(collShareToRebalance);
 
     {
       int256 tick;
@@ -407,8 +413,8 @@ abstract contract BasePool is TickLogic, PositionLogic {
         Math.Rounding.Down
       );
     }
-    position.debts -= uint104(debtShareToLiquidate);
-    position.colls -= uint104(collShareToLiquidate);
+    position.debts -= uint96(debtShareToLiquidate);
+    position.colls -= uint96(collShareToLiquidate);
 
     unchecked {
       (uint256 totalDebts, uint256 totalColls) = _getDebtAndCollateralShares();

@@ -11,6 +11,20 @@ abstract contract TickLogic is PoolStorage {
   using TickBitmap for mapping(int8 => uint256);
   using WordCodec for bytes32;
 
+  /*************
+   * Constants *
+   *************/
+
+  /// @dev Below are offsets of each variables in `TickTreeNode.metadata`.
+  uint256 private constant PARENT_OFFSET = 0;
+  uint256 private constant TICK_OFFSET = 48;
+  uint256 private constant COLL_RATIO_OFFSET = 64;
+  uint256 private constant DEBT_RATIO_OFFSET = 128;
+
+  /// @dev Below are offsets of each variables in `TickTreeNode.value`.
+  uint256 internal constant COLL_SHARE_OFFSET = 0;
+  uint256 internal constant DEBT_SHARE_OFFSET = 128;
+
   /***************
    * Constructor *
    ***************/
@@ -34,11 +48,11 @@ abstract contract TickLogic is PoolStorage {
     debtRatio = E60;
     while (true) {
       bytes32 metadata = tickTreeData[node].metadata;
-      uint256 parent = metadata.decodeUint(0, 32);
-      collRatio = (collRatio * metadata.decodeUint(48, 64)) >> 60;
-      debtRatio = (debtRatio * metadata.decodeUint(112, 64)) >> 60;
+      uint256 parent = metadata.decodeUint(PARENT_OFFSET, 48);
+      collRatio = (collRatio * metadata.decodeUint(COLL_RATIO_OFFSET, 64)) >> 60;
+      debtRatio = (debtRatio * metadata.decodeUint(DEBT_RATIO_OFFSET, 64)) >> 60;
       if (parent == 0) break;
-      node = uint32(parent);
+      node = parent;
     }
     root = node;
   }
@@ -52,9 +66,9 @@ abstract contract TickLogic is PoolStorage {
     // @note We can change it to non-recursive version to avoid stack overflow. Normally, the depth should be `log(n)`,
     // where `n` is the total number of tree nodes. So we don't need to worry much about this.
     bytes32 metadata = tickTreeData[node].metadata;
-    uint256 parent = metadata.decodeUint(0, 32);
-    collRatio = metadata.decodeUint(48, 64);
-    debtRatio = metadata.decodeUint(112, 64);
+    uint256 parent = metadata.decodeUint(PARENT_OFFSET, 48);
+    collRatio = metadata.decodeUint(COLL_RATIO_OFFSET, 64);
+    debtRatio = metadata.decodeUint(DEBT_RATIO_OFFSET, 64);
     if (parent == 0) {
       root = node;
     } else {
@@ -63,9 +77,9 @@ abstract contract TickLogic is PoolStorage {
       (root, collRatioCompressed, debtRatioCompressed) = _getRootNodeAndCompress(parent);
       collRatio = (collRatio * collRatioCompressed) >> 60;
       debtRatio = (debtRatio * debtRatioCompressed) >> 60;
-      metadata = metadata.insertUint(root, 0, 32);
-      metadata = metadata.insertUint(collRatio, 48, 64);
-      metadata = metadata.insertUint(debtRatio, 112, 64);
+      metadata = metadata.insertUint(root, PARENT_OFFSET, 48);
+      metadata = metadata.insertUint(collRatio, COLL_RATIO_OFFSET, 64);
+      metadata = metadata.insertUint(debtRatio, DEBT_RATIO_OFFSET, 64);
       tickTreeData[node].metadata = metadata;
     }
   }
@@ -73,7 +87,7 @@ abstract contract TickLogic is PoolStorage {
   /// @dev Internal function to create a new tree node.
   /// @param tick The tick where this tree node belongs to.
   /// @return node The created tree node id.
-  function _newTickTreeNode(int16 tick) internal returns (uint32 node) {
+  function _newTickTreeNode(int16 tick) internal returns (uint48 node) {
     unchecked {
       node = _getNextTreeNodeId();
       _updateNextTreeNodeId(node + 1);
@@ -81,9 +95,9 @@ abstract contract TickLogic is PoolStorage {
     tickData[tick] = node;
 
     bytes32 metadata = bytes32(0);
-    metadata = metadata.insertInt(tick, 32, 16); // set tick
-    metadata = metadata.insertUint(E60, 48, 64); // set coll ratio
-    metadata = metadata.insertUint(E60, 112, 64); // set debt ratio
+    metadata = metadata.insertInt(tick, TICK_OFFSET, 16); // set tick
+    metadata = metadata.insertUint(E60, COLL_RATIO_OFFSET, 64); // set coll ratio
+    metadata = metadata.insertUint(E60, DEBT_RATIO_OFFSET, 64); // set debt ratio
     tickTreeData[node].metadata = metadata;
   }
 
@@ -104,7 +118,7 @@ abstract contract TickLogic is PoolStorage {
   /// @dev Internal function to retrieve or create a tree node.
   /// @param tick The tick where this tree node belongs to.
   /// @return node The tree node id.
-  function _getOrCreateTickNode(int256 tick) internal returns (uint32 node) {
+  function _getOrCreateTickNode(int256 tick) internal returns (uint48 node) {
     node = tickData[tick];
     if (node == 0) {
       node = _newTickTreeNode(int16(tick));
@@ -121,7 +135,7 @@ abstract contract TickLogic is PoolStorage {
     uint256 colls,
     uint256 debts,
     bool checkDebts
-  ) internal returns (int256 tick, uint32 node) {
+  ) internal returns (int256 tick, uint48 node) {
     if (debts > 0) {
       if (checkDebts && int256(debts) < MIN_DEBT) {
         revert ErrorDebtTooSmall();
@@ -130,10 +144,10 @@ abstract contract TickLogic is PoolStorage {
       tick = _getTick(colls, debts);
       node = _getOrCreateTickNode(tick);
       bytes32 value = tickTreeData[node].value;
-      uint256 newColls = value.decodeUint(0, 128) + colls;
-      uint256 newDebts = value.decodeUint(128, 128) + debts;
-      value = value.insertUint(newColls, 0, 128);
-      value = value.insertUint(newDebts, 128, 128);
+      uint256 newColls = value.decodeUint(COLL_SHARE_OFFSET, 128) + colls;
+      uint256 newDebts = value.decodeUint(DEBT_SHARE_OFFSET, 128) + debts;
+      value = value.insertUint(newColls, COLL_SHARE_OFFSET, 128);
+      value = value.insertUint(newDebts, DEBT_SHARE_OFFSET, 128);
       tickTreeData[node].value = value;
 
       if (newDebts == debts) {
@@ -153,14 +167,14 @@ abstract contract TickLogic is PoolStorage {
     if (position.nodeId == 0) return;
 
     bytes32 value = tickTreeData[position.nodeId].value;
-    uint256 newColls = value.decodeUint(0, 128) - position.colls;
-    uint256 newDebts = value.decodeUint(128, 128) - position.debts;
-    value = value.insertUint(newColls, 0, 128);
-    value = value.insertUint(newDebts, 128, 128);
+    uint256 newColls = value.decodeUint(COLL_SHARE_OFFSET, 128) - position.colls;
+    uint256 newDebts = value.decodeUint(DEBT_SHARE_OFFSET, 128) - position.debts;
+    value = value.insertUint(newColls, COLL_SHARE_OFFSET, 128);
+    value = value.insertUint(newDebts, DEBT_SHARE_OFFSET, 128);
     tickTreeData[position.nodeId].value = value;
 
     if (newDebts == 0) {
-      int16 tick = int16(tickTreeData[position.nodeId].metadata.decodeInt(32, 16));
+      int16 tick = int16(tickTreeData[position.nodeId].metadata.decodeInt(TICK_OFFSET, 16));
       tickBitmap.flipTick(tick);
 
       // top tick gone, update it to new one
@@ -178,7 +192,7 @@ abstract contract TickLogic is PoolStorage {
   /// @param liquidatedColl The amount of collateral shares liquidated.
   /// @param liquidatedDebt The amount of debt shares liquidated.
   function _liquidateTick(int16 tick, uint256 liquidatedColl, uint256 liquidatedDebt, uint256 price) internal {
-    uint32 node = tickData[tick];
+    uint48 node = tickData[tick];
     // create new tree node for this tick
     _newTickTreeNode(tick);
     // clear bitmap first, and it will be updated later if needed.
@@ -186,23 +200,23 @@ abstract contract TickLogic is PoolStorage {
 
     bytes32 value = tickTreeData[node].value;
     bytes32 metadata = tickTreeData[node].metadata;
-    uint256 tickColl = value.decodeUint(0, 128);
-    uint256 tickDebt = value.decodeUint(128, 128);
+    uint256 tickColl = value.decodeUint(COLL_SHARE_OFFSET, 128);
+    uint256 tickDebt = value.decodeUint(DEBT_SHARE_OFFSET, 128);
     uint256 tickCollAfter = tickColl - liquidatedColl;
     uint256 tickDebtAfter = tickDebt - liquidatedDebt;
     uint256 collRatio = (tickCollAfter * E60) / tickColl;
     uint256 debtRatio = (tickDebtAfter * E60) / tickDebt;
 
     // update metadata
-    metadata = metadata.insertUint(collRatio, 48, 64);
-    metadata = metadata.insertUint(debtRatio, 112, 64);
+    metadata = metadata.insertUint(collRatio, COLL_RATIO_OFFSET, 64);
+    metadata = metadata.insertUint(debtRatio, DEBT_RATIO_OFFSET, 64);
 
     int256 newTick = type(int256).min;
     if (tickDebtAfter > 0) {
       // partial liquidated, move funds to another tick
-      uint32 parentNode;
+      uint48 parentNode;
       (newTick, parentNode) = _addPositionToTick(tickCollAfter, tickDebtAfter, false);
-      metadata = metadata.insertUint(parentNode, 0, 32);
+      metadata = metadata.insertUint(parentNode, PARENT_OFFSET, 48);
     }
     emit TickMovement(tick, int16(newTick), tickCollAfter, tickDebtAfter, price);
 
@@ -213,7 +227,7 @@ abstract contract TickLogic is PoolStorage {
     }
     tickTreeData[node].metadata = metadata;
   }
-  
+
   /// @dev Internal function to reset top tick.
   /// @param oldTopTick The previous value of top tick.
   function _resetTopTick(int16 oldTopTick) internal {

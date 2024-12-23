@@ -101,7 +101,7 @@ abstract contract PoolTestBase is Test {
     proxyAdmin.upgradeAndCall(
       ITransparentUpgradeableProxy(address(PoolManagerProxy)),
       address(PoolManagerImpl),
-      abi.encodeCall(PoolManager.initialize, (admin, 100000000, 10000000, 100000, platform, address(reservePool)))
+      abi.encodeCall(PoolManager.initialize, (admin, 100000000, 10000000, 100000, platform, platform, address(reservePool)))
     );
     poolManager = PoolManager(address(PoolManagerProxy));
 
