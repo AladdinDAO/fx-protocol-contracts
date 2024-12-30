@@ -8,6 +8,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { ERC20PermitUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 import { AggregatorV3Interface } from "../interfaces/Chainlink/AggregatorV3Interface.sol";
@@ -59,6 +60,8 @@ contract FxUSDBasePool is
   error ErrorRedeemMoreThanBalance();
 
   error ErrorRedeemLockedShares();
+
+  error ErrorInsufficientFreeBalance();
 
   /*************
    * Constants *
@@ -476,6 +479,17 @@ contract FxUSDBasePool is
   /**********************
    * Internal Functions *
    **********************/
+
+  /// @inheritdoc ERC20Upgradeable
+  function _update(address from, address to, uint256 value) internal virtual override {
+    // make sure from don't transfer more than free balance
+    if (from != address(0) && to != address(0)) {
+      uint256 leftover = balanceOf(from) - redeemRequests[from].amount;
+      if (value > leftover) revert ErrorInsufficientFreeBalance();
+    }
+
+    super._update(from, to, value);
+  }
 
   /// @dev Internal function to update depeg price for stable token.
   /// @param newPrice The new depeg price of stable token, multiplied by 1e18
