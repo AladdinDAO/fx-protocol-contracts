@@ -159,6 +159,7 @@ describe("FxUSDBasePool.spec", async () => {
         "Staked f(x) USD",
         "fxBASE",
         ethers.parseEther("0.95"),
+        0,
       ])
     );
     fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), admin);
@@ -222,7 +223,7 @@ describe("FxUSDBasePool.spec", async () => {
     });
 
     it("should revert, when initialize again", async () => {
-      await expect(fxBASE.initialize(ZeroAddress, "", "", 0n)).to.revertedWithCustomError(
+      await expect(fxBASE.initialize(ZeroAddress, "", "", 0n, 0n)).to.revertedWithCustomError(
         pool,
         "InvalidInitialization"
       );
@@ -252,6 +253,8 @@ describe("FxUSDBasePool.spec", async () => {
       await stableToken.mint(deployer.address, ethers.parseUnits("10000", 6));
       await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
       await collateralToken.connect(deployer).approve(poolManager.getAddress(), MaxUint256);
+
+      await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
 
       // open a position
       await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
@@ -390,6 +393,8 @@ describe("FxUSDBasePool.spec", async () => {
       await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
       await collateralToken.connect(deployer).approve(poolManager.getAddress(), MaxUint256);
 
+      await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
+
       // open a position
       await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
       await poolManager
@@ -426,7 +431,17 @@ describe("FxUSDBasePool.spec", async () => {
       expect(await fxBASE.nav()).to.eq(ethers.parseEther("1.002499416514261190"));
     });
 
+    it("should revert, when ErrorRedeemLockedShares", async () => {
+      await fxBASE.updateRedeemCoolDownPeriod(30);
+      await fxBASE.connect(deployer).requestRedeem(0n);
+      await expect(fxBASE.connect(deployer).redeem(deployer.address, 0n)).to.revertedWithCustomError(
+        fxBASE,
+        "ErrorRedeemLockedShares"
+      );
+    });
+
     it("should revert, when ErrRedeemZeroShares", async () => {
+      await fxBASE.connect(deployer).requestRedeem(0n);
       await expect(fxBASE.connect(deployer).redeem(deployer.address, 0n)).to.revertedWithCustomError(
         fxBASE,
         "ErrRedeemZeroShares"
@@ -435,6 +450,7 @@ describe("FxUSDBasePool.spec", async () => {
 
     it("should succeed when redeem to self", async () => {
       const sharesIn = ethers.parseEther("1");
+      await fxBASE.connect(deployer).requestRedeem(sharesIn);
       const [fxUSDOut, stableOut] = await fxBASE.previewRedeem(sharesIn);
       expect(fxUSDOut).to.closeTo(ethers.parseEther(".4997501249375312"), 1000000n);
       expect(stableOut).to.closeTo(ethers.parseUnits(".499750", 6), 1n);
@@ -461,6 +477,7 @@ describe("FxUSDBasePool.spec", async () => {
 
     it("should succeed when redeem to other", async () => {
       const sharesIn = ethers.parseEther("1");
+      await fxBASE.connect(deployer).requestRedeem(sharesIn);
       const [fxUSDOut, stableOut] = await fxBASE.previewRedeem(sharesIn);
       expect(fxUSDOut).to.closeTo(ethers.parseEther(".4997501249375312"), 1000000n);
       expect(stableOut).to.closeTo(ethers.parseUnits(".499750", 6), 1n);
@@ -492,6 +509,8 @@ describe("FxUSDBasePool.spec", async () => {
       await stableToken.mint(deployer.address, ethers.parseUnits("220000", 6));
       await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
       await collateralToken.connect(deployer).approve(poolManager.getAddress(), MaxUint256);
+
+      await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
 
       // remove open fee
       await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
@@ -831,6 +850,8 @@ describe("FxUSDBasePool.spec", async () => {
       await stableToken.mint(deployer.address, ethers.parseUnits("220000", 6));
       await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
       await collateralToken.connect(deployer).approve(poolManager.getAddress(), MaxUint256);
+
+      await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
 
       // remove open fee
       await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
@@ -1178,6 +1199,8 @@ describe("FxUSDBasePool.spec", async () => {
       // remove liquidation expense fee
       await poolManager.connect(admin).updateExpenseRatio(0n, 0n, 0n);
 
+      await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
+
       // open 3 positions on the same tick
       await poolManager
         .connect(deployer)
@@ -1461,6 +1484,8 @@ describe("FxUSDBasePool.spec", async () => {
       await stableToken.mint(deployer.address, ethers.parseUnits("220000", 6));
       await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
       await collateralToken.connect(deployer).approve(poolManager.getAddress(), MaxUint256);
+
+      await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
 
       // open a position
       await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));

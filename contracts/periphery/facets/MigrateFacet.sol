@@ -116,7 +116,7 @@ contract MigrateFacet is FlashLoanFacetBase {
     );
 
     // refund USDC to caller
-    LibRouter.refundERC20(USDC, msg.sender);
+    LibRouter.refundERC20(USDC, LibRouter.routerStorage().revenuePool);
   }
 
   /// @notice Migrate xfrxETH to fx position.
@@ -147,7 +147,7 @@ contract MigrateFacet is FlashLoanFacetBase {
     );
 
     // refund USDC to caller
-    LibRouter.refundERC20(USDC, msg.sender);
+    LibRouter.refundERC20(USDC, LibRouter.routerStorage().revenuePool);
   }
 
   /// @notice Hook for `migrateXstETHPosition`.

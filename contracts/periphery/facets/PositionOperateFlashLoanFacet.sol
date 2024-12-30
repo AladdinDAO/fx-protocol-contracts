@@ -19,6 +19,14 @@ contract PositionOperateFlashLoanFacet is FlashLoanFacetBase {
   using WordCodec for bytes32;
 
   /**********
+   * Events *
+   **********/
+
+  event OpenOrAdd(address pool, uint256 position, address recipient, uint256 colls, uint256 debts, uint256 borrows);
+
+  event CloseOrRemove(address pool, uint256 position, address recipient, uint256 colls, uint256 debts, uint256 borrows);
+
+  /**********
    * Errors *
    **********/
 
@@ -44,22 +52,13 @@ contract PositionOperateFlashLoanFacet is FlashLoanFacetBase {
   /// @dev The address of `MultiPathConverter` contract.
   address private immutable converter;
 
-  /// @dev The address of revenue pool.
-  address private immutable revenuePool;
-
   /***************
    * Constructor *
    ***************/
 
-  constructor(
-    address _balancer,
-    address _poolManager,
-    address _converter,
-    address _revenuePool
-  ) FlashLoanFacetBase(_balancer) {
+  constructor(address _balancer, address _poolManager, address _converter) FlashLoanFacetBase(_balancer) {
     poolManager = _poolManager;
     converter = _converter;
-    revenuePool = _revenuePool;
   }
 
   /****************************
@@ -89,7 +88,7 @@ contract PositionOperateFlashLoanFacet is FlashLoanFacetBase {
       )
     );
     // refund collateral token to caller
-    LibRouter.refundERC20(IPool(pool).collateralToken(), revenuePool);
+    LibRouter.refundERC20(IPool(pool).collateralToken(), LibRouter.routerStorage().revenuePool);
   }
 
   /// @notice Close a position or remove collateral from position.
@@ -122,7 +121,7 @@ contract PositionOperateFlashLoanFacet is FlashLoanFacetBase {
     LibRouter.convertAndTransferOut(params, collateralToken, amountOut, msg.sender);
 
     // refund rest fxUSD and leveraged token
-    LibRouter.refundERC20(fxUSD, revenuePool);
+    LibRouter.refundERC20(fxUSD, LibRouter.routerStorage().revenuePool);
   }
 
   /// @notice Hook for `openOrAddPositionFlashLoan`.
@@ -153,6 +152,8 @@ contract PositionOperateFlashLoanFacet is FlashLoanFacetBase {
     position = IPoolManager(poolManager).operate(pool, position, int256(amount), int256(fxUSDAmount));
     _checkPositionDebtRatio(pool, position, miscData);
     IERC721(pool).transferFrom(address(this), recipient, position);
+
+    emit OpenOrAdd(pool, position, recipient, amount, fxUSDAmount, repayAmount);
 
     // swap fxUSD to collateral token
     _swap(fxUSD, fxUSDAmount, repayAmount, swapEncoding, swapRoutes);
@@ -192,6 +193,8 @@ contract PositionOperateFlashLoanFacet is FlashLoanFacetBase {
       _checkPositionDebtRatio(pool, position, miscData);
     }
     IERC721(pool).transferFrom(address(this), recipient, position);
+
+    emit CloseOrRemove(pool, position, recipient, amount, fxUSDAmount, repayAmount);
   }
 
   /**********************

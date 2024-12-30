@@ -59,6 +59,7 @@ library LibRouter {
     mapping(address => address) spenders;
     EnumerableSet.AddressSet approvedTargets;
     EnumerableSet.AddressSet whitelisted;
+    address revenuePool;
     uint8 flashLoanContext;
     uint8 reentrantContext;
   }
@@ -143,6 +144,11 @@ library LibRouter {
     if (!$.whitelisted.contains(account)) {
       revert ErrorNotWhitelisted();
     }
+  }
+
+  function updateRevenuePool(address revenuePool) internal {
+    RouterStorage storage $ = routerStorage();
+    $.revenuePool = revenuePool;
   }
 
   /// @dev Transfer token into this contract and convert to `tokenOut`.

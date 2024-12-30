@@ -12,6 +12,11 @@ interface IFxUSDBasePool {
   /// @param newPrice The value of current depeg price, multiplied by 1e18.
   event UpdateStableDepegPrice(uint256 oldPrice, uint256 newPrice);
 
+  /// @notice Emitted when the redeem cool down period is updated.
+  /// @param oldPeriod The value of previous redeem cool down period.
+  /// @param newPeriod The value of current redeem cool down period.
+  event UpdateRedeemCoolDownPeriod(uint256 oldPeriod, uint256 newPeriod);
+
   /// @notice Emitted when deposit tokens.
   /// @param caller The address of caller.
   /// @param receiver The address of pool share recipient.
@@ -25,6 +30,12 @@ interface IFxUSDBasePool {
     uint256 amountDeposited,
     uint256 amountSharesOut
   );
+  
+  /// @notice Emitted when users request redeem.
+  /// @param caller The address of caller.
+  /// @param shares The amount of shares to redeem.
+  /// @param unlockAt The timestamp when this share can be redeemed.
+  event RequestRedeem(address indexed caller, uint256 shares, uint256 unlockAt);
 
   /// @notice Emitted when redeem pool shares.
   /// @param caller The address of caller.
@@ -55,6 +66,7 @@ interface IFxUSDBasePool {
     uint256 amountYieldToken,
     uint256 amountStableToken
   );
+
   /// @notice Emitted when arbitrage in curve pool.
   /// @param caller The address of caller.
   /// @param tokenIn The address of input token.
@@ -124,6 +136,10 @@ interface IFxUSDBasePool {
     uint256 amountTokenToDeposit,
     uint256 minSharesOut
   ) external returns (uint256 amountSharesOut);
+
+  /// @notice Request redeem.
+  /// @param shares The amount of shares to request.
+  function requestRedeem(uint256 shares) external;
 
   /// @notice Redeem pool shares.
   /// @param receiver The address of token recipient.

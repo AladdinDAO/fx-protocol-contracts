@@ -38,7 +38,7 @@ import {
   same,
   SpotPriceEncodings,
 } from "@/utils/index";
-import { Contract, Interface, ZeroAddress } from "ethers";
+import { Contract, id, Interface, ZeroAddress } from "ethers";
 
 const FORK_HEIGHT = 21234850;
 const FORK_URL = process.env.MAINNET_FORK_RPC || "";
@@ -126,7 +126,11 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       proxyAdmin.getAddress(),
       "0x"
     );
-    const FxUSDBasePoolProxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), proxyAdmin.getAddress(), "0x");
+    const FxUSDBasePoolProxy = await TransparentUpgradeableProxy.deploy(
+      empty.getAddress(),
+      proxyAdmin.getAddress(),
+      "0x"
+    );
 
     // deploy ReservePool
     reservePool = await ReservePool.deploy(owner.address, PoolManagerProxy.getAddress());
@@ -181,6 +185,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
         "fxUSD Save",
         "fxBASE",
         ethers.parseEther("0.95"),
+        0n,
       ])
     );
     fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), owner);
@@ -231,8 +236,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       const flashSwap = await PositionOperateFlashLoanFacet.deploy(
         "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
         poolManager.getAddress(),
-        converter.getAddress(),
-        PLATFORM
+        converter.getAddress()
       );
       const migrate = await MigrateFacet.deploy(
         "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
@@ -281,6 +285,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       router = await Diamond.deploy(diamondCuts, { owner: owner.address, init: ZeroAddress, initCalldata: "0x" });
       const manager = await ethers.getContractAt("RouterManagementFacet", await router.getAddress(), deployer);
       await manager.connect(owner).approveTarget(converter.getAddress(), converter.getAddress());
+      await manager.connect(owner).updateRevenuePool(PLATFORM);
     }
 
     // initialization
@@ -293,6 +298,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
         ethers.parseEther("100000000")
       );
     await poolManager.connect(owner).updateRateProvider(wstETH.getAddress(), rateProvider.getAddress());
+    await poolManager.connect(owner).grantRole(id("OPERATOR_ROLE"), router.getAddress());
   });
 
   const encodeMiscData = (minDebtRatio: bigint, maxDebtRatio: bigint): bigint => {

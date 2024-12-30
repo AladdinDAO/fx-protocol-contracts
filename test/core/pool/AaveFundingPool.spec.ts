@@ -152,6 +152,7 @@ describe("AaveFundingPool.spec", async () => {
         "fxUSD Base Pool Token",
         "fxUSDBase",
         ethers.parseEther("0.995"),
+        0n,
       ])
     );
     fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), admin);

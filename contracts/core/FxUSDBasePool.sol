@@ -54,6 +54,12 @@ contract FxUSDBasePool is
 
   error ErrorInsufficientArbitrage();
 
+  error ErrorRedeemCoolDownPeriodTooLarge();
+
+  error ErrorRedeemMoreThanBalance();
+
+  error ErrorRedeemLockedShares();
+
   /*************
    * Constants *
    *************/
@@ -105,6 +111,11 @@ contract FxUSDBasePool is
     uint256 stableTokenUsed;
   }
 
+  struct RedeemRequest {
+    uint128 amount;
+    uint128 unlockAt;
+  }
+
   /*************
    * Variables *
    *************/
@@ -117,6 +128,12 @@ contract FxUSDBasePool is
 
   /// @notice The depeg price for stable token.
   uint256 public stableDepegPrice;
+
+  /// @notice Mapping from user address to redeem request.
+  mapping(address => RedeemRequest) public redeemRequests;
+
+  /// @notice The number of seconds of cool down before redeem from this pool.
+  uint256 public redeemCoolDownPeriod;
 
   /*************
    * Modifiers *
@@ -158,7 +175,8 @@ contract FxUSDBasePool is
     address admin,
     string memory _name,
     string memory _symbol,
-    uint256 _stableDepegPrice
+    uint256 _stableDepegPrice,
+    uint256 _redeemCoolDownPeriod
   ) external initializer {
     __Context_init();
     __ERC165_init();
@@ -171,6 +189,7 @@ contract FxUSDBasePool is
     _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
     _updateStableDepegPrice(_stableDepegPrice);
+    _updateRedeemCoolDownPeriod(_redeemCoolDownPeriod);
 
     // approve
     IERC20(yieldToken).forceApprove(poolManager, type(uint256).max);
@@ -271,11 +290,32 @@ contract FxUSDBasePool is
   }
 
   /// @inheritdoc IFxUSDBasePool
+  function requestRedeem(uint256 shares) external {
+    address caller = _msgSender();
+    uint256 balance = balanceOf(caller);
+    RedeemRequest memory request = redeemRequests[caller];
+    if (request.amount + shares > balance) revert ErrorRedeemMoreThanBalance();
+    request.amount += uint128(shares);
+    request.unlockAt = uint128(block.timestamp + redeemCoolDownPeriod);
+    redeemRequests[caller] = request;
+
+    emit RequestRedeem(caller, shares, request.unlockAt);
+  }
+
+  /// @inheritdoc IFxUSDBasePool
   function redeem(
     address receiver,
     uint256 amountSharesToRedeem
   ) external nonReentrant returns (uint256 amountYieldOut, uint256 amountStableOut) {
+    address caller = _msgSender();
+    RedeemRequest memory request = redeemRequests[caller];
+    if (request.unlockAt > block.timestamp) revert ErrorRedeemLockedShares();
+    if (request.amount < amountSharesToRedeem) {
+      amountSharesToRedeem = request.amount;
+    }
     if (amountSharesToRedeem == 0) revert ErrRedeemZeroShares();
+    request.amount -= uint128(amountSharesToRedeem);
+    redeemRequests[caller] = request;
 
     uint256 cachedTotalYieldToken = totalYieldToken;
     uint256 cachedTotalStableToken = totalStableToken;
@@ -284,7 +324,7 @@ contract FxUSDBasePool is
     amountYieldOut = (amountSharesToRedeem * cachedTotalYieldToken) / cachedTotalSupply;
     amountStableOut = (amountSharesToRedeem * cachedTotalStableToken) / cachedTotalSupply;
 
-    _burn(_msgSender(), amountSharesToRedeem);
+    _burn(caller, amountSharesToRedeem);
 
     if (amountYieldOut > 0) {
       IERC20(yieldToken).safeTransfer(receiver, amountYieldOut);
@@ -299,7 +339,7 @@ contract FxUSDBasePool is
       }
     }
 
-    emit Redeem(_msgSender(), receiver, amountSharesToRedeem, amountYieldOut, amountStableOut);
+    emit Redeem(caller, receiver, amountSharesToRedeem, amountYieldOut, amountStableOut);
   }
 
   /// @inheritdoc IFxUSDBasePool
@@ -427,6 +467,12 @@ contract FxUSDBasePool is
     _updateStableDepegPrice(newPrice);
   }
 
+  /// @notice Update redeem cool down period.
+  /// @param newPeriod The new redeem cool down period, in seconds.
+  function updateRedeemCoolDownPeriod(uint256 newPeriod) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateRedeemCoolDownPeriod(newPeriod);
+  }
+
   /**********************
    * Internal Functions *
    **********************/
@@ -438,6 +484,17 @@ contract FxUSDBasePool is
     stableDepegPrice = newPrice;
 
     emit UpdateStableDepegPrice(oldPrice, newPrice);
+  }
+
+  /// @dev Internal function to update redeem cool down period.
+  /// @param newPeriod The new redeem cool down period, in seconds.
+  function _updateRedeemCoolDownPeriod(uint256 newPeriod) internal {
+    if (newPeriod > 7 days) revert ErrorRedeemCoolDownPeriodTooLarge();
+
+    uint256 oldPeriod = redeemCoolDownPeriod;
+    redeemCoolDownPeriod = newPeriod;
+
+    emit UpdateRedeemCoolDownPeriod(oldPeriod, newPeriod);
   }
 
   /// @dev mint shares based on the deposited base tokens

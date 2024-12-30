@@ -159,6 +159,7 @@ describe("FxUSDRegeneracy.spec", async () => {
         "Staked f(x) USD",
         "fxBASE",
         ethers.parseEther("0.95"),
+        0n,
       ])
     );
     fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), admin);
@@ -221,10 +222,7 @@ describe("FxUSDRegeneracy.spec", async () => {
     });
 
     it("should revert, when initialize again", async () => {
-      await expect(fxBASE.initialize(ZeroAddress, "", "", 0n)).to.revertedWithCustomError(
-        pool,
-        "InvalidInitialization"
-      );
+      await expect(fxUSD.initializeV2()).to.revertedWith("Initializable: contract is already initialized");
     });
   });
 
@@ -314,6 +312,8 @@ describe("FxUSDRegeneracy.spec", async () => {
       await stableToken.mint(deployer.address, ethers.parseUnits("220000", 6));
       await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
       await collateralToken.connect(deployer).approve(poolManager.getAddress(), MaxUint256);
+
+      await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
 
       // open 3 positions on the same tick
       await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));

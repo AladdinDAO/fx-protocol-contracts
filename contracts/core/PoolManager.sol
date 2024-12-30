@@ -53,6 +53,8 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   /// @dev The precision for token rate.
   int256 internal constant PRECISION_I256 = 1e18;
 
+  bytes32 private constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+
   /***********************
    * Immutable Variables *
    ***********************/
@@ -208,7 +210,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     uint256 positionId,
     int256 newColl,
     int256 newDebt
-  ) external onlyRegisteredPool(pool) nonReentrant returns (uint256) {
+  ) external onlyRegisteredPool(pool) onlyRole(OPERATOR_ROLE) nonReentrant returns (uint256) {
     address collateralToken = IPool(pool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
 

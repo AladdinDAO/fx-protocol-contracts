@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { MaxUint256, MinInt256, ZeroAddress, ZeroHash } from "ethers";
+import { id, MaxUint256, MinInt256, ZeroAddress, ZeroHash } from "ethers";
 import { ethers } from "hardhat";
 
 import {
@@ -558,6 +558,7 @@ describe("PoolManager.spec", async () => {
       context("operate", async () => {
         beforeEach(async () => {
           await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
+          await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
         });
 
         it("should revert, when ErrorPoolNotRegistered", async () => {
@@ -713,6 +714,7 @@ describe("PoolManager.spec", async () => {
           await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
           // set redeem fee 1%
           await poolManager.updateRedeemFeeRatio(ethers.parseUnits("0.01", 9));
+          await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
 
           await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
           await collateralToken.connect(deployer).approve(poolManager.getAddress(), MaxUint256);
@@ -795,6 +797,7 @@ describe("PoolManager.spec", async () => {
 
           // remove open fee
           await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
+          await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
 
           // open 3 positions on the same tick
           await poolManager
@@ -968,6 +971,7 @@ describe("PoolManager.spec", async () => {
 
           // remove open fee
           await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
+          await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
 
           // open 3 positions on the same tick
           await poolManager
@@ -1141,6 +1145,7 @@ describe("PoolManager.spec", async () => {
 
           // remove open fee
           await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
+          await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
 
           // open 3 positions on the same tick
           await poolManager
@@ -1196,7 +1201,7 @@ describe("PoolManager.spec", async () => {
           expect(poolDebtBefore - poolDebtAfter).to.eq(result.yieldTokenUsed);
           expect(collateralAfter - collateralBefore).to.eq(result.colls);
           expect(poolCollateralBefore - poolCollateralAfter).to.eq(result.colls + poolFeesAfter - poolFeesBefore);
-          expect(poolFeesAfter - poolFeesBefore).to.eq(ethers.parseEther("0.000470688917415489") / TokenScale)
+          expect(poolFeesAfter - poolFeesBefore).to.eq(ethers.parseEther("0.000470688917415489") / TokenScale);
           expect(result.colls).to.closeTo(ethers.parseEther("0.098373983739837398") / TokenScale, 10n);
           expect(result.yieldTokenUsed).to.eq(ethers.parseEther("220"));
           expect(result.stableTokenUsed).to.eq(0n);
@@ -1236,7 +1241,7 @@ describe("PoolManager.spec", async () => {
           expect(collateralAfter - collateralBefore).to.eq(result.colls);
           expect(reservePoolBefore - reservePoolAfter).to.eq(ethers.parseEther("0.001516150296638100") / TokenScale);
           expect(poolCollateralBefore - poolCollateralAfter).to.eq(ethers.parseEther("0.1") / TokenScale);
-          expect(poolFeesAfter - poolFeesBefore).to.eq(ethers.parseEther("0.000483410239507800") / TokenScale)
+          expect(poolFeesAfter - poolFeesBefore).to.eq(ethers.parseEther("0.000483410239507800") / TokenScale);
           expect(result.colls).to.eq(ethers.parseEther("0.101032740057130300") / TokenScale);
           expect(result.yieldTokenUsed).to.eq(ethers.parseEther("220"));
           expect(result.stableTokenUsed).to.eq(0n);
@@ -1285,6 +1290,7 @@ describe("PoolManager.spec", async () => {
         beforeEach(async () => {
           await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
           await collateralToken.connect(deployer).approve(poolManager.getAddress(), MaxUint256);
+          await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
 
           // open 1 positions on the same tick
           await poolManager

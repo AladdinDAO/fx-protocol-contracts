@@ -118,7 +118,8 @@ contract FxUSDBasePoolFacet {
     LibRouter.approve(fxBASE, gauge, shares);
     ILiquidityGauge(gauge).deposit(shares, receiver);
   }
-
+  
+  /*
   /// @notice Burn fxBASE shares and then convert USDC and fxUSD to another token.
   /// @param fxusdParams The parameters to convert fxUSD to target token.
   /// @param usdcParams The parameters to convert USDC to target token.
@@ -153,4 +154,5 @@ contract FxUSDBasePoolFacet {
     LibRouter.convertAndTransferOut(fxusdParams, fxUSD, amountFxUSD, receiver);
     LibRouter.convertAndTransferOut(usdcParams, USDC, amountUSDC, receiver);
   }
+  */
 }
