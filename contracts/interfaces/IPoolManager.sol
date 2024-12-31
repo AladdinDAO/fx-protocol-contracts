@@ -16,7 +16,12 @@ interface IPoolManager {
   /// @param oldSplitter The address of previous reward splitter contract.
   /// @param newSplitter The address of current reward splitter contract.
   event UpdateRewardSplitter(address indexed pool, address indexed oldSplitter, address indexed newSplitter);
-  
+
+  /// @notice Emitted when the threshold for permissionless liquidate/rebalance is updated.
+  /// @param oldThreshold The value of previous threshold.
+  /// @param newThreshold The value of current threshold.
+  event UpdatePermissionedLiquidationThreshold(uint256 oldThreshold, uint256 newThreshold);
+
   /// @notice Emitted when token rate is updated.
   /// @param scalar The token scalar to reach 18 decimals.
   /// @param provider The address of token rate provider.

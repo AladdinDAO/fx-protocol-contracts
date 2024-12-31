@@ -1,7 +1,6 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 import { id } from "ethers";
 
-
 import FxProtocolModule from "./FxProtocol";
 import ProxyAdminModule from "./ProxyAdmin";
 import RouterModule from "./Router";

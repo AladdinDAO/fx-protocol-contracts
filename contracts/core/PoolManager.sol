@@ -132,6 +132,9 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   /// @notice Mapping from token address to token rate struct.
   mapping(address => TokenRate) public tokenRates;
 
+  /// @notice The threshold for permissioned liquidate or rebalance.
+  uint256 public permissionedLiquidationThreshold;
+
   /*************
    * Modifiers *
    *************/
@@ -142,7 +145,15 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   }
 
   modifier onlyFxUSDSave() {
-    if (_msgSender() != fxBASE) revert ErrorCallerNotFxUSDSave();
+    if (_msgSender() != fxBASE) {
+      // allow permissonless rebalance or liquidate when insufficient fxUSD/USDC in fxBASE.
+      uint256 totalYieldToken = IFxUSDBasePool(fxBASE).totalYieldToken();
+      uint256 totalStableToken = IFxUSDBasePool(fxBASE).totalStableToken();
+      uint256 price = IFxUSDBasePool(fxBASE).getStableTokenPriceWithScale();
+      if (totalYieldToken + (totalStableToken * price) / PRECISION >= permissionedLiquidationThreshold) {
+        revert ErrorCallerNotFxUSDSave();
+      }
+    }
     _;
   }
 
@@ -173,6 +184,9 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
 
     __ProtocolFees_init(_expenseRatio, _harvesterRatio, _flashLoanFeeRatio, _treasury, _revenuePool, _reservePool);
     __FlashLoans_init();
+
+    // default 10000 fxUSD
+    _updateThreshold(10000 ether);
   }
 
   /*************************
@@ -491,6 +505,12 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     _updatePoolCapacity(pool, collateralCapacity, debtCapacity);
   }
 
+  /// @notice Update threshold for permissionless liquidation.
+  /// @param newThreshold The value of new threshold.
+  function updateThreshold(uint256 newThreshold) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateThreshold(newThreshold);
+  }
+
   /**********************
    * Internal Functions *
    **********************/
@@ -514,6 +534,15 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     poolInfo[pool].debtData = poolInfo[pool].debtData.insertUint(debtCapacity, 0, 96);
 
     emit UpdatePoolCapacity(pool, collateralCapacity, debtCapacity);
+  }
+
+  /// @dev Internal function to update threshold for permissionless liquidation.
+  /// @param newThreshold The value of new threshold.
+  function _updateThreshold(uint256 newThreshold) internal {
+    uint256 oldThreshold = permissionedLiquidationThreshold;
+    permissionedLiquidationThreshold = newThreshold;
+
+    emit UpdatePermissionedLiquidationThreshold(oldThreshold, newThreshold);
   }
 
   /// @dev Internal function to scaler up for `uint256`.

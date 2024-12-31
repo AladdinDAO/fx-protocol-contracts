@@ -24,7 +24,7 @@ export default buildModule("ERC2535", (m) => {
   const PositionOperateFlashLoanFacet = m.contract("PositionOperateFlashLoanFacet", [
     BalancerVault,
     PoolManagerProxy,
-    MultiPathConverter
+    MultiPathConverter,
   ]);
 
   // deploy PositionOperateFlashLoanFacet

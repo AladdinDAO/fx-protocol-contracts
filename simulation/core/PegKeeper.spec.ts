@@ -160,7 +160,7 @@ describe("PegKeeper.spec", async () => {
         "fxUSD Save",
         "fxBASE",
         ethers.parseEther("0.95"),
-        0n
+        0n,
       ])
     );
     fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), owner);
