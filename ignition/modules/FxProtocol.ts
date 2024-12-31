@@ -77,6 +77,7 @@ export default buildModule("FxProtocol", (m) => {
     "fxUSD Save",
     "fxBASE",
     ethers.parseEther("0.995"),
+    m.getParameter("RedeemCoolDownPeriod"),
   ]);
   const FxUSDBasePoolProxyUpgradeAndInitializeCall = m.call(
     ProxyAdmin,

@@ -6,7 +6,7 @@ import TokenConverterModule from "./TokenConverter";
 const BalancerVault = "0xBA12222222228d8Ba445958a75a0704d566BF2C8";
 
 export default buildModule("ERC2535", (m) => {
-  const { PoolManagerProxy, FxUSDBasePoolProxy, FxUSDBasePoolGaugeProxy, RevenuePool } = m.useModule(FxProtocolModule);
+  const { PoolManagerProxy, FxUSDBasePoolProxy, FxUSDBasePoolGaugeProxy } = m.useModule(FxProtocolModule);
   const { MultiPathConverter } = m.useModule(TokenConverterModule);
 
   // deploy DiamondCutFacet, DiamondLoupeFacet, and OwnershipFacet
@@ -24,8 +24,7 @@ export default buildModule("ERC2535", (m) => {
   const PositionOperateFlashLoanFacet = m.contract("PositionOperateFlashLoanFacet", [
     BalancerVault,
     PoolManagerProxy,
-    MultiPathConverter,
-    RevenuePool,
+    MultiPathConverter
   ]);
 
   // deploy PositionOperateFlashLoanFacet
