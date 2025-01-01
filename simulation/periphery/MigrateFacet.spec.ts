@@ -38,7 +38,7 @@ import {
   MULTI_PATH_CONVERTER_ROUTES,
   SpotPriceEncodings,
 } from "@/utils/index";
-import { Interface, ZeroAddress } from "ethers";
+import { id, Interface, ZeroAddress } from "ethers";
 
 const FORK_HEIGHT = 21234850;
 const FORK_URL = process.env.MAINNET_FORK_RPC || "";
@@ -129,7 +129,11 @@ describe("MigrateFacet.spec", async () => {
       proxyAdmin.getAddress(),
       "0x"
     );
-    const FxUSDBasePoolProxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), proxyAdmin.getAddress(), "0x");
+    const FxUSDBasePoolProxy = await TransparentUpgradeableProxy.deploy(
+      empty.getAddress(),
+      proxyAdmin.getAddress(),
+      "0x"
+    );
 
     // deploy ReservePool
     reservePool = await ReservePool.deploy(owner.address, PoolManagerProxy.getAddress());
@@ -148,6 +152,7 @@ describe("MigrateFacet.spec", async () => {
         ethers.parseUnits("0.1", 9),
         ethers.parseUnits("0.01", 9),
         ethers.parseUnits("0.0001", 9),
+        PLATFORM,
         PLATFORM,
         await reservePool.getAddress(),
       ])
@@ -183,6 +188,7 @@ describe("MigrateFacet.spec", async () => {
         "fxUSD Save",
         "fxBASE",
         ethers.parseEther("0.95"),
+        0n,
       ])
     );
     fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), owner);
@@ -287,6 +293,8 @@ describe("MigrateFacet.spec", async () => {
       ];
 
       router = await Diamond.deploy(diamondCuts, { owner: owner.address, init: ZeroAddress, initCalldata: "0x" });
+      const manager = await ethers.getContractAt("RouterManagementFacet", await router.getAddress(), deployer);
+      await manager.connect(owner).updateRevenuePool(PLATFORM);
     }
 
     // initialization
@@ -304,6 +312,7 @@ describe("MigrateFacet.spec", async () => {
     await poolManager
       .connect(owner)
       .updateRateProvider(wstETH.getAddress(), "0x81A777c4aB65229d1Bf64DaE4c831bDf628Ccc7f");
+    await poolManager.connect(owner).grantRole(id("OPERATOR_ROLE"), router.getAddress());
   });
 
   const encodeMiscData = (minDebtRatio: bigint, maxDebtRatio: bigint): bigint => {
@@ -342,7 +351,7 @@ describe("MigrateFacet.spec", async () => {
     console.log("fxUSD to redeem:", ethers.formatEther(amountFToken));
     console.log("USDC to borrow:", ethers.formatUnits(amountUSDC, 6));
 
-    const usdcBefore = await usdc.balanceOf(holder.address);
+    const usdcBefore = await usdc.balanceOf(PLATFORM);
     const xstETHBefore = await xstETH.balanceOf(holder.address);
     // approve nft tx
     if (positionId > 0) {
@@ -355,7 +364,7 @@ describe("MigrateFacet.spec", async () => {
       .connect(holder)
       .migrateXstETHPosition(pool.getAddress(), positionId, amountXToken, amountUSDC, data);
     const r = await tx.wait();
-    const usdcAfter = await usdc.balanceOf(holder.address);
+    const usdcAfter = await usdc.balanceOf(PLATFORM);
     const xstETHAfter = await xstETH.balanceOf(holder.address);
     expect(xstETHBefore - xstETHAfter).to.eq(amountXToken);
     if (positionId === 0) {
@@ -411,7 +420,7 @@ describe("MigrateFacet.spec", async () => {
     console.log("fxUSD to redeem:", ethers.formatEther(amountFToken));
     console.log("USDC to borrow:", ethers.formatUnits(amountUSDC, 6));
 
-    const usdcBefore = await usdc.balanceOf(holder.address);
+    const usdcBefore = await usdc.balanceOf(PLATFORM);
     const xfrxETHBefore = await xfrxETH.balanceOf(holder.address);
     // approve nft tx
     if (positionId > 0) {
@@ -424,7 +433,7 @@ describe("MigrateFacet.spec", async () => {
       .connect(holder)
       .migrateXfrxETHPosition(pool.getAddress(), positionId, amountXToken, amountUSDC, data);
     const r = await tx.wait();
-    const usdcAfter = await usdc.balanceOf(holder.address);
+    const usdcAfter = await usdc.balanceOf(PLATFORM);
     const xfrxETHAfter = await xfrxETH.balanceOf(holder.address);
     expect(xfrxETHBefore - xfrxETHAfter).to.eq(amountXToken);
     if (positionId === 0) {

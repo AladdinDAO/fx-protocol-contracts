@@ -52,7 +52,8 @@ interface IPool {
   /// @param newTick The index of the current tick.
   /// @param collShares The amount of collateral shares added to new tick.
   /// @param debtShares The amount of debt shares added to new tick.
-  event TickMovement(int16 oldTick, int16 newTick, uint256 collShares, uint256 debtShares);
+  /// @param price The price used for this operation.
+  event TickMovement(int16 oldTick, int16 newTick, uint256 collShares, uint256 debtShares, uint256 price);
 
   /// @notice Emitted when debt index increase.
   event DebtIndexSnapshot(uint256 index);
@@ -115,10 +116,10 @@ interface IPool {
   function getTopTick() external view returns (int16);
 
   /// @notice Return the next position id.
-  function getNextPositionId() external view returns (uint256);
+  function getNextPositionId() external view returns (uint32);
 
   /// @notice Return the next tick tree node id.
-  function getNextTreeNodeId() external view returns (uint256);
+  function getNextTreeNodeId() external view returns (uint48);
 
   /// @notice Return the debt ratio range.
   /// @param minDebtRatio The minimum required debt ratio, multiplied by 1e18.

@@ -10,9 +10,9 @@ interface IAaveFundingPool is IPool {
    **********/
 
   /// @notice Emitted when interest snapshot is taken.
-  /// @param rate The current interest rate, multiplied by 1e18.
+  /// @param borrowIndex The borrow index, multiplied by 1e27.
   /// @param timestamp The timestamp when this snapshot is taken.
-  event SnapshotAaveInterestRate(uint256 rate, uint256 timestamp);
+  event SnapshotAaveBorrowIndex(uint256 borrowIndex, uint256 timestamp);
 
   /// @notice Emitted when the open fee ratio related parameters are updated.
   /// @param ratio The open ratio value, multiplied by 1e9.

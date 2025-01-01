@@ -24,9 +24,9 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   uint256 private constant TOP_TICK_OFFSET = 2;
   uint256 private constant NEXT_POSITION_OFFSET = 18;
   uint256 private constant NEXT_NODE_OFFSET = 50;
-  uint256 private constant MIN_DEBT_RATIO_OFFSET = 82;
-  uint256 private constant MAX_DEBT_RATIO_OFFSET = 142;
-  uint256 private constant MAX_REDEEM_RATIO_OFFSET = 202;
+  uint256 private constant MIN_DEBT_RATIO_OFFSET = 98;
+  uint256 private constant MAX_DEBT_RATIO_OFFSET = 158;
+  uint256 private constant MAX_REDEEM_RATIO_OFFSET = 218;
 
   /// @dev Below are offsets of each variables in `rebalanceRatioData`.
   uint256 private constant REBALANCE_DEBT_RATIO_OFFSET = 0;
@@ -54,19 +54,21 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   /// @param debts The debt shares this position has.
   struct PositionInfo {
     int16 tick;
-    uint32 nodeId;
-    uint104 colls;
-    uint104 debts;
+    uint48 nodeId;
+    // `uint96` is enough, since we use `86` bits in `PoolManager`.
+    uint96 colls;
+    // `uint96` is enough, since we use `96` bits in `PoolManager`.
+    uint96 debts;
   }
 
   /// @dev The compiler will pack it into two `uint256`.
   /// @param metadata The metadata for tree node.
   ///   ```text
   ///   * Field           Bits    Index       Comments
-  ///   * parent          32      0           The index for parent tree node.
-  ///   * tick            16      32          The original tick for this tree node.
-  ///   * coll ratio      64      48          The remained coll share ratio base on parent node, the value is real ratio * 2^60.
-  ///   * debt ratio      64      112         The remained debt share ratio base on parent node, the value is real ratio * 2^60.
+  ///   * parent          48      0           The index for parent tree node.
+  ///   * tick            16      48          The original tick for this tree node.
+  ///   * coll ratio      64      64          The remained coll share ratio base on parent node, the value is real ratio * 2^60.
+  ///   * debt ratio      64      128         The remained debt share ratio base on parent node, the value is real ratio * 2^60.
   ///   ```
   /// @param value The value for tree node
   ///   ```text
@@ -101,7 +103,7 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   /// - The *max redeem ratio* is the maximum allowed redeem ratio per tick, multiplied by 1e9.
   ///
   /// [ borrow flag | redeem flag | top tick | next position | next node | min debt ratio | max debt ratio | max redeem ratio | reserved ]
-  /// [    1 bit    |    1 bit    | 16  bits |    32 bits    |  32 bits  |    60  bits    |    60  bits    |      30 bits     | 24  bits ]
+  /// [    1 bit    |    1 bit    | 16  bits |    32 bits    |  48 bits  |    60  bits    |    60  bits    |      30 bits     |  8 bits  ]
   /// [ MSB                                                                                                                          LSB ]
   bytes32 private miscData;
 
@@ -123,7 +125,7 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   /// - The *collateral index* is the index for each collateral shares, only increasing, starting from 2^96, max 2^128-1
   ///
   /// [ debt index | collateral index ]
-  /// [  128  bit  |     128  bit     ]
+  /// [  128 bits  |     128 bits     ]
   /// [ MSB                       LSB ]
   bytes32 private indexData;
 
@@ -135,18 +137,24 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   ///   total collateral is `<collateral shares> / <collateral index>`.
   ///
   /// [ debt shares | collateral shares ]
-  /// [   128 bit   |      128 bit      ]
+  /// [  128  bits  |     128  bits     ]
   /// [ MSB                         LSB ]
   bytes32 private sharesData;
 
   /// @dev Mapping from position id to position information.
   mapping(uint256 => PositionInfo) public positionData;
 
+  /// @dev Mapping from position id to position metadata.
+  /// [ open timestamp | reserved ]
+  /// [    40  bits    | 216 bits ]
+  /// [ MSB                   LSB ]
+  mapping(uint256 => bytes32) public positionMetadata;
+
   /// @dev The bitmap for ticks with debts.
   mapping(int8 => uint256) public tickBitmap;
 
   /// @dev Mapping from tick to tree node id.
-  mapping(int256 => uint32) public tickData;
+  mapping(int256 => uint48) public tickData;
 
   /// @dev Mapping from tree node id to tree node data.
   mapping(uint256 => TickTreeNode) public tickTreeData;
@@ -189,12 +197,12 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   }
 
   /// @inheritdoc IPool
-  function getNextPositionId() external view returns (uint256) {
+  function getNextPositionId() external view returns (uint32) {
     return _getNextPositionId();
   }
 
   /// @inheritdoc IPool
-  function getNextTreeNodeId() external view returns (uint256) {
+  function getNextTreeNodeId() external view returns (uint48) {
     return _getNextTreeNodeId();
   }
 
@@ -285,25 +293,25 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   }
 
   /// @dev Internal function to get next available position id.
-  function _getNextPositionId() internal view returns (uint256) {
-    return miscData.decodeUint(NEXT_POSITION_OFFSET, 32);
+  function _getNextPositionId() internal view returns (uint32) {
+    return uint32(miscData.decodeUint(NEXT_POSITION_OFFSET, 32));
   }
 
   /// @dev Internal function to update next available position id.
   /// @param id The position id to update.
-  function _updateNextPositionId(uint256 id) internal {
+  function _updateNextPositionId(uint32 id) internal {
     miscData = miscData.insertUint(id, NEXT_POSITION_OFFSET, 32);
   }
 
   /// @dev Internal function to get next available tree node id.
-  function _getNextTreeNodeId() internal view returns (uint32) {
-    return uint32(miscData.decodeUint(NEXT_NODE_OFFSET, 32));
+  function _getNextTreeNodeId() internal view returns (uint48) {
+    return uint48(miscData.decodeUint(NEXT_NODE_OFFSET, 48));
   }
 
   /// @dev Internal function to update next available tree node id.
   /// @param id The tree node id to update.
-  function _updateNextTreeNodeId(uint32 id) internal {
-    miscData = miscData.insertUint(id, NEXT_NODE_OFFSET, 32);
+  function _updateNextTreeNodeId(uint48 id) internal {
+    miscData = miscData.insertUint(id, NEXT_NODE_OFFSET, 48);
   }
 
   /// @dev Internal function to get `minDebtRatio` and `maxDebtRatio`, both multiplied by 1e18.

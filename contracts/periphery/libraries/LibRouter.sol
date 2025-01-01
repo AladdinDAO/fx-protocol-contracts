@@ -44,6 +44,10 @@ library LibRouter {
 
   uint8 internal constant HAS_FLASH_LOAN = 1;
 
+  uint8 internal constant NOT_ENTRANT = 0;
+
+  uint8 internal constant HAS_ENTRANT = 1;
+
   /***********
    * Structs *
    ***********/
@@ -55,7 +59,9 @@ library LibRouter {
     mapping(address => address) spenders;
     EnumerableSet.AddressSet approvedTargets;
     EnumerableSet.AddressSet whitelisted;
+    address revenuePool;
     uint8 flashLoanContext;
+    uint8 reentrantContext;
   }
 
   /// @notice The struct for input token convert parameters.
@@ -138,6 +144,11 @@ library LibRouter {
     if (!$.whitelisted.contains(account)) {
       revert ErrorNotWhitelisted();
     }
+  }
+
+  function updateRevenuePool(address revenuePool) internal {
+    RouterStorage storage $ = routerStorage();
+    $.revenuePool = revenuePool;
   }
 
   /// @dev Transfer token into this contract and convert to `tokenOut`.

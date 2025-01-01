@@ -16,10 +16,11 @@ import { IFxUSDBasePool } from "../interfaces/IFxUSDBasePool.sol";
 import { IRateProvider } from "../rate-provider/interfaces/IRateProvider.sol";
 
 import { WordCodec } from "../common/codec/WordCodec.sol";
+import { AssetManagement } from "../fund/AssetManagement.sol";
 import { FlashLoans } from "./FlashLoans.sol";
 import { ProtocolFees } from "./ProtocolFees.sol";
 
-contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
+contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager {
   using EnumerableSet for EnumerableSet.AddressSet;
   using SafeERC20 for IERC20;
   using WordCodec for bytes32;
@@ -51,6 +52,8 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
 
   /// @dev The precision for token rate.
   int256 internal constant PRECISION_I256 = 1e18;
+
+  bytes32 private constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
   /***********************
    * Immutable Variables *
@@ -101,13 +104,15 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
   /// @param stablePrice The USD price of stable token (with scalar).
   /// @param scalingFactor The scaling factor for collateral token.
   /// @param collateralToken The address of collateral token.
-  /// @param rawColls The amount of raw collateral tokens liquidated or rebalanced.
+  /// @param rawColls The amount of raw collateral tokens liquidated or rebalanced, including bonus.
+  /// @param bonusRawColls The amount of raw collateral tokens used as bonus.
   /// @param rawDebts The amount of raw debt tokens liquidated or rebalanced.
   struct LiquidateOrRebalanceMemoryVar {
     uint256 stablePrice;
     uint256 scalingFactor;
     address collateralToken;
     uint256 rawColls;
+    uint256 bonusRawColls;
     uint256 rawDebts;
   }
 
@@ -127,6 +132,9 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
   /// @notice Mapping from token address to token rate struct.
   mapping(address => TokenRate) public tokenRates;
 
+  /// @notice The threshold for permissioned liquidate or rebalance.
+  uint256 public permissionedLiquidationThreshold;
+
   /*************
    * Modifiers *
    *************/
@@ -137,7 +145,15 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
   }
 
   modifier onlyFxUSDSave() {
-    if (_msgSender() != fxBASE) revert ErrorCallerNotFxUSDSave();
+    if (_msgSender() != fxBASE) {
+      // allow permissonless rebalance or liquidate when insufficient fxUSD/USDC in fxBASE.
+      uint256 totalYieldToken = IFxUSDBasePool(fxBASE).totalYieldToken();
+      uint256 totalStableToken = IFxUSDBasePool(fxBASE).totalStableToken();
+      uint256 price = IFxUSDBasePool(fxBASE).getStableTokenPriceWithScale();
+      if (totalYieldToken + (totalStableToken * price) / PRECISION >= permissionedLiquidationThreshold) {
+        revert ErrorCallerNotFxUSDSave();
+      }
+    }
     _;
   }
 
@@ -156,7 +172,8 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     uint256 _expenseRatio,
     uint256 _harvesterRatio,
     uint256 _flashLoanFeeRatio,
-    address _platform,
+    address _treasury,
+    address _revenuePool,
     address _reservePool
   ) external initializer {
     __Context_init();
@@ -165,8 +182,11 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
 
     _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
-    __ProtocolFees_init(_expenseRatio, _harvesterRatio, _flashLoanFeeRatio, _platform, _reservePool);
+    __ProtocolFees_init(_expenseRatio, _harvesterRatio, _flashLoanFeeRatio, _treasury, _revenuePool, _reservePool);
     __FlashLoans_init();
+
+    // default 10000 fxUSD
+    _updateThreshold(10000 ether);
   }
 
   /*************************
@@ -204,7 +224,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     uint256 positionId,
     int256 newColl,
     int256 newDebt
-  ) external onlyRegisteredPool(pool) nonReentrant returns (uint256) {
+  ) external onlyRegisteredPool(pool) onlyRole(OPERATOR_ROLE) nonReentrant returns (uint256) {
     address collateralToken = IPool(pool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
 
@@ -246,7 +266,11 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
   }
 
   /// @inheritdoc IPoolManager
-  function redeem(address pool, uint256 debts, uint256 minColls) external onlyRegisteredPool(pool) nonReentrant returns (uint256 colls) {
+  function redeem(
+    address pool,
+    uint256 debts,
+    uint256 minColls
+  ) external onlyRegisteredPool(pool) nonReentrant returns (uint256 colls) {
     if (debts > IERC20(fxUSD).balanceOf(_msgSender())) {
       revert ErrorRedeemExceedBalance();
     }
@@ -288,6 +312,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     LiquidateOrRebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(pool);
     IPool.RebalanceResult memory result = IPool(pool).rebalance(tick, maxFxUSD + _scaleUp(maxStable, op.stablePrice));
     op.rawColls = result.rawColls + result.bonusRawColls;
+    op.bonusRawColls = result.bonusRawColls;
     op.rawDebts = result.rawDebts;
     (colls, fxUSDUsed, stableUsed) = _afterRebalanceOrLiquidate(pool, maxFxUSD, op, receiver);
 
@@ -314,6 +339,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
       maxFxUSD + _scaleUp(maxStable, op.stablePrice)
     );
     op.rawColls = result.rawColls + result.bonusRawColls;
+    op.bonusRawColls = result.bonusRawColls;
     op.rawDebts = result.rawDebts;
     (colls, fxUSDUsed, stableUsed) = _afterRebalanceOrLiquidate(pool, maxFxUSD, op, receiver);
 
@@ -341,6 +367,7 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
       reservedRawColls = _scaleUp(reservedRawColls, op.scalingFactor);
       result = IPool(pool).liquidate(position, maxFxUSD + _scaleUp(maxStable, op.stablePrice), reservedRawColls);
       op.rawColls = result.rawColls + result.bonusRawColls;
+      op.bonusRawColls = result.bonusRawColls;
       op.rawDebts = result.rawDebts;
 
       // take bonus from reserve pool
@@ -403,8 +430,11 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
       }
     }
 
-    // transfer platform fee
-    _accumulatePoolFee(pool, performanceFee);
+    // transfer performance fee to treasury
+    if (performanceFee > 0) {
+      IERC20(collateralToken).safeTransfer(treasury, performanceFee);
+    }
+    // transfer various fees to revenue pool
     _takeAccumulatedPoolFee(pool);
     // transfer harvest bounty
     if (harvestBounty > 0) {
@@ -475,6 +505,12 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     _updatePoolCapacity(pool, collateralCapacity, debtCapacity);
   }
 
+  /// @notice Update threshold for permissionless liquidation.
+  /// @param newThreshold The value of new threshold.
+  function updateThreshold(uint256 newThreshold) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateThreshold(newThreshold);
+  }
+
   /**********************
    * Internal Functions *
    **********************/
@@ -498,6 +534,15 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     poolInfo[pool].debtData = poolInfo[pool].debtData.insertUint(debtCapacity, 0, 96);
 
     emit UpdatePoolCapacity(pool, collateralCapacity, debtCapacity);
+  }
+
+  /// @dev Internal function to update threshold for permissionless liquidation.
+  /// @param newThreshold The value of new threshold.
+  function _updateThreshold(uint256 newThreshold) internal {
+    uint256 oldThreshold = permissionedLiquidationThreshold;
+    permissionedLiquidationThreshold = newThreshold;
+
+    emit UpdatePermissionedLiquidationThreshold(oldThreshold, newThreshold);
   }
 
   /// @dev Internal function to scaler up for `uint256`.
@@ -567,6 +612,12 @@ contract PoolManager is ProtocolFees, FlashLoans, IPoolManager {
     }
 
     // transfer collateral
+    uint256 protocolRevenue = (_scaleDown(op.bonusRawColls, op.scalingFactor) * getLiquidationExpenseRatio()) /
+      FEE_PRECISION;
+    _accumulatePoolFee(pool, protocolRevenue);
+    unchecked {
+      colls -= protocolRevenue;
+    }
     IERC20(op.collateralToken).safeTransfer(receiver, colls);
   }
 

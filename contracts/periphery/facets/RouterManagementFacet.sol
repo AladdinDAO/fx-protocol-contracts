@@ -41,6 +41,11 @@ contract RouterManagementFacet {
     }
   }
 
+  function getRevenuePool() external view returns (address) {
+    LibRouter.RouterStorage storage $ = LibRouter.routerStorage();
+    return $.revenuePool;
+  }
+
   /************************
    * Restricted Functions *
    ************************/
@@ -61,5 +66,11 @@ contract RouterManagementFacet {
   function updateWhitelist(address target, bool status) external {
     LibDiamond.enforceIsContractOwner();
     LibRouter.updateWhitelist(target, status);
+  }
+
+  /// @notice Update revenue pool.
+  function updateRevenuePool(address revenuePool) external {
+    LibDiamond.enforceIsContractOwner();
+    LibRouter.updateRevenuePool(revenuePool);
   }
 }

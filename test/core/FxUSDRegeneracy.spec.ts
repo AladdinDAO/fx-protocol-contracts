@@ -32,7 +32,8 @@ const TokenRate = ethers.parseEther("1.23");
 describe("FxUSDRegeneracy.spec", async () => {
   let deployer: HardhatEthersSigner;
   let admin: HardhatEthersSigner;
-  let platform: HardhatEthersSigner;
+  let treasury: HardhatEthersSigner;
+  let revenuePool: HardhatEthersSigner;
 
   let proxyAdmin: ProxyAdmin;
   let fxUSD: FxUSDRegeneracy;
@@ -54,7 +55,7 @@ describe("FxUSDRegeneracy.spec", async () => {
   let pool: AaveFundingPool;
 
   beforeEach(async () => {
-    [deployer, admin, platform] = await ethers.getSigners();
+    [deployer, admin, treasury, revenuePool] = await ethers.getSigners();
 
     const MockAggregatorV3Interface = await ethers.getContractFactory("MockAggregatorV3Interface", deployer);
     const MockCurveStableSwapNG = await ethers.getContractFactory("MockCurveStableSwapNG", deployer);
@@ -124,7 +125,8 @@ describe("FxUSDRegeneracy.spec", async () => {
         ethers.parseUnits("0.1", 9),
         ethers.parseUnits("0.01", 9),
         ethers.parseUnits("0.0001", 9),
-        platform.address,
+        treasury.address,
+        revenuePool.address,
         await reservePool.getAddress(),
       ])
     );
@@ -157,6 +159,7 @@ describe("FxUSDRegeneracy.spec", async () => {
         "Staked f(x) USD",
         "fxBASE",
         ethers.parseEther("0.95"),
+        0n,
       ])
     );
     fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), admin);
@@ -219,10 +222,7 @@ describe("FxUSDRegeneracy.spec", async () => {
     });
 
     it("should revert, when initialize again", async () => {
-      await expect(fxBASE.initialize(ZeroAddress, "", "", 0n)).to.revertedWithCustomError(
-        pool,
-        "InvalidInitialization"
-      );
+      await expect(fxUSD.initializeV2()).to.revertedWith("Initializable: contract is already initialized");
     });
   });
 
@@ -312,6 +312,8 @@ describe("FxUSDRegeneracy.spec", async () => {
       await stableToken.mint(deployer.address, ethers.parseUnits("220000", 6));
       await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
       await collateralToken.connect(deployer).approve(poolManager.getAddress(), MaxUint256);
+
+      await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
 
       // open 3 positions on the same tick
       await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));

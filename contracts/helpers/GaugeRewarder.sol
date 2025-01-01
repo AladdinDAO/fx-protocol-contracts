@@ -43,6 +43,11 @@ contract GaugeRewarder is PermissionedSwap, IRewardSplitter {
     // do nothing
   }
 
+  /// @inheritdoc IRewardSplitter
+  function depositReward(address token, uint256 amount) external override {
+    IERC20(token).safeTransferFrom(_msgSender(), address(this), amount);
+  }
+
   /// @notice Harvest base token to target token by amm trading and distribute to fxBASE gauge.
   /// @param baseToken The address of base token to use.
   /// @param targetToken The address target token.

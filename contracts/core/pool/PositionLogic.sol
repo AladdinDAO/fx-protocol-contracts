@@ -5,10 +5,13 @@ pragma solidity ^0.8.26;
 import { IPool } from "../../interfaces/IPool.sol";
 import { IPriceOracle } from "../../price-oracle/interfaces/IPriceOracle.sol";
 
+import { WordCodec } from "../../common/codec/WordCodec.sol";
 import { Math } from "../../libraries/Math.sol";
 import { TickLogic } from "./TickLogic.sol";
 
 abstract contract PositionLogic is TickLogic {
+  using WordCodec for bytes32;
+
   /***************
    * Constructor *
    ***************/
@@ -69,12 +72,13 @@ abstract contract PositionLogic is TickLogic {
   /// @dev Internal function to mint a new position.
   /// @param owner The address of position owner.
   /// @return positionId The id of the position.
-  function _mintPosition(address owner) internal returns (uint256 positionId) {
+  function _mintPosition(address owner) internal returns (uint32 positionId) {
     unchecked {
       positionId = _getNextPositionId();
       _updateNextPositionId(positionId + 1);
     }
 
+    positionMetadata[positionId] = bytes32(0).insertUint(block.timestamp, 0, 40);
     _mint(owner, positionId);
   }
 

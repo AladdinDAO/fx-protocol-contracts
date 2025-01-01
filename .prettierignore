@@ -1,5 +1,7 @@
 node_modules
-artifacts
-cache
+artifacts*
+cache*
 coverage*
+lib
+src/@types
 gasReporterOutput.json

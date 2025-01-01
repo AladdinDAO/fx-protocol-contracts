@@ -38,7 +38,7 @@ import {
   same,
   SpotPriceEncodings,
 } from "@/utils/index";
-import { Contract, Interface, ZeroAddress } from "ethers";
+import { Contract, id, Interface, ZeroAddress } from "ethers";
 
 const FORK_HEIGHT = 21234850;
 const FORK_URL = process.env.MAINNET_FORK_RPC || "";
@@ -126,7 +126,11 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       proxyAdmin.getAddress(),
       "0x"
     );
-    const FxUSDBasePoolProxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), proxyAdmin.getAddress(), "0x");
+    const FxUSDBasePoolProxy = await TransparentUpgradeableProxy.deploy(
+      empty.getAddress(),
+      proxyAdmin.getAddress(),
+      "0x"
+    );
 
     // deploy ReservePool
     reservePool = await ReservePool.deploy(owner.address, PoolManagerProxy.getAddress());
@@ -145,6 +149,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
         ethers.parseUnits("0.1", 9),
         ethers.parseUnits("0.01", 9),
         ethers.parseUnits("0.0001", 9),
+        PLATFORM,
         PLATFORM,
         await reservePool.getAddress(),
       ])
@@ -180,6 +185,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
         "fxUSD Save",
         "fxBASE",
         ethers.parseEther("0.95"),
+        0n,
       ])
     );
     fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), owner);
@@ -279,6 +285,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       router = await Diamond.deploy(diamondCuts, { owner: owner.address, init: ZeroAddress, initCalldata: "0x" });
       const manager = await ethers.getContractAt("RouterManagementFacet", await router.getAddress(), deployer);
       await manager.connect(owner).approveTarget(converter.getAddress(), converter.getAddress());
+      await manager.connect(owner).updateRevenuePool(PLATFORM);
     }
 
     // initialization
@@ -291,6 +298,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
         ethers.parseEther("100000000")
       );
     await poolManager.connect(owner).updateRateProvider(wstETH.getAddress(), rateProvider.getAddress());
+    await poolManager.connect(owner).grantRole(id("OPERATOR_ROLE"), router.getAddress());
   });
 
   const encodeMiscData = (minDebtRatio: bigint, maxDebtRatio: bigint): bigint => {
@@ -424,7 +432,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       `fxUSDToMint[${ethers.formatEther(fxUSDAmount)}]`,
       `TargetDebtRatio[${ethers.formatEther(targetDebtRatio)}]`
     );
-    const wstETHBefore = await wstETH.balanceOf(holder.address);
+    const wstETHBefore = await wstETH.balanceOf(PLATFORM);
     if (positionId > 0) {
       await pool.connect(holder).approve(facet.getAddress(), positionId);
     }
@@ -451,15 +459,14 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       }
     );
     if (positionId === 0) positionId = 1;
-    const wstETHAfter = await wstETH.balanceOf(holder.address);
+    const wstETHAfter = await wstETH.balanceOf(PLATFORM);
     const [colls, debts] = await pool.getPosition(positionId);
     const debtRatio = await pool.getPositionDebtRatio(positionId);
-    const wstETHRefund = isWstETH ? wstETHAfter - wstETHBefore + amountIn : wstETHAfter - wstETHBefore;
     console.log(
       `RawColl[${ethers.formatEther(colls)}]`,
       `RawDebt[${ethers.formatEther(debts)}]`,
       `DebtRatio[${ethers.formatEther(debtRatio)}]`,
-      `wstETHRefund[${ethers.formatEther(wstETHRefund)}]`
+      `wstETHRefund[${ethers.formatEther(wstETHAfter - wstETHBefore)}]`
     );
     return positionId;
   };
@@ -718,7 +725,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
         routeWstETHToFxUSD.routes,
       ]
     );
-    const fxUSDBefore = await fxUSD.balanceOf(holder.address);
+    const fxUSDBefore = await fxUSD.balanceOf(PLATFORM);
     const balanceBefore = isETH
       ? await ethers.provider.getBalance(holder.address)
       : await token.balanceOf(holder.address);
@@ -739,7 +746,7 @@ describe("PositionOperateFlashLoanFacet.spec", async () => {
       data
     );
     const r = await tx.wait();
-    const fxUSDAfter = await fxUSD.balanceOf(holder.address);
+    const fxUSDAfter = await fxUSD.balanceOf(PLATFORM);
     const balanceAfter = isETH
       ? await ethers.provider.getBalance(holder.address)
       : await token.balanceOf(holder.address);

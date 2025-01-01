@@ -121,6 +121,7 @@ describe("FxUSDRegeneracy.spec", async () => {
         ethers.parseUnits("0.01", 9),
         ethers.parseUnits("0.0001", 9),
         PLATFORM,
+        PLATFORM,
         await reservePool.getAddress(),
       ])
     );
@@ -154,6 +155,7 @@ describe("FxUSDRegeneracy.spec", async () => {
         "fxUSD Save",
         "fxBASE",
         ethers.parseEther("0.95"),
+        0n,
       ])
     );
     fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), owner);

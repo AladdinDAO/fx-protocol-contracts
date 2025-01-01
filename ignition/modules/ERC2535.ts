@@ -21,24 +21,32 @@ export default buildModule("ERC2535", (m) => {
   const FlashLoanCallbackFacet = m.contract("FlashLoanCallbackFacet", [BalancerVault]);
 
   // deploy PositionOperateFlashLoanFacet
-  const PositionOperateFlashLoanFacet = m.contract("PositionOperateFlashLoanFacet", [BalancerVault, PoolManagerProxy, MultiPathConverter]);
+  const PositionOperateFlashLoanFacet = m.contract("PositionOperateFlashLoanFacet", [
+    BalancerVault,
+    PoolManagerProxy,
+    MultiPathConverter,
+  ]);
 
   // deploy PositionOperateFlashLoanFacet
   const MigrateFacet = m.contract("MigrateFacet", [BalancerVault, PoolManagerProxy, MultiPathConverter]);
 
   // deploy PositionOperateFlashLoanFacet
-  const FxUSDBasePoolFacet = m.contract("FxUSDBasePoolFacet", [PoolManagerProxy, FxUSDBasePoolProxy, FxUSDBasePoolGaugeProxy]);
+  const FxUSDBasePoolFacet = m.contract("FxUSDBasePoolFacet", [
+    PoolManagerProxy,
+    FxUSDBasePoolProxy,
+    FxUSDBasePoolGaugeProxy,
+  ]);
 
   return {
     DiamondCutFacet,
     DiamondLoupeFacet,
     OwnershipFacet,
-    
+
     RouterManagementFacet,
 
     FlashLoanCallbackFacet,
     PositionOperateFlashLoanFacet,
     MigrateFacet,
-    FxUSDBasePoolFacet
+    FxUSDBasePoolFacet,
   };
 });

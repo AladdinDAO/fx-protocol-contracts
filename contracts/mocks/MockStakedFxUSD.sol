@@ -47,6 +47,15 @@ contract MockFxUSDSave {
     stableTokenScale = 10 ** (18 - IERC20Metadata(_stableToken).decimals());
   }
 
+  function totalYieldToken() external view returns (uint256) {
+    return IERC20Metadata(yieldToken).balanceOf(address(this));
+  }
+
+  /// @notice The total amount of stable token managed in this contract
+  function totalStableToken() external view returns (uint256) {
+    return IERC20Metadata(stableToken).balanceOf(address(this));
+  }
+
   function getStableTokenPrice() public view returns (uint256) {
     bytes32 encoding = Chainlink_USDC_USD_Spot;
     address aggregator;

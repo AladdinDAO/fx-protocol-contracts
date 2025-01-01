@@ -13,7 +13,8 @@
     "ExpenseRatio": "100000000",
     "HarvesterRatio": "10000000",
     "FlashLoanFeeRatio": "0",
-    "Platform": "0x0084C2e1B1823564e597Ff4848a88D61ac63D703"
+    "Treasury": "0x0084C2e1B1823564e597Ff4848a88D61ac63D703",
+    "RedeemCoolDownPeriod": "1800"
   },
   "PriceOracle": {
     "SpotPriceOracle": "0xc2312CaF0De62eC9b4ADC785C79851Cb989C9abc"
@@ -32,5 +33,8 @@
     "RebalanceBonusRatio": "25000000",
     "LiquidateDebtRatio": "920000000000000000",
     "LiquidateBonusRatio": "50000000"
+  },
+  "Router": {
+    "RevenuePool": "0x26B2ec4E02ebe2F54583af25b647b1D619e67BbF"
   }
 }

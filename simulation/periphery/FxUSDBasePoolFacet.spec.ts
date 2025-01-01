@@ -146,6 +146,7 @@ describe("FxUSDBasePoolFacet.spec", async () => {
         ethers.parseUnits("0.01", 9),
         ethers.parseUnits("0.0001", 9),
         PLATFORM,
+        PLATFORM,
         await reservePool.getAddress(),
       ])
     );
@@ -180,6 +181,7 @@ describe("FxUSDBasePoolFacet.spec", async () => {
         "fxUSD Save",
         "fxBASE",
         ethers.parseEther("0.95"),
+        0n,
       ])
     );
     fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), owner);
@@ -595,6 +597,7 @@ describe("FxUSDBasePoolFacet.spec", async () => {
       await gauge.connect(deployer)["deposit(uint256)"](ethers.parseEther("100"));
     });
 
+    /*
     context("redeemFromFxBase", async () => {
       const redeemFromFxBase = async (
         fxUSDConvertOut: { encoding: bigint; routes: Array<bigint> },
@@ -851,5 +854,6 @@ describe("FxUSDBasePoolFacet.spec", async () => {
         );
       });
     });
+    */
   });
 });

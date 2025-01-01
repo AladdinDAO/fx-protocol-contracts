@@ -7,23 +7,28 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import { IMultiPathConverter } from "../../helpers/interfaces/IMultiPathConverter.sol";
-import { IBalancerVault } from "../../interfaces/Balancer/IBalancerVault.sol";
 import { IPoolManager } from "../../interfaces/IPoolManager.sol";
 import { IPool } from "../../interfaces/IPool.sol";
 
 import { WordCodec } from "../../common/codec/WordCodec.sol";
 import { LibRouter } from "../libraries/LibRouter.sol";
+import { FlashLoanFacetBase } from "./FlashLoanFacetBase.sol";
 
-contract PositionOperateFlashLoanFacet {
+contract PositionOperateFlashLoanFacet is FlashLoanFacetBase {
   using SafeERC20 for IERC20;
   using WordCodec for bytes32;
 
   /**********
-   * Errors *
+   * Events *
    **********/
 
-  /// @dev Thrown when the caller is not self.
-  error ErrorNotFromSelf();
+  event OpenOrAdd(address pool, uint256 position, address recipient, uint256 colls, uint256 debts, uint256 borrows);
+
+  event CloseOrRemove(address pool, uint256 position, address recipient, uint256 colls, uint256 debts, uint256 borrows);
+
+  /**********
+   * Errors *
+   **********/
 
   /// @dev Thrown when the amount of tokens swapped are not enough.
   error ErrorInsufficientAmountSwapped();
@@ -41,37 +46,17 @@ contract PositionOperateFlashLoanFacet {
    * Immutable Variables *
    ***********************/
 
-  /// @dev The address of Balancer V2 Vault.
-  address private immutable balancer;
-
   /// @dev The address of `PoolManager` contract.
   address private immutable poolManager;
 
   /// @dev The address of `MultiPathConverter` contract.
   address private immutable converter;
 
-  /*************
-   * Modifiers *
-   *************/
-
-  modifier onlySelf() {
-    if (msg.sender != address(this)) revert ErrorNotFromSelf();
-    _;
-  }
-
-  modifier onFlashLoan() {
-    LibRouter.RouterStorage storage $ = LibRouter.routerStorage();
-    $.flashLoanContext = LibRouter.HAS_FLASH_LOAN;
-    _;
-    $.flashLoanContext = LibRouter.NOT_FLASH_LOAN;
-  }
-
   /***************
    * Constructor *
    ***************/
 
-  constructor(address _balancer, address _poolManager, address _converter) {
-    balancer = _balancer;
+  constructor(address _balancer, address _poolManager, address _converter) FlashLoanFacetBase(_balancer) {
     poolManager = _poolManager;
     converter = _converter;
   }
@@ -92,25 +77,18 @@ contract PositionOperateFlashLoanFacet {
     uint256 positionId,
     uint256 borrowAmount,
     bytes calldata data
-  ) external payable onFlashLoan {
+  ) external payable nonReentrant {
     uint256 amountIn = LibRouter.transferInAndConvert(params, IPool(pool).collateralToken()) + borrowAmount;
-
-    address[] memory tokens = new address[](1);
-    uint256[] memory amounts = new uint256[](1);
-    tokens[0] = IPool(pool).collateralToken();
-    amounts[0] = borrowAmount;
-    IBalancerVault(balancer).flashLoan(
-      address(this),
-      tokens,
-      amounts,
+    _invokeFlashLoan(
+      IPool(pool).collateralToken(),
+      borrowAmount,
       abi.encodeCall(
         PositionOperateFlashLoanFacet.onOpenOrAddPositionFlashLoan,
         (pool, positionId, amountIn, borrowAmount, msg.sender, data)
       )
     );
-
     // refund collateral token to caller
-    LibRouter.refundERC20(IPool(pool).collateralToken(), msg.sender);
+    LibRouter.refundERC20(IPool(pool).collateralToken(), LibRouter.routerStorage().revenuePool);
   }
 
   /// @notice Close a position or remove collateral from position.
@@ -126,17 +104,12 @@ contract PositionOperateFlashLoanFacet {
     uint256 amountOut,
     uint256 borrowAmount,
     bytes calldata data
-  ) external onFlashLoan {
+  ) external nonReentrant {
     address collateralToken = IPool(pool).collateralToken();
 
-    address[] memory tokens = new address[](1);
-    uint256[] memory amounts = new uint256[](1);
-    tokens[0] = collateralToken;
-    amounts[0] = borrowAmount;
-    IBalancerVault(balancer).flashLoan(
-      address(this),
-      tokens,
-      amounts,
+    _invokeFlashLoan(
+      collateralToken,
+      borrowAmount,
       abi.encodeCall(
         PositionOperateFlashLoanFacet.onCloseOrRemovePositionFlashLoan,
         (pool, positionId, amountOut, borrowAmount, msg.sender, data)
@@ -148,7 +121,7 @@ contract PositionOperateFlashLoanFacet {
     LibRouter.convertAndTransferOut(params, collateralToken, amountOut, msg.sender);
 
     // refund rest fxUSD and leveraged token
-    LibRouter.refundERC20(fxUSD, msg.sender);
+    LibRouter.refundERC20(fxUSD, LibRouter.routerStorage().revenuePool);
   }
 
   /// @notice Hook for `openOrAddPositionFlashLoan`.
@@ -180,6 +153,8 @@ contract PositionOperateFlashLoanFacet {
     _checkPositionDebtRatio(pool, position, miscData);
     IERC721(pool).transferFrom(address(this), recipient, position);
 
+    emit OpenOrAdd(pool, position, recipient, amount, fxUSDAmount, repayAmount);
+
     // swap fxUSD to collateral token
     _swap(fxUSD, fxUSDAmount, repayAmount, swapEncoding, swapRoutes);
   }
@@ -190,7 +165,7 @@ contract PositionOperateFlashLoanFacet {
   /// @param amount The amount of collateral token to withdraw.
   /// @param repayAmount The amount of collateral token to repay.
   /// @param recipient The address of position holder.
-  /// @param data Hook data passing to `onOpenOrAddPositionFlashLoan`.
+  /// @param data Hook data passing to `onCloseOrRemovePositionFlashLoan`.
   function onCloseOrRemovePositionFlashLoan(
     address pool,
     uint256 position,
@@ -218,6 +193,8 @@ contract PositionOperateFlashLoanFacet {
       _checkPositionDebtRatio(pool, position, miscData);
     }
     IERC721(pool).transferFrom(address(this), recipient, position);
+
+    emit CloseOrRemove(pool, position, recipient, amount, fxUSDAmount, repayAmount);
   }
 
   /**********************

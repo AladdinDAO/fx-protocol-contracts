@@ -15,17 +15,15 @@ import { IFxUSD } from "../../v2/interfaces/IFxUSD.sol";
 
 import { WordCodec } from "../../common/codec/WordCodec.sol";
 import { LibRouter } from "../libraries/LibRouter.sol";
+import { FlashLoanFacetBase } from "./FlashLoanFacetBase.sol";
 
-contract MigrateFacet {
+contract MigrateFacet is FlashLoanFacetBase {
   using SafeERC20 for IERC20;
   using WordCodec for bytes32;
 
   /**********
    * Errors *
    **********/
-
-  /// @dev Thrown when the caller is not self.
-  error ErrorNotFromSelf();
 
   /// @dev Thrown when the amount of tokens swapped are not enough.
   error ErrorInsufficientAmountSwapped();
@@ -71,37 +69,17 @@ contract MigrateFacet {
    * Immutable Variables *
    ***********************/
 
-  /// @dev The address of Balancer V2 Vault.
-  address private immutable balancer;
-
   /// @dev The address of `PoolManager` contract.
   address private immutable poolManager;
 
   /// @dev The address of `MultiPathConverter` contract.
   address private immutable converter;
 
-  /*************
-   * Modifiers *
-   *************/
-
-  modifier onlySelf() {
-    if (msg.sender != address(this)) revert ErrorNotFromSelf();
-    _;
-  }
-
-  modifier onFlashLoan() {
-    LibRouter.RouterStorage storage $ = LibRouter.routerStorage();
-    $.flashLoanContext = LibRouter.HAS_FLASH_LOAN;
-    _;
-    $.flashLoanContext = LibRouter.NOT_FLASH_LOAN;
-  }
-
   /***************
    * Constructor *
    ***************/
 
-  constructor(address _balancer, address _poolManager, address _converter) {
-    balancer = _balancer;
+  constructor(address _balancer, address _poolManager, address _converter) FlashLoanFacetBase(_balancer) {
     poolManager = _poolManager;
     converter = _converter;
   }
@@ -122,20 +100,15 @@ contract MigrateFacet {
     uint256 xTokenAmount,
     uint256 borrowAmount,
     bytes calldata data
-  ) external onFlashLoan {
+  ) external nonReentrant {
     IERC20(xstETH).safeTransferFrom(msg.sender, address(this), xTokenAmount);
     if (positionId > 0) {
       IERC721(pool).transferFrom(msg.sender, address(this), positionId);
     }
 
-    address[] memory tokens = new address[](1);
-    uint256[] memory amounts = new uint256[](1);
-    tokens[0] = USDC;
-    amounts[0] = borrowAmount;
-    IBalancerVault(balancer).flashLoan(
-      address(this),
-      tokens,
-      amounts,
+    _invokeFlashLoan(
+      USDC,
+      borrowAmount,
       abi.encodeCall(
         MigrateFacet.onMigrateXstETHPosition,
         (pool, positionId, xTokenAmount, borrowAmount, msg.sender, data)
@@ -143,7 +116,7 @@ contract MigrateFacet {
     );
 
     // refund USDC to caller
-    LibRouter.refundERC20(USDC, msg.sender);
+    LibRouter.refundERC20(USDC, LibRouter.routerStorage().revenuePool);
   }
 
   /// @notice Migrate xfrxETH to fx position.
@@ -158,20 +131,15 @@ contract MigrateFacet {
     uint256 xTokenAmount,
     uint256 borrowAmount,
     bytes calldata data
-  ) external onFlashLoan {
+  ) external nonReentrant {
     IERC20(xfrxETH).safeTransferFrom(msg.sender, address(this), xTokenAmount);
     if (positionId > 0) {
       IERC721(pool).transferFrom(msg.sender, address(this), positionId);
     }
 
-    address[] memory tokens = new address[](1);
-    uint256[] memory amounts = new uint256[](1);
-    tokens[0] = USDC;
-    amounts[0] = borrowAmount;
-    IBalancerVault(balancer).flashLoan(
-      address(this),
-      tokens,
-      amounts,
+    _invokeFlashLoan(
+      USDC,
+      borrowAmount,
       abi.encodeCall(
         MigrateFacet.onMigrateXfrxETHPosition,
         (pool, positionId, xTokenAmount, borrowAmount, msg.sender, data)
@@ -179,7 +147,7 @@ contract MigrateFacet {
     );
 
     // refund USDC to caller
-    LibRouter.refundERC20(USDC, msg.sender);
+    LibRouter.refundERC20(USDC, LibRouter.routerStorage().revenuePool);
   }
 
   /// @notice Hook for `migrateXstETHPosition`.

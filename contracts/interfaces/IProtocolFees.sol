@@ -12,10 +12,15 @@ interface IProtocolFees {
   /// @param newReservePool The address of current reserve pool.
   event UpdateReservePool(address indexed oldReservePool, address indexed newReservePool);
 
-  /// @notice Emitted when the platform contract is updated.
-  /// @param oldPlatform The address of previous platform contract.
-  /// @param newPlatform The address of current platform contract.
-  event UpdatePlatform(address indexed oldPlatform, address indexed newPlatform);
+  /// @notice Emitted when the treasury contract is updated.
+  /// @param oldTreasury The address of previous treasury contract.
+  /// @param newTreasury The address of current treasury contract.
+  event UpdateTreasury(address indexed oldTreasury, address indexed newTreasury);
+
+  /// @notice Emitted when the revenue pool contract is updated.
+  /// @param oldPool The address of previous revenue pool contract.
+  /// @param newPool The address of current revenue pool contract.
+  event UpdateRevenuePool(address indexed oldPool, address indexed newPool);
 
   /// @notice Emitted when the ratio for treasury is updated.
   /// @param oldRatio The value of the previous ratio, multiplied by 1e9.
@@ -26,6 +31,11 @@ interface IProtocolFees {
   /// @param oldRatio The value of the previous ratio, multiplied by 1e9.
   /// @param newRatio The value of the current ratio, multiplied by 1e9.
   event UpdateFundingExpenseRatio(uint256 oldRatio, uint256 newRatio);
+
+  /// @notice Emitted when the ratio for treasury is updated.
+  /// @param oldRatio The value of the previous ratio, multiplied by 1e9.
+  /// @param newRatio The value of the current ratio, multiplied by 1e9.
+  event UpdateLiquidationExpenseRatio(uint256 oldRatio, uint256 newRatio);
 
   /// @notice Emitted when the ratio for harvester is updated.
   /// @param oldRatio The value of the previous ratio, multiplied by 1e9.
@@ -52,6 +62,9 @@ interface IProtocolFees {
   /// @notice Return the fee ratio distributed as protocol revenue in general rewards, multiplied by 1e9.
   function getRewardsExpenseRatio() external view returns (uint256);
 
+  /// @notice Return the fee ratio distributed as protocol revenue in liquidation/rebalance, multiplied by 1e9.
+  function getLiquidationExpenseRatio() external view returns (uint256);
+
   /// @notice Return the fee ratio distributed to fxBASE in funding costs, multiplied by 1e9.
   function getFundingFxSaveRatio() external view returns (uint256);
 
@@ -70,8 +83,11 @@ interface IProtocolFees {
   /// @notice Return the address of reserve pool.
   function reservePool() external view returns (address);
 
-  /// @notice Return the address of platform.
-  function platform() external view returns (address);
+  /// @notice Return the address of protocol treasury.
+  function treasury() external view returns (address);
+
+  /// @notice Return the address of protocol revenue pool.
+  function revenuePool() external view returns (address);
 
   /// @notice Return the amount of protocol fees accumulated by the given pool.
   function accumulatedPoolFees(address pool) external view returns (uint256);

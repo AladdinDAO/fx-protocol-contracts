@@ -74,8 +74,8 @@ abstract contract LSDPriceOracleBase is SpotPriceOracleBase, IPriceOracle {
     prices = _getSpotPriceByEncoding(onchainSpotEncodings_LSDUSD);
   }
 
-  /// @notice Return the LSD/USD time-weighted average price.
-  /// @return price The time-weighted average price, multiplied by 1e18.
+  /// @notice Return the LSD/USD anchor price, the price that is hard to manipulate in single tx.
+  /// @return price The anchor price, multiplied by 1e18.
   function getLSDUSDAnchorPrice() external view returns (uint256 price) {
     price = _getLSDUSDAnchorPrice();
   }

@@ -6,6 +6,7 @@ import { IAaveV3Pool } from "../interfaces/Aave/IAaveV3Pool.sol";
 
 contract MockAaveV3Pool is IAaveV3Pool {
   uint128 public variableBorrowRate;
+  uint256 public reserveNormalizedVariableDebt;
 
   constructor(uint128 _variableBorrowRate) {
     variableBorrowRate = _variableBorrowRate;
@@ -15,7 +16,15 @@ contract MockAaveV3Pool is IAaveV3Pool {
     variableBorrowRate = _variableBorrowRate;
   }
 
+  function setReserveNormalizedVariableDebt(uint256 _reserveNormalizedVariableDebt) external {
+    reserveNormalizedVariableDebt = _reserveNormalizedVariableDebt;
+  }
+
   function getReserveData(address) external view returns (ReserveDataLegacy memory result) {
     result.currentVariableBorrowRate = variableBorrowRate;
+  }
+
+  function getReserveNormalizedVariableDebt(address) external view returns (uint256) {
+    return reserveNormalizedVariableDebt;
   }
 }

@@ -129,6 +129,7 @@ describe("PegKeeper.spec", async () => {
         ethers.parseUnits("0.01", 9),
         ethers.parseUnits("0.0001", 9),
         PLATFORM,
+        PLATFORM,
         await reservePool.getAddress(),
       ])
     );
@@ -159,6 +160,7 @@ describe("PegKeeper.spec", async () => {
         "fxUSD Save",
         "fxBASE",
         ethers.parseEther("0.95"),
+        0n,
       ])
     );
     fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), owner);
@@ -198,6 +200,7 @@ describe("PegKeeper.spec", async () => {
         ethers.parseEther("100000000")
       );
     await poolManager.connect(owner).updateRateProvider(wstETH.getAddress(), rateProvider.getAddress());
+    await poolManager.connect(owner).grantRole(id("OPERATOR_ROLE"), wstETHHolder.getAddress());
   });
 
   context("buyback", async () => {

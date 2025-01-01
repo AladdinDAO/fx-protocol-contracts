@@ -13,6 +13,8 @@ import {
 } from "@/types/index";
 
 import ERC2535Module from "./ERC2535";
+import TokenConverterModule from "./TokenConverter";
+import FxProtocolModule from "./FxProtocol";
 
 const getAllSignatures = (e: Interface): string[] => {
   const sigs: string[] = [];
@@ -25,6 +27,8 @@ const getAllSignatures = (e: Interface): string[] => {
 export default buildModule("Router", (m) => {
   const owner = m.getAccount(0);
   const facets = m.useModule(ERC2535Module);
+  const { MultiPathConverter } = m.useModule(TokenConverterModule);
+  const { PoolManagerProxy } = m.useModule(FxProtocolModule);
 
   const diamondCuts = [
     {
@@ -77,6 +81,12 @@ export default buildModule("Router", (m) => {
       initCalldata: "0x",
     },
   ]);
+
+  const RouterManagementFacet = m.contractAt("RouterManagementFacet", Router);
+  m.call(RouterManagementFacet, "approveTarget", [MultiPathConverter, MultiPathConverter]);
+  m.call(RouterManagementFacet, "updateRevenuePool", [m.getParameter("RevenuePool")]);
+
+  m.call(PoolManagerProxy, "grantRole", [id("OPERATOR_ROLE"), Router]);
 
   return { Router };
 });
