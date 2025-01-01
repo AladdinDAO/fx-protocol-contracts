@@ -29,7 +29,7 @@ const config: HardhatUserConfig = {
       accounts: [process.env.PRIVATE_KEY_MAINNET!],
       ignition: {
         maxPriorityFeePerGas: ethers.parseUnits("0.01", "gwei"),
-        maxFeePerGasLimit: ethers.parseUnits("20", "gwei"),
+        maxFeePerGasLimit: ethers.parseUnits("100", "gwei"),
       },
     },
     hermez: {
@@ -63,6 +63,7 @@ const config: HardhatUserConfig = {
   ignition: {
     blockPollingInterval: 1_000,
     timeBeforeBumpingFees: 3 * 60 * 1_000,
+    requiredConfirmations: 2,
     maxFeeBumps: 3,
     disableFeeBumping: false,
   },

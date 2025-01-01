@@ -16,5 +16,7 @@ node_modules
 # Hardhat Ignition default folder for deployments against a local node
 ignition/deployments/chain-31337
 ignition/deployments/tenderly*
+ignition/deployments/**/artifacts
+ignition/deployments/**/build-info
 
 /src/@types

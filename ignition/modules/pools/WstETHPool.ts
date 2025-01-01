@@ -29,6 +29,7 @@ export default buildModule("WstETHPool", (m) => {
     { id: "WstETHPoolProxy" }
   );
   const WstETHPool = m.contractAt("AaveFundingPool", WstETHPoolProxy, { id: "WstETHPool" });
+  m.call(WstETHPool, "updateDebtRatioRange", [m.getParameter("DebtRatioLower"), m.getParameter("DebtRatioUpper")]);
   m.call(WstETHPool, "updateRebalanceRatios", [
     m.getParameter("RebalanceDebtRatio"),
     m.getParameter("RebalanceBonusRatio"),
@@ -37,6 +38,10 @@ export default buildModule("WstETHPool", (m) => {
     m.getParameter("LiquidateDebtRatio"),
     m.getParameter("LiquidateBonusRatio"),
   ]);
+  m.call(WstETHPool, "updateBorrowAndRedeemStatus", [true, true]);
+  m.call(WstETHPool, "updateOpenRatio", [m.getParameter("OpenRatio"), m.getParameter("OpenRatioStep")]);
+  m.call(WstETHPool, "updateCloseFeeRatio", [m.getParameter("CloseFeeRatio")]);
+  m.call(WstETHPool, "updateFundingRatio", [m.getParameter("FundingRatio")]);
 
   // register to PoolManagerProxy
   m.call(PoolManagerProxy, "registerPool", [
