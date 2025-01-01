@@ -10,10 +10,15 @@
   },
   "FxProtocol": {
     "FxUSDProxy": "0x085780639CC2cACd35E474e71f4d000e2405d8f6",
-    "ExpenseRatio": "100000000",
+    "LiquidityGaugeImplementation": "0xF62F458D2F6dd2AD074E715655064d7632e136D6",
+    "RewardsExpenseRatio": "0",
+    "FundingExpenseRatio": "0",
+    "LiquidationExpenseRatio": "100000000",
+    "RedeemFeeRatio": "5000000",
     "HarvesterRatio": "10000000",
-    "FlashLoanFeeRatio": "0",
+    "FlashLoanFeeRatio": "100000",
     "Treasury": "0x0084C2e1B1823564e597Ff4848a88D61ac63D703",
+    "StableDepegPrice": "995000000000000000",
     "RedeemCoolDownPeriod": "1800"
   },
   "PriceOracle": {
@@ -26,15 +31,21 @@
   "WstETHPool": {
     "Name": "f(x) wstETH position",
     "Symbol": "xstETH",
-    "CollateralCapacity": "10000000000000000000000",
-    "DebtCapacity": "10000000000000000000000000",
+    "CollateralCapacity": "50000000000000000000000",
+    "DebtCapacity": "22500000000000000000000000",
     "RateProvider": "0x81A777c4aB65229d1Bf64DaE4c831bDf628Ccc7f",
+    "DebtRatioLower": "90909090909090909",
+    "DebtRatioUpper": "866666666666666666",
     "RebalanceDebtRatio": "880000000000000000",
     "RebalanceBonusRatio": "25000000",
-    "LiquidateDebtRatio": "920000000000000000",
-    "LiquidateBonusRatio": "50000000"
+    "LiquidateDebtRatio": "950000000000000000",
+    "LiquidateBonusRatio": "40000000",
+    "OpenRatio": "1000000",
+    "OpenRatioStep": "300000000000000000",
+    "CloseFeeRatio": "1000000",
+    "FundingRatio": "1000000000"
   },
   "Router": {
-    "RevenuePool": "0x26B2ec4E02ebe2F54583af25b647b1D619e67BbF"
+    "Treasury": "0x0084C2e1B1823564e597Ff4848a88D61ac63D703"
   }
 }

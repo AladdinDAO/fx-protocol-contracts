@@ -2,10 +2,10 @@ import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 import { ZeroAddress } from "ethers";
 
 export default buildModule("ProxyAdmin", (m) => {
-  const admin = m.contractAt("ProxyAdmin", m.getParameter("Fx", ZeroAddress));
-  if (admin.address === ZeroAddress) {
-    return { fx: m.contract("ProxyAdmin", []) };
-  } else {
-    return { fx: admin };
+  let fxAdmin: any = m.contractAt("ProxyAdmin", m.getParameter("Fx", ZeroAddress), { id: "FxProxyAdmin" });
+  if (fxAdmin.address === ZeroAddress) {
+    fxAdmin = m.contract("ProxyAdmin", [], { id: "FxProxyAdmin" });
   }
+  const customAdmin = m.contract("ProxyAdmin", [], { id: "CustomProxyAdmin" });
+  return { fx: fxAdmin, custom: customAdmin };
 });

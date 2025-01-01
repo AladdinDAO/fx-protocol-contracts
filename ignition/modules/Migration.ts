@@ -23,6 +23,7 @@ export default buildModule("Migration", (m) => {
     id: "SfrxETHMarketProxy",
   });
 
+  /*
   m.call(ProxyAdmin, "upgrade", [WstETHMarketProxy, WstETHMarketImplementation], {
     id: "WstETHMarketV2Proxy_upgrade",
   });
@@ -33,6 +34,7 @@ export default buildModule("Migration", (m) => {
   m.call(WstETHMarketProxy, "grantRole", [id("MIGRATOR_ROLE"), Router]);
   m.call(SfrxETHMarketProxy, "grantRole", [id("MIGRATOR_ROLE"), Router]);
   m.call(FxUSDProxy, "grantRole", [id("MIGRATOR_ROLE"), Router]);
+  */
 
   return { WstETHMarketProxy, SfrxETHMarketProxy, WstETHMarketImplementation, SfrxETHMarketImplementation };
 });

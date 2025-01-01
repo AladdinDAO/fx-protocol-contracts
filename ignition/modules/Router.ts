@@ -73,6 +73,7 @@ export default buildModule("Router", (m) => {
     },
   ];
 
+  // deploy Router
   const Router = m.contract("Diamond", [
     diamondCuts,
     {
@@ -81,12 +82,15 @@ export default buildModule("Router", (m) => {
       initCalldata: "0x",
     },
   ]);
+  // deploy ReservePool
+  const RevenuePool = m.contract("RevenuePool", [m.getParameter("Treasury"), m.getParameter("Treasury"), owner]);
 
+  // config parameters
   const RouterManagementFacet = m.contractAt("RouterManagementFacet", Router);
   m.call(RouterManagementFacet, "approveTarget", [MultiPathConverter, MultiPathConverter]);
-  m.call(RouterManagementFacet, "updateRevenuePool", [m.getParameter("RevenuePool")]);
+  m.call(RouterManagementFacet, "updateRevenuePool", [RevenuePool]);
 
   m.call(PoolManagerProxy, "grantRole", [id("OPERATOR_ROLE"), Router]);
 
-  return { Router };
+  return { Router, RevenuePool };
 });
