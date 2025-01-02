@@ -15,7 +15,7 @@ export const ChainlinkPriceFeed: {
     "USDC-USD": {
       feed: "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6",
       scale: 10n ** (18n - 8n),
-      heartbeat: ((86400 * 3) / 2) * 100000, // 1.5 multiple
+      heartbeat: (86400 * 3) / 2, // 1.5 multiple
     },
     "ETH-USD": {
       feed: "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
@@ -25,7 +25,7 @@ export const ChainlinkPriceFeed: {
     "stETH-USD": {
       feed: "0xCfE54B5cD566aB89272946F602D76Ea879CAb4a8",
       scale: 10n ** (18n - 8n),
-      heartbeat: 3600 * 3 * 100000, // 3 multiple
+      heartbeat: 3600 * 3, // 3 multiple
     },
   },
 };
