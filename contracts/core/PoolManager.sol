@@ -55,6 +55,18 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
 
   bytes32 private constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
+  bytes32 private constant HARVESTER_ROLE = keccak256("HARVESTER_ROLE");
+
+  uint256 private constant COLLATERAL_CAPACITY_OFFSET = 0;
+  uint256 private constant COLLATERAL_BALANCE_OFFSET = 85;
+  uint256 private constant RAW_COLLATERAL_BALANCE_OFFSET = 170;
+  uint256 private constant COLLATERAL_DATA_BITS = 85;
+  uint256 private constant RAW_COLLATERAL_DATA_BITS = 86;
+
+  uint256 private constant DEBT_CAPACITY_OFFSET = 0;
+  uint256 private constant DEBT_BALANCE_OFFSET = 96;
+  uint256 private constant DEBT_DATA_BITS = 96;
+
   /***********************
    * Immutable Variables *
    ***********************/
@@ -189,6 +201,21 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     _updateThreshold(10000 ether);
   }
 
+  function initializeV2(address pool) external onlyRegisteredPool(pool) reinitializer(2) {
+    // fix state of pool
+    address collateralToken = IPool(pool).collateralToken();
+    uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
+    uint256 rawCollaterals = IPool(pool).getTotalRawCollaterals();
+    uint256 collaterals = _scaleDown(rawCollaterals, scalingFactor);
+    bytes32 data = poolInfo[pool].collateralData;
+    data = data.insertUint(collaterals, COLLATERAL_BALANCE_OFFSET, COLLATERAL_DATA_BITS);
+    poolInfo[pool].collateralData = data.insertUint(
+      rawCollaterals,
+      RAW_COLLATERAL_BALANCE_OFFSET,
+      RAW_COLLATERAL_DATA_BITS
+    );
+  }
+
   /*************************
    * Public View Functions *
    *************************/
@@ -197,6 +224,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   /// @param pool The address of pool to query.
   /// @return collateralCapacity The maximum allowed amount of collateral tokens.
   /// @return collateralBalance The amount of collateral tokens deposited.
+  /// @return rawCollateral The amount of raw collateral tokens deposited.
   /// @return debtCapacity The maximum allowed amount of debt tokens.
   /// @return debtBalance The amount of debt tokens borrowed.
   function getPoolInfo(
@@ -204,14 +232,21 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   )
     external
     view
-    returns (uint256 collateralCapacity, uint256 collateralBalance, uint256 debtCapacity, uint256 debtBalance)
+    returns (
+      uint256 collateralCapacity,
+      uint256 collateralBalance,
+      uint256 rawCollateral,
+      uint256 debtCapacity,
+      uint256 debtBalance
+    )
   {
     bytes32 data = poolInfo[pool].collateralData;
-    collateralCapacity = data.decodeUint(0, 85);
-    collateralBalance = data.decodeUint(85, 85);
+    collateralCapacity = data.decodeUint(COLLATERAL_CAPACITY_OFFSET, COLLATERAL_DATA_BITS);
+    collateralBalance = data.decodeUint(COLLATERAL_BALANCE_OFFSET, COLLATERAL_DATA_BITS);
+    rawCollateral = data.decodeUint(RAW_COLLATERAL_BALANCE_OFFSET, RAW_COLLATERAL_DATA_BITS);
     data = poolInfo[pool].debtData;
-    debtCapacity = data.decodeUint(0, 96);
-    debtBalance = data.decodeUint(96, 96);
+    debtCapacity = data.decodeUint(DEBT_CAPACITY_OFFSET, DEBT_DATA_BITS);
+    debtBalance = data.decodeUint(DEBT_BALANCE_OFFSET, DEBT_DATA_BITS);
   }
 
   /****************************
@@ -389,7 +424,13 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   /// @inheritdoc IPoolManager
   function harvest(
     address pool
-  ) external onlyRegisteredPool(pool) nonReentrant returns (uint256 amountRewards, uint256 amountFunding) {
+  )
+    external
+    onlyRegisteredPool(pool)
+    onlyRole(HARVESTER_ROLE)
+    nonReentrant
+    returns (uint256 amountRewards, uint256 amountFunding)
+  {
     address collateralToken = IPool(pool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
 
@@ -397,8 +438,8 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     uint256 rawCollateralRecorded;
     {
       bytes32 data = poolInfo[pool].collateralData;
-      collateralRecorded = data.decodeUint(85, 85);
-      rawCollateralRecorded = data.decodeUint(170, 86);
+      collateralRecorded = data.decodeUint(COLLATERAL_BALANCE_OFFSET, COLLATERAL_DATA_BITS);
+      rawCollateralRecorded = data.decodeUint(RAW_COLLATERAL_BALANCE_OFFSET, RAW_COLLATERAL_DATA_BITS);
     }
     uint256 performanceFee;
     uint256 harvestBounty;
@@ -414,13 +455,19 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
         harvestBounty = (getHarvesterRatio() * amountFunding) / FEE_PRECISION;
         pendingRewards = amountFunding - harvestBounty - performanceFee;
       }
+      // recorded data changed, update local cache
+      {
+        bytes32 data = poolInfo[pool].collateralData;
+        collateralRecorded = data.decodeUint(COLLATERAL_BALANCE_OFFSET, COLLATERAL_DATA_BITS);
+        rawCollateralRecorded = data.decodeUint(RAW_COLLATERAL_BALANCE_OFFSET, RAW_COLLATERAL_DATA_BITS);
+      }
     }
     // compute rewards
     rawCollateral = _scaleUp(collateralRecorded, scalingFactor);
     if (rawCollateral > rawCollateralRecorded) {
       unchecked {
         amountRewards = _scaleDown(rawCollateral - rawCollateralRecorded, scalingFactor);
-        _changePoolCollateral(pool, -int256(amountRewards), -int256(rawCollateral - rawCollateralRecorded));
+        _changePoolCollateral(pool, -int256(amountRewards), 0);
 
         uint256 performanceFeeRewards = (getRewardsExpenseRatio() * amountRewards) / FEE_PRECISION;
         uint256 harvestBountyRewards = (getHarvesterRatio() * amountRewards) / FEE_PRECISION;
@@ -530,8 +577,12 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   /// @param collateralCapacity The capacity for collateral token.
   /// @param debtCapacity The capacity for debt token.
   function _updatePoolCapacity(address pool, uint96 collateralCapacity, uint96 debtCapacity) internal {
-    poolInfo[pool].collateralData = poolInfo[pool].collateralData.insertUint(collateralCapacity, 0, 96);
-    poolInfo[pool].debtData = poolInfo[pool].debtData.insertUint(debtCapacity, 0, 96);
+    poolInfo[pool].collateralData = poolInfo[pool].collateralData.insertUint(
+      collateralCapacity,
+      COLLATERAL_CAPACITY_OFFSET,
+      COLLATERAL_DATA_BITS
+    );
+    poolInfo[pool].debtData = poolInfo[pool].debtData.insertUint(debtCapacity, DEBT_CAPACITY_OFFSET, DEBT_DATA_BITS);
 
     emit UpdatePoolCapacity(pool, collateralCapacity, debtCapacity);
   }
@@ -624,21 +675,21 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   /// @dev Internal function to update collateral balance.
   function _changePoolCollateral(address pool, int256 delta, int256 rawDelta) internal {
     bytes32 data = poolInfo[pool].collateralData;
-    uint256 capacity = data.decodeUint(0, 85);
-    uint256 balance = uint256(int256(data.decodeUint(85, 85)) + delta);
+    uint256 capacity = data.decodeUint(COLLATERAL_CAPACITY_OFFSET, COLLATERAL_DATA_BITS);
+    uint256 balance = uint256(int256(data.decodeUint(COLLATERAL_BALANCE_OFFSET, COLLATERAL_DATA_BITS)) + delta);
     if (balance > capacity) revert ErrorCollateralExceedCapacity();
-    data = data.insertUint(balance, 85, 85);
-    balance = uint256(int256(data.decodeUint(170, 86)) + rawDelta);
-    poolInfo[pool].collateralData = data.insertUint(balance, 170, 86);
+    data = data.insertUint(balance, COLLATERAL_BALANCE_OFFSET, COLLATERAL_DATA_BITS);
+    balance = uint256(int256(data.decodeUint(RAW_COLLATERAL_BALANCE_OFFSET, RAW_COLLATERAL_DATA_BITS)) + rawDelta);
+    poolInfo[pool].collateralData = data.insertUint(balance, RAW_COLLATERAL_BALANCE_OFFSET, RAW_COLLATERAL_DATA_BITS);
   }
 
   /// @dev Internal function to update debt balance.
   function _changePoolDebts(address pool, int256 delta) internal {
     bytes32 data = poolInfo[pool].debtData;
-    uint256 capacity = data.decodeUint(0, 96);
-    uint256 balance = uint256(int256(data.decodeUint(96, 96)) + delta);
+    uint256 capacity = data.decodeUint(DEBT_CAPACITY_OFFSET, DEBT_DATA_BITS);
+    uint256 balance = uint256(int256(data.decodeUint(DEBT_BALANCE_OFFSET, DEBT_DATA_BITS)) + delta);
     if (balance > capacity) revert ErrorDebtExceedCapacity();
-    poolInfo[pool].debtData = data.insertUint(balance, 96, 96);
+    poolInfo[pool].debtData = data.insertUint(balance, DEBT_BALANCE_OFFSET, DEBT_DATA_BITS);
   }
 
   /// @dev Internal function to get token scaling factor.
