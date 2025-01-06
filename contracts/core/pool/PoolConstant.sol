@@ -9,6 +9,9 @@ abstract contract PoolConstant is IPool {
    * Constants *
    *************/
 
+  /// @dev The role for emergency operations.
+  bytes32 internal constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
+
   /// @dev The value of minimum collateral.
   int256 internal constant MIN_COLLATERAL = 1e9;
 
