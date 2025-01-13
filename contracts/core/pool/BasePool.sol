@@ -447,7 +447,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
   /// @notice Update the borrow and redeem status.
   /// @param borrowStatus The new borrow status.
   /// @param redeemStatus The new redeem status.
-  function updateBorrowAndRedeemStatus(bool borrowStatus, bool redeemStatus) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function updateBorrowAndRedeemStatus(bool borrowStatus, bool redeemStatus) external onlyRole(EMERGENCY_ROLE) {
     _updateBorrowStatus(borrowStatus);
     _updateRedeemStatus(redeemStatus);
   }
