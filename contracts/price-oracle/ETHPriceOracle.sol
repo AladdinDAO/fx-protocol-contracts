@@ -9,7 +9,7 @@ import { SpotPriceOracleBase } from "./SpotPriceOracleBase.sol";
 import { IPriceOracle } from "./interfaces/IPriceOracle.sol";
 import { ITwapOracle } from "./interfaces/ITwapOracle.sol";
 
-contract ETHPriceOracleBase is SpotPriceOracleBase, IPriceOracle {
+contract ETHPriceOracle is SpotPriceOracleBase, IPriceOracle {
   /*************
    * Constants *
    *************/

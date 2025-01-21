@@ -7,7 +7,7 @@ import { Math } from "@openzeppelin/contracts-v4/utils/math/Math.sol";
 import { SpotPriceOracleBase } from "./SpotPriceOracleBase.sol";
 import { BTCDerivativeOracleBase } from "./BTCDerivativeOracleBase.sol";
 
-contract FxWBTCOracleV2 is BTCDerivativeOracleBase {
+contract WBTCPriceOracle is BTCDerivativeOracleBase {
   /*************
    * Constants *
    *************/
