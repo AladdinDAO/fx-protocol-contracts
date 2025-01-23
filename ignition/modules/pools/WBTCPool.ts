@@ -7,13 +7,36 @@ import PriceOracleModule from "../PriceOracle";
 import ProxyAdminModule from "../ProxyAdmin";
 import AaveFundingPoolModule from "./AaveFundingPool";
 import { ethers, ZeroAddress } from "ethers";
+import { ChainlinkPriceFeed, encodeChainlinkPriceFeed, SpotPriceEncodings } from "@/utils/index";
 
 export default buildModule("WBTCPool", (m) => {
   const admin = m.getAccount(0);
-  const { fx: ProxyAdmin } = m.useModule(ProxyAdminModule);
-  const { AaveFundingPoolImplementation } = m.useModule(AaveFundingPoolModule);
-  const { WBTCPriceOracle } = m.useModule(PriceOracleModule);
-  const { PoolManagerProxy, GaugeRewarder, RevenuePool } = m.useModule(FxProtocolModule);
+  // const { fx: ProxyAdmin } = m.useModule(ProxyAdminModule);
+  // const { AaveFundingPoolImplementation } = m.useModule(AaveFundingPoolModule);
+  // const { PoolManagerProxy, GaugeRewarder, RevenuePool } = m.useModule(FxProtocolModule);
+
+  const AaveFundingPoolImplementation = m.contractAt(
+    "AaveFundingPool",
+    m.getParameter("AaveFundingPoolImplementation"),
+    { id: "AaveFundingPoolImplementation" }
+  );
+  const ProxyAdmin = m.contractAt("ProxyAdmin", m.getParameter("ProxyAdmin"));
+
+  // deploy WBTCPriceOracle
+  const WBTCPriceOracle = m.contract("WBTCPriceOracle", [
+    m.getParameter("SpotPriceOracle"),
+    encodeChainlinkPriceFeed(
+      ChainlinkPriceFeed.ethereum["BTC-USD"].feed,
+      ChainlinkPriceFeed.ethereum["BTC-USD"].scale,
+      ChainlinkPriceFeed.ethereum["BTC-USD"].heartbeat
+    ),
+    encodeChainlinkPriceFeed(
+      ChainlinkPriceFeed.ethereum["WBTC-BTC"].feed,
+      ChainlinkPriceFeed.ethereum["WBTC-BTC"].scale,
+      ChainlinkPriceFeed.ethereum["WBTC-BTC"].heartbeat
+    ),
+  ]);
+  m.call(WBTCPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["WBTC/USDC"]]);
 
   // deploy WBTCPool proxy
   const WBTCPoolInitializer = m.encodeFunctionCall(AaveFundingPoolImplementation, "initialize", [
@@ -43,6 +66,7 @@ export default buildModule("WBTCPool", (m) => {
   m.call(WBTCPool, "updateCloseFeeRatio", [m.getParameter("CloseFeeRatio")]);
   m.call(WBTCPool, "updateFundingRatio", [m.getParameter("FundingRatio")]);
 
+  /*
   // register to PoolManagerProxy
   m.call(PoolManagerProxy, "registerPool", [
     WBTCPoolProxy,
@@ -62,6 +86,7 @@ export default buildModule("WBTCPool", (m) => {
     ethers.parseUnits("0.3", 9),
     ethers.parseUnits("0.7", 9),
   ]);
+  */
 
   return {
     WBTCPool,

@@ -20,36 +20,8 @@ export default buildModule("PriceOracle", (m) => {
     id: "StETH_onchainSpotEncodings_LSDETH",
   });
 
-  // deploy ETHPriceOracle
-  const ETHPriceOracle = m.contract("ETHPriceOracle", [
-    m.getParameter("SpotPriceOracle"),
-    encodeChainlinkPriceFeed(
-      ChainlinkPriceFeed.ethereum["ETH-USD"].feed,
-      ChainlinkPriceFeed.ethereum["ETH-USD"].scale,
-      ChainlinkPriceFeed.ethereum["ETH-USD"].heartbeat
-    ),
-  ]);
-  m.call(ETHPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["WETH/USDC"]]);
-
-  // deploy WBTCPriceOracle
-  const WBTCPriceOracle = m.contract("WBTCPriceOracle", [
-    m.getParameter("SpotPriceOracle"),
-    encodeChainlinkPriceFeed(
-      ChainlinkPriceFeed.ethereum["BTC-USD"].feed,
-      ChainlinkPriceFeed.ethereum["BTC-USD"].scale,
-      ChainlinkPriceFeed.ethereum["BTC-USD"].heartbeat
-    ),
-    encodeChainlinkPriceFeed(
-      ChainlinkPriceFeed.ethereum["WBTC-BTC"].feed,
-      ChainlinkPriceFeed.ethereum["WBTC-BTC"].scale,
-      ChainlinkPriceFeed.ethereum["WBTC-BTC"].heartbeat
-    ),
-  ]);
-  m.call(WBTCPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["WBTC/USDC"]]);
-
   return {
     StETHPriceOracle,
-    ETHPriceOracle,
     WBTCPriceOracle,
   };
 });

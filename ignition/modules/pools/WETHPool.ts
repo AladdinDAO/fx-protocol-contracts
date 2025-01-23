@@ -2,18 +2,31 @@ import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
 import { EthereumTokens } from "@/utils/tokens";
 
-import FxProtocolModule from "../FxProtocol";
-import PriceOracleModule from "../PriceOracle";
-import ProxyAdminModule from "../ProxyAdmin";
-import AaveFundingPoolModule from "./AaveFundingPool";
-import { ethers, ZeroAddress } from "ethers";
+import { ChainlinkPriceFeed, encodeChainlinkPriceFeed, SpotPriceEncodings } from "@/utils/index";
 
 export default buildModule("WETHPool", (m) => {
   const admin = m.getAccount(0);
-  const { fx: ProxyAdmin } = m.useModule(ProxyAdminModule);
-  const { AaveFundingPoolImplementation } = m.useModule(AaveFundingPoolModule);
-  const { ETHPriceOracle } = m.useModule(PriceOracleModule);
-  const { PoolManagerProxy, GaugeRewarder, RevenuePool } = m.useModule(FxProtocolModule);
+  // const { fx: ProxyAdmin } = m.useModule(ProxyAdminModule);
+  // const { AaveFundingPoolImplementation } = m.useModule(AaveFundingPoolModule);
+  // const { PoolManagerProxy, GaugeRewarder, RevenuePool } = m.useModule(FxProtocolModule);
+
+  const AaveFundingPoolImplementation = m.contractAt(
+    "AaveFundingPool",
+    m.getParameter("AaveFundingPoolImplementation"),
+    { id: "AaveFundingPoolImplementation" }
+  );
+  const ProxyAdmin = m.contractAt("ProxyAdmin", m.getParameter("ProxyAdmin"));
+
+  // deploy ETHPriceOracle
+  const ETHPriceOracle = m.contract("ETHPriceOracle", [
+    m.getParameter("SpotPriceOracle"),
+    encodeChainlinkPriceFeed(
+      ChainlinkPriceFeed.ethereum["ETH-USD"].feed,
+      ChainlinkPriceFeed.ethereum["ETH-USD"].scale,
+      ChainlinkPriceFeed.ethereum["ETH-USD"].heartbeat
+    ),
+  ]);
+  m.call(ETHPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["WETH/USDC"]]);
 
   // deploy WETHPool proxy
   const WETHPoolInitializer = m.encodeFunctionCall(AaveFundingPoolImplementation, "initialize", [
@@ -43,6 +56,7 @@ export default buildModule("WETHPool", (m) => {
   m.call(WETHPool, "updateCloseFeeRatio", [m.getParameter("CloseFeeRatio")]);
   m.call(WETHPool, "updateFundingRatio", [m.getParameter("FundingRatio")]);
 
+  /*
   // register to PoolManagerProxy
   m.call(PoolManagerProxy, "registerPool", [
     WETHPoolProxy,
@@ -62,6 +76,7 @@ export default buildModule("WETHPool", (m) => {
     ethers.parseUnits("0.3", 9),
     ethers.parseUnits("0.7", 9),
   ]);
+  */
 
   return {
     WETHPool,
