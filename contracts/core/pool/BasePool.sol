@@ -413,6 +413,10 @@ abstract contract BasePool is TickLogic, PositionLogic {
         Math.Rounding.Down
       );
     }
+    // clear leftover to trigger bad debts redistribution
+    if (result.rawColls + result.bonusRawColls >= positionRawColl) {
+      collShareToLiquidate = position.colls;
+    }
     position.debts -= uint96(debtShareToLiquidate);
     position.colls -= uint96(collShareToLiquidate);
 

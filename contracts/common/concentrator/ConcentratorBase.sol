@@ -19,14 +19,14 @@ abstract contract ConcentratorBase is AccessControlUpgradeable, IConcentratorBas
    * Errors *
    **********/
 
-  /// @dev Thrown when the address of treasury contract is zero.
-  error TreasuryIsZero();
+  /// @dev Thrown when the address is zero.
+  error ErrorZeroAddress();
 
   /// @dev Thrown when the expense ratio exceeds `MAX_EXPENSE_RATIO`.
-  error ExpenseRatioTooLarge();
+  error ErrorExpenseRatioTooLarge();
 
   /// @dev Thrown when the harvester ratio exceeds `MAX_HARVESTER_RATIO`.
-  error HarvesterRatioTooLarge();
+  error ErrorHarvesterRatioTooLarge();
 
   /// @dev Thrown when caller is not harvester and try to call some harvester only functions.
   error ErrorCallerNotHarvester();
@@ -134,7 +134,7 @@ abstract contract ConcentratorBase is AccessControlUpgradeable, IConcentratorBas
   /// @param _newRatio The new ratio to update, multiplied by 1e9.
   function updateExpenseRatio(uint32 _newRatio) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (uint256(_newRatio) > MAX_EXPENSE_RATIO) {
-      revert ExpenseRatioTooLarge();
+      revert ErrorExpenseRatioTooLarge();
     }
 
     bytes32 _data = _miscData;
@@ -148,7 +148,7 @@ abstract contract ConcentratorBase is AccessControlUpgradeable, IConcentratorBas
   /// @param _newRatio The new ratio to update, multiplied by 1e9.
   function updateHarvesterRatio(uint32 _newRatio) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (uint256(_newRatio) > MAX_HARVESTER_RATIO) {
-      revert HarvesterRatioTooLarge();
+      revert ErrorHarvesterRatioTooLarge();
     }
 
     bytes32 _data = _miscData;
@@ -166,7 +166,7 @@ abstract contract ConcentratorBase is AccessControlUpgradeable, IConcentratorBas
   ///
   /// @param _newTreasury The address of the new treasury contract.
   function _updateTreasury(address _newTreasury) private {
-    if (_newTreasury == address(0)) revert TreasuryIsZero();
+    if (_newTreasury == address(0)) revert ErrorZeroAddress();
 
     address _oldTreasury = treasury;
     treasury = _newTreasury;

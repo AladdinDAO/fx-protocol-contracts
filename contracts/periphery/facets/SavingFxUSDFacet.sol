@@ -38,17 +38,13 @@ contract SavingFxUSDFacet {
   /// @dev The address of `SavingFxUSD` contract.
   address private immutable fxSAVE;
 
-  /// @dev The address of fxBASE gauge contract.
-  address private immutable gauge;
-
   /***************
    * Constructor *
    ***************/
 
-  constructor(address _fxBASE, address _fxSAVE, address _gauge) {
+  constructor(address _fxBASE, address _fxSAVE) {
     fxBASE = _fxBASE;
     fxSAVE = _fxSAVE;
-    gauge = _gauge;
   }
 
   /****************************
@@ -68,7 +64,8 @@ contract SavingFxUSDFacet {
   ) external payable {
     uint256 amountIn = LibRouter.transferInAndConvert(params, tokenOut);
     LibRouter.approve(tokenOut, fxBASE, amountIn);
-    uint256 shares = IFxUSDBasePool(fxBASE).deposit(receiver, tokenOut, amountIn, minShares);
+    uint256 shares = IFxUSDBasePool(fxBASE).deposit(address(this), tokenOut, amountIn, minShares);
+    LibRouter.approve(fxBASE, fxSAVE, shares);
     IERC4626(fxSAVE).deposit(shares, receiver);
   }
 

@@ -23,6 +23,13 @@ interface ISavingFxUSD {
   /// @param receiver The address of token receiver.
   event Claim(address owner, address receiver);
 
+  /*************************
+   * Public View Functions *
+   *************************/
+
+  /// @notice Return the net asset value, multiplied by 1e18.
+  function nav() external view returns (uint256);
+
   /****************************
    * Public Mutated Functions *
    ****************************/

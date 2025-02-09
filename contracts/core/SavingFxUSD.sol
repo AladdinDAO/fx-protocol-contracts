@@ -56,7 +56,8 @@ contract SavingFxUSD is ERC20PermitUpgradeable, ERC4626Upgradeable, Concentrator
    * Errors *
    **********/
 
-  error ErrorOwnerAndReceiverMismatch();
+  /// @dev Thrown when the threshold exceeds `MAX_THRESHOLD`.
+  error ErrorThresholdTooLarge();
 
   /*************
    * Constants *
@@ -71,11 +72,17 @@ contract SavingFxUSD is ERC20PermitUpgradeable, ERC4626Upgradeable, Concentrator
   /// @dev The address of FXN token.
   address private constant FXN = 0x365AccFCa291e7D3914637ABf1F7635dB165Bb09;
 
+  /// @dev The denominator used for precision calculation.
+  uint256 private constant PRECISION = 1e18;
+
   /// @dev The number of bits for threshold.
   uint256 private constant THRESHOLD_BITS = 80;
 
   /// @dev The offset of threshold in `_miscData`.
   uint256 private constant THRESHOLD_OFFSET = 60;
+  
+  /// @dev The maximum value of threshold, 2^80-1.
+  uint256 private constant MAX_THRESHOLD = 1208925819614629174706175;
 
   /***********************
    * Immutable Variables *
@@ -122,6 +129,7 @@ contract SavingFxUSD is ERC20PermitUpgradeable, ERC4626Upgradeable, Concentrator
 
     __ERC20_init(params.name, params.symbol);
     __ERC20Permit_init(params.name);
+    __ERC4626_init(IERC20(base));
 
     __ConcentratorBase_init(params.treasury, params.harvester);
 
@@ -150,6 +158,11 @@ contract SavingFxUSD is ERC20PermitUpgradeable, ERC4626Upgradeable, Concentrator
   /// @notice Return the threshold for batch deposit.
   function getThreshold() public view returns (uint256) {
     return _miscData.decodeUint(THRESHOLD_OFFSET, THRESHOLD_BITS);
+  }
+
+  /// @inheritdoc ISavingFxUSD
+  function nav() external view returns (uint256) {
+    return (IFxUSDBasePool(base).nav() * convertToAssets(PRECISION)) / PRECISION;
   }
 
   /****************************
@@ -243,7 +256,19 @@ contract SavingFxUSD is ERC20PermitUpgradeable, ERC4626Upgradeable, Concentrator
     uint256 assets,
     uint256 shares
   ) internal virtual override {
-    ERC4626Upgradeable._withdraw(caller, receiver, owner, assets, shares);
+    if (caller != owner) {
+      _spendAllowance(owner, caller, shares);
+    }
+
+    // If _asset is ERC777, `transfer` can trigger a reentrancy AFTER the transfer happens through the
+    // `tokensReceived` hook. On the other hand, the `tokensToSend` hook, that is triggered before the transfer,
+    // calls the vault, which is assumed not malicious.
+    //
+    // Conclusion: we need to do the transfer after the burn so that any reentrancy would happen after the
+    // shares are burned and after the assets are transferred, which is a valid state.
+    _burn(owner, shares);
+
+    emit Withdraw(caller, receiver, owner, assets, shares);
 
     // Withdraw from gauge
     IStakingProxyERC20(vault).withdraw(assets);
@@ -252,8 +277,13 @@ contract SavingFxUSD is ERC20PermitUpgradeable, ERC4626Upgradeable, Concentrator
 
   /// @inheritdoc ConcentratorBase
   function _onHarvest(address token, uint256 amount) internal virtual override {
-    IERC20(token).forceApprove(base, amount);
-    IFxUSDBasePool(base).deposit(address(this), token, amount, 0);
+    if (token == gauge) {
+      IERC20(gauge).safeTransfer(vault, amount);
+      return;
+    } else if (token != base) {
+      IERC20(token).forceApprove(base, amount);
+      IFxUSDBasePool(base).deposit(address(this), token, amount, 0);
+    }
     amount = IERC20(base).balanceOf(address(this));
     ILiquidityGauge(gauge).deposit(amount, vault);
   }
@@ -261,6 +291,8 @@ contract SavingFxUSD is ERC20PermitUpgradeable, ERC4626Upgradeable, Concentrator
   /// @dev Internal function to update the threshold for batch deposit.
   /// @param newThreshold The address of new threshold.
   function _updateThreshold(uint256 newThreshold) internal {
+    if (newThreshold > MAX_THRESHOLD) revert ErrorThresholdTooLarge();
+
     bytes32 _data = _miscData;
     uint256 oldThreshold = _miscData.decodeUint(THRESHOLD_OFFSET, THRESHOLD_BITS);
     _miscData = _data.insertUint(newThreshold, THRESHOLD_OFFSET, THRESHOLD_BITS);
@@ -299,6 +331,7 @@ contract SavingFxUSD is ERC20PermitUpgradeable, ERC4626Upgradeable, Concentrator
     address proxy = lockedProxy[owner];
     if (proxy == address(0)) {
       proxy = address(new LockedFxSaveProxy{ salt: keccak256(abi.encode(owner)) }());
+      lockedProxy[owner] = proxy;
     }
 
     // transfer to proxy for unlocking and request unlock

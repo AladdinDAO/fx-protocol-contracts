@@ -38,17 +38,17 @@ contract RewardHarvester is PermissionedSwap {
    ****************************/
 
   /// @notice Harvest base token to target token by amm trading and distribute to fxSAVE.
+  /// @param amountIn The amount of input tokens.
   /// @param baseToken The address of base token to use.
   /// @param targetToken The address target token.
   /// @param params The parameters used for trading.
   /// @return amountOut The amount of target token received.
   function swapAndDistribute(
+    uint256 amountIn,
     address baseToken,
     address targetToken,
     TradingParameter memory params
   ) external returns (uint256 amountOut) {
-    uint256 amountIn = IERC20(baseToken).balanceOf(address(this));
-
     // swap base token to target
     amountOut = _doTrade(baseToken, targetToken, amountIn, params);
 
