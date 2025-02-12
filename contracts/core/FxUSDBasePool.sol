@@ -348,7 +348,6 @@ contract FxUSDBasePool is
   /// @inheritdoc IFxUSDBasePool
   function rebalance(
     address pool,
-    int16 tickId,
     address tokenIn,
     uint256 maxAmount,
     uint256 minCollOut
@@ -357,27 +356,6 @@ contract FxUSDBasePool is
     (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = IPoolManager(poolManager).rebalance(
       pool,
       _msgSender(),
-      tickId,
-      op.yieldTokenToUse,
-      op.stableTokenToUse
-    );
-    tokenUsed = _afterRebalanceOrLiquidate(tokenIn, minCollOut, op);
-    colls = op.colls;
-  }
-
-  /// @inheritdoc IFxUSDBasePool
-  function rebalance(
-    address pool,
-    uint32 positionId,
-    address tokenIn,
-    uint256 maxAmount,
-    uint256 minCollOut
-  ) external onlyValidToken(tokenIn) nonReentrant returns (uint256 tokenUsed, uint256 colls) {
-    RebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(tokenIn, maxAmount);
-    (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = IPoolManager(poolManager).rebalance(
-      pool,
-      _msgSender(),
-      positionId,
       op.yieldTokenToUse,
       op.stableTokenToUse
     );
@@ -388,7 +366,6 @@ contract FxUSDBasePool is
   /// @inheritdoc IFxUSDBasePool
   function liquidate(
     address pool,
-    uint32 positionId,
     address tokenIn,
     uint256 maxAmount,
     uint256 minCollOut
@@ -397,7 +374,6 @@ contract FxUSDBasePool is
     (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = IPoolManager(poolManager).liquidate(
       pool,
       _msgSender(),
-      positionId,
       op.yieldTokenToUse,
       op.stableTokenToUse
     );
