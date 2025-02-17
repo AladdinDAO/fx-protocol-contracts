@@ -89,7 +89,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
 
     OperationMemoryVar memory op;
     // price precision and ratio precision are both 1e18, use min price here
-    (, op.price, ) = IPriceOracle(priceOracle).getPrice();
+    op.price = IPriceOracle(priceOracle).getExchangePrice();
     (op.globalDebt, op.globalColl) = _getDebtAndCollateralShares();
     (op.collIndex, op.debtIndex) = _updateCollAndDebtIndex();
     if (positionId == 0) {
@@ -193,7 +193,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
 
     (uint256 cachedCollIndex, uint256 cachedDebtIndex) = _updateCollAndDebtIndex();
     (uint256 cachedTotalDebts, uint256 cachedTotalColls) = _getDebtAndCollateralShares();
-    (, , uint256 price) = IPriceOracle(priceOracle).getPrice(); // use max price
+    uint256 price = IPriceOracle(priceOracle).getRedeemPrice();
     // check global debt ratio, if global debt ratio >= 1, disable redeem
     {
       uint256 totalRawColls = _convertToRawColl(cachedTotalColls, cachedCollIndex, Math.Rounding.Down);
@@ -247,7 +247,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
   /// @inheritdoc IPool
   function rebalance(int16 tick, uint256 maxRawDebts) external onlyPoolManager returns (RebalanceResult memory result) {
     (uint256 cachedCollIndex, uint256 cachedDebtIndex) = _updateCollAndDebtIndex();
-    (, uint256 price, ) = IPriceOracle(priceOracle).getPrice(); // use min price
+    uint256 price = IPriceOracle(priceOracle).getLiquidatePrice();
     uint256 node = tickData[tick];
     bytes32 value = tickTreeData[node].value;
     uint256 tickRawColl = _convertToRawColl(
@@ -301,7 +301,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
     _requireOwned(positionId);
 
     (uint256 cachedCollIndex, uint256 cachedDebtIndex) = _updateCollAndDebtIndex();
-    (, uint256 price, ) = IPriceOracle(priceOracle).getPrice(); // use min price
+    uint256 price = IPriceOracle(priceOracle).getLiquidatePrice();
     PositionInfo memory position = _getAndUpdatePosition(positionId);
     uint256 positionRawColl = _convertToRawColl(position.colls, cachedCollIndex, Math.Rounding.Down);
     uint256 positionRawDebt = _convertToRawDebt(position.debts, cachedDebtIndex, Math.Rounding.Down);
@@ -365,7 +365,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
     _requireOwned(positionId);
 
     (uint256 cachedCollIndex, uint256 cachedDebtIndex) = _updateCollAndDebtIndex();
-    (, uint256 price, ) = IPriceOracle(priceOracle).getPrice(); // use min price
+    uint256 price = IPriceOracle(priceOracle).getLiquidatePrice();
     PositionInfo memory position = _getAndUpdatePosition(positionId);
     uint256 positionRawColl = _convertToRawColl(position.colls, cachedCollIndex, Math.Rounding.Down);
     uint256 positionRawDebt = _convertToRawDebt(position.debts, cachedDebtIndex, Math.Rounding.Down);

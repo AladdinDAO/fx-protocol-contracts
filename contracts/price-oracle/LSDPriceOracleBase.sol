@@ -82,7 +82,7 @@ abstract contract LSDPriceOracleBase is SpotPriceOracleBase, IPriceOracle {
 
   /// @inheritdoc IPriceOracle
   /// @dev The price is valid iff |maxPrice-minPrice|/minPrice < maxPriceDeviation
-  function getPrice() external view override returns (uint256 anchorPrice, uint256 minPrice, uint256 maxPrice) {
+  function getPrice() public view override returns (uint256 anchorPrice, uint256 minPrice, uint256 maxPrice) {
     anchorPrice = _getLSDUSDAnchorPrice();
     (minPrice, maxPrice) = _getLSDMinMaxPrice(anchorPrice);
 
@@ -96,6 +96,23 @@ abstract contract LSDPriceOracleBase is SpotPriceOracleBase, IPriceOracle {
     if ((maxPrice - anchorPrice) * PRECISION > cachedMaxPriceDeviation * anchorPrice) {
       maxPrice = anchorPrice;
     }
+  }
+
+  /// @inheritdoc IPriceOracle
+  function getExchangePrice() public view returns (uint256) {
+    (, uint256 price, ) = getPrice();
+    return price;
+  }
+
+  /// @inheritdoc IPriceOracle
+  function getLiquidatePrice() external view returns (uint256) {
+    return getExchangePrice();
+  }
+
+  /// @inheritdoc IPriceOracle
+  function getRedeemPrice() external view returns (uint256) {
+    (, , uint256 price) = getPrice();
+    return price;
   }
 
   /************************

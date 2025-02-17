@@ -74,18 +74,21 @@ contract WBTCPriceOracle is BTCDerivativeOracleBase {
 
   /// @inheritdoc BTCDerivativeOracleBase
   /// @dev [Chainlink BTC/USD spot] * [Chainlink WBTC/BTC spot]
-  function _getBTCDerivativeUSDAnchorPrice() internal view virtual override returns (uint256) {
+  function _getBTCDerivativeUSDAnchorPrice(bool isRedeem) internal view virtual override returns (uint256) {
     uint256 BTC_USD_ChainlinkSpot = _readSpotPriceByChainlink(Chainlink_BTC_USD_Spot);
     uint256 WBTC_BTC_ChainlinkSpot = _readSpotPriceByChainlink(Chainlink_WBTC_BTC_Spot);
     uint256 WBTC_USD_ChainlinkSpot = (WBTC_BTC_ChainlinkSpot * BTC_USD_ChainlinkSpot) / PRECISION;
-    uint256 cachedMaxWBTCDeviation = maxWBTCDeviation;
-    if (
-      PRECISION - cachedMaxWBTCDeviation <= WBTC_BTC_ChainlinkSpot &&
-      WBTC_BTC_ChainlinkSpot <= PRECISION + cachedMaxWBTCDeviation
-    ) {
-      return WBTC_USD_ChainlinkSpot < BTC_USD_ChainlinkSpot ? BTC_USD_ChainlinkSpot : WBTC_USD_ChainlinkSpot;
-    } else {
-      return WBTC_USD_ChainlinkSpot;
+    if (!isRedeem) return WBTC_USD_ChainlinkSpot;
+    else {
+      uint256 cachedMaxWBTCDeviation = maxWBTCDeviation;
+      if (
+        PRECISION - cachedMaxWBTCDeviation <= WBTC_BTC_ChainlinkSpot &&
+        WBTC_BTC_ChainlinkSpot <= PRECISION + cachedMaxWBTCDeviation
+      ) {
+        return WBTC_USD_ChainlinkSpot < BTC_USD_ChainlinkSpot ? BTC_USD_ChainlinkSpot : WBTC_USD_ChainlinkSpot;
+      } else {
+        return WBTC_USD_ChainlinkSpot;
+      }
     }
   }
 }

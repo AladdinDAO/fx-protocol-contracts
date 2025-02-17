@@ -67,5 +67,8 @@ describe("StETHPriceOracle.spec", async () => {
       `maxPrice[${ethers.formatEther(maxPrice)}]`,
       `GasEstimated[${gas - 21000n}]`
     );
+    console.log(`ExchangePrice:`, ethers.formatEther(await oracle.getExchangePrice()));
+    console.log(`LiquidatePrice:`, ethers.formatEther(await oracle.getLiquidatePrice()));
+    console.log(`RedeemPrice:`, ethers.formatEther(await oracle.getRedeemPrice()));
   });
 });

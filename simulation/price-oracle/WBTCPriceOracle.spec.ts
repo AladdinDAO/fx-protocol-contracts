@@ -43,7 +43,7 @@ describe("WBTCPriceOracle.spec", async () => {
   it("should succeed when normal", async () => {
     const WBTC_USD_SpotPrices = await oracle.getBTCDerivativeUSDSpotPrices();
     console.log("WBTC/USD:", WBTC_USD_SpotPrices.map((x) => ethers.formatEther(x)).join(","));
-    const WBTCUSDChainlink = await oracle.getBTCDerivativeUSDAnchorPrice();
+    const WBTCUSDChainlink = await oracle.getBTCDerivativeUSDAnchorPrice(false);
     console.log(`WBTCUSDChainlink[${ethers.formatEther(WBTCUSDChainlink)}]`);
 
     const [anchorPrice, minPrice, maxPrice] = await oracle.getPrice();
@@ -54,5 +54,8 @@ describe("WBTCPriceOracle.spec", async () => {
       `maxPrice[${ethers.formatEther(maxPrice)}]`,
       `GasEstimated[${gas - 21000n}]`
     );
+    console.log(`ExchangePrice:`, ethers.formatEther(await oracle.getExchangePrice()));
+    console.log(`LiquidatePrice:`, ethers.formatEther(await oracle.getLiquidatePrice()));
+    console.log(`RedeemPrice:`, ethers.formatEther(await oracle.getRedeemPrice()));
   });
 });

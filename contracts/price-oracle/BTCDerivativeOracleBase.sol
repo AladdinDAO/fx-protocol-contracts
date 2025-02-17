@@ -49,14 +49,14 @@ abstract contract BTCDerivativeOracleBase is SpotPriceOracleBase, IPriceOracle {
 
   /// @notice Return the BTCDerivative/USD anchor price, the price that is hard to manipulate in single tx.
   /// @return price The anchor price, multiplied by 1e18.
-  function getBTCDerivativeUSDAnchorPrice() external view returns (uint256 price) {
-    price = _getBTCDerivativeUSDAnchorPrice();
+  function getBTCDerivativeUSDAnchorPrice(bool isRedeem) external view returns (uint256 price) {
+    price = _getBTCDerivativeUSDAnchorPrice(isRedeem);
   }
 
   /// @inheritdoc IPriceOracle
   /// @dev The price is valid iff |maxPrice-minPrice|/minPrice < maxPriceDeviation
   function getPrice() external view override returns (uint256 anchorPrice, uint256 minPrice, uint256 maxPrice) {
-    anchorPrice = _getBTCDerivativeUSDAnchorPrice();
+    anchorPrice = _getBTCDerivativeUSDAnchorPrice(false);
     (minPrice, maxPrice) = _getBTCDerivativeMinMaxPrice(anchorPrice);
 
     uint256 cachedMaxPriceDeviation = maxPriceDeviation; // gas saving
@@ -69,6 +69,34 @@ abstract contract BTCDerivativeOracleBase is SpotPriceOracleBase, IPriceOracle {
     if ((maxPrice - anchorPrice) * PRECISION > cachedMaxPriceDeviation * anchorPrice) {
       maxPrice = anchorPrice;
     }
+  }
+
+  /// @inheritdoc IPriceOracle
+  function getExchangePrice() public view returns (uint256) {
+    uint256 anchorPrice = _getBTCDerivativeUSDAnchorPrice(false);
+    (uint256 minPrice, ) = _getBTCDerivativeMinMaxPrice(anchorPrice);
+    // use anchor price when the price deviation between anchor price and min price exceed threshold
+    if ((anchorPrice - minPrice) * PRECISION > maxPriceDeviation * minPrice) {
+      minPrice = anchorPrice;
+    }
+    return minPrice;
+  }
+
+  /// @inheritdoc IPriceOracle
+  function getLiquidatePrice() external view returns (uint256) {
+    return getExchangePrice();
+  }
+
+  /// @inheritdoc IPriceOracle
+  function getRedeemPrice() external view returns (uint256) {
+    uint256 anchorPrice = _getBTCDerivativeUSDAnchorPrice(true);
+    (, uint256 maxPrice) = _getBTCDerivativeMinMaxPrice(anchorPrice);
+
+    // use anchor price when the price deviation between anchor price and max price exceed threshold
+    if ((maxPrice - anchorPrice) * PRECISION > maxPriceDeviation * anchorPrice) {
+      maxPrice = anchorPrice;
+    }
+    return maxPrice;
   }
 
   /************************
@@ -112,7 +140,9 @@ abstract contract BTCDerivativeOracleBase is SpotPriceOracleBase, IPriceOracle {
   /// @param anchorPrice The BTCDerivative/USD anchor price, multiplied by 1e18.
   /// @return minPrice The minimum price among all available sources (including anchor price), multiplied by 1e18.
   /// @return maxPrice The maximum price among all available sources (including anchor price), multiplied by 1e18.
-  function _getBTCDerivativeMinMaxPrice(uint256 anchorPrice) internal view returns (uint256 minPrice, uint256 maxPrice) {
+  function _getBTCDerivativeMinMaxPrice(
+    uint256 anchorPrice
+  ) internal view returns (uint256 minPrice, uint256 maxPrice) {
     minPrice = maxPrice = anchorPrice;
     uint256[] memory BTCDerivative_USD_prices = getBTCDerivativeUSDSpotPrices();
 
@@ -126,5 +156,5 @@ abstract contract BTCDerivativeOracleBase is SpotPriceOracleBase, IPriceOracle {
 
   /// @dev Internal function to return the BTCDerivative/USD anchor price.
   /// @return price The anchor price of BTCDerivative/USD, multiplied by 1e18.
-  function _getBTCDerivativeUSDAnchorPrice() internal view virtual returns (uint256 price);
+  function _getBTCDerivativeUSDAnchorPrice(bool isRedeem) internal view virtual returns (uint256 price);
 }
