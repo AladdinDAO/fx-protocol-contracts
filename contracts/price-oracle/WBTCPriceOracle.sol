@@ -41,6 +41,8 @@ contract WBTCPriceOracle is BTCDerivativeOracleBase {
     bytes32 _Chainlink_WBTC_BTC_Spot
   ) SpotPriceOracleBase(_spotPriceOracle) BTCDerivativeOracleBase(_Chainlink_BTC_USD_Spot) {
     Chainlink_WBTC_BTC_Spot = _Chainlink_WBTC_BTC_Spot;
+
+    _updateMaxWBTCDeviation(2e16); // 2%
   }
 
   /************************
