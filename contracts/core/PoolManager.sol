@@ -284,7 +284,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
       IERC20(collateralToken).safeTransferFrom(_msgSender(), address(this), uint256(newColl) + protocolFees);
     } else if (newRawColl < 0) {
       _changePoolCollateral(pool, newColl - int256(protocolFees), newRawColl - int256(rawProtocolFees));
-      IERC20(collateralToken).safeTransfer(_msgSender(), uint256(-newColl));
+      _transferOut(collateralToken, uint256(-newColl), _msgSender());
     }
 
     if (newDebt > 0) {
@@ -322,7 +322,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     colls -= protocolFees;
     if (colls < minColls) revert ErrorInsufficientRedeemedCollateral();
 
-    IERC20(collateralToken).safeTransfer(_msgSender(), colls);
+    _transferOut(collateralToken, colls, _msgSender());
     IFxUSDRegeneracy(fxUSD).burn(_msgSender(), debts);
 
     emit Redeem(pool, colls, debts, protocolFees);
@@ -448,18 +448,18 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
 
     // transfer performance fee to treasury
     if (performanceFee > 0) {
-      IERC20(collateralToken).safeTransfer(treasury, performanceFee);
+      _transferOut(collateralToken, performanceFee, treasury);
     }
     // transfer various fees to revenue pool
     _takeAccumulatedPoolFee(pool);
     // transfer harvest bounty
     if (harvestBounty > 0) {
-      IERC20(collateralToken).safeTransfer(_msgSender(), harvestBounty);
+      _transferOut(collateralToken, harvestBounty, _msgSender());
     }
     // transfer rewards for fxBASE
     if (pendingRewards > 0) {
       address splitter = rewardSplitter[pool];
-      IERC20(collateralToken).safeTransfer(splitter, pendingRewards);
+      _transferOut(collateralToken, pendingRewards, splitter);
       IRewardSplitter(splitter).split(collateralToken);
     }
 
@@ -638,7 +638,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     unchecked {
       colls -= protocolRevenue;
     }
-    IERC20(op.collateralToken).safeTransfer(receiver, colls);
+    _transferOut(op.collateralToken, colls, receiver);
   }
 
   /// @dev Internal function to update collateral balance.

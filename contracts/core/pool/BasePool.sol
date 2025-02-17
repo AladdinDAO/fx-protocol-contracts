@@ -260,6 +260,52 @@ abstract contract BasePool is TickLogic, PositionLogic {
     uint256 totalDebtShares;
   }
 
+  /// @inheritdoc IPool
+  function rebalance(uint256 maxRawDebts) external onlyPoolManager returns (RebalanceResult memory result) {
+    RebalanceVars memory vars;
+    vars.maxRawDebts = maxRawDebts;
+    (vars.rebalanceDebtRatio, vars.rebalanceBonusRatio) = _getRebalanceRatios();
+    (, vars.price, ) = IPriceOracle(priceOracle).getPrice();
+    (vars.collIndex, vars.debtIndex) = _updateCollAndDebtIndex();
+    (vars.totalDebtShares, vars.totalCollShares) = _getDebtAndCollateralShares();
+    (uint256 liquidateDebtRatio, ) = _getLiquidateRatios();
+
+    int16 tick = _getTopTick();
+    bool hasDebt = true;
+    while (vars.maxRawDebts > 0) {
+      if (!hasDebt) {
+        (tick, hasDebt) = tickBitmap.nextDebtPositionWithinOneWord(tick - 1);
+      } else {
+        (vars.tickCollShares, vars.tickDebtShares, vars.tickRawColls, vars.tickRawDebts) = _getTickRawCollAndDebts(
+          tick,
+          vars.collIndex,
+          vars.debtIndex
+        );
+        // skip bad debt and liquidatable positions: coll * price * liquidateDebtRatio <= debts
+        if (vars.tickRawColls * vars.price * liquidateDebtRatio <= vars.tickRawDebts * PRECISION * PRECISION) {
+          hasDebt = false;
+          tick = tick;
+          continue;
+        }
+        // no more rebalanceable tick: coll * price * rebalanceDebtRatio > debts
+        if (vars.tickRawColls * vars.price * vars.rebalanceDebtRatio > vars.tickRawDebts * PRECISION * PRECISION) {
+          break;
+        }
+        // rebalance this tick
+        (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls) = _rebalanceTick(vars);
+        result.rawDebts += rawDebts;
+        result.rawColls += rawColls;
+        result.bonusRawColls += bonusRawColls;
+
+        // goto next tick
+        (tick, hasDebt) = tickBitmap.nextDebtPositionWithinOneWord(tick - 1);
+      }
+      if (tick == type(int16).min) break;
+    }
+
+    _updateDebtAndCollateralShares(vars.totalDebtShares, vars.totalCollShares);
+  }
+
   struct LiquidateVars {
     int16 tick;
     uint256 tickCollShares;
@@ -278,13 +324,49 @@ abstract contract BasePool is TickLogic, PositionLogic {
   }
 
   /// @inheritdoc IPool
-  function rebalance(uint256 maxRawDebts) external onlyPoolManager returns (RebalanceResult memory result) {}
-
-  /// @inheritdoc IPool
   function liquidate(
     uint256 maxRawDebts,
     uint256 reservedRawColls
-  ) external onlyPoolManager returns (LiquidateResult memory result) {}
+  ) external onlyPoolManager returns (LiquidateResult memory result) {
+    LiquidateVars memory vars;
+    vars.maxRawDebts = maxRawDebts;
+    vars.reservedRawColls = reservedRawColls;
+    (vars.liquidateDebtRatio, vars.liquidateBonusRatio) = _getLiquidateRatios();
+    (, vars.price, ) = IPriceOracle(priceOracle).getPrice();
+    (vars.collIndex, vars.debtIndex) = _updateCollAndDebtIndex();
+    (vars.totalDebtShares, vars.totalCollShares) = _getDebtAndCollateralShares();
+
+    int16 tick = _getTopTick();
+    bool hasDebt = true;
+    while (vars.maxRawDebts > 0) {
+      if (!hasDebt) {
+        (tick, hasDebt) = tickBitmap.nextDebtPositionWithinOneWord(tick - 1);
+      } else {
+        (vars.tickCollShares, vars.tickDebtShares, vars.tickRawColls, vars.tickRawDebts) = _getTickRawCollAndDebts(
+          tick,
+          vars.collIndex,
+          vars.debtIndex
+        );
+        // no more liquidatable tick: coll * price * liquidateDebtRatio > debts
+        if (vars.tickRawColls * vars.price * vars.liquidateDebtRatio > vars.tickRawDebts * PRECISION * PRECISION) {
+          break;
+        }
+        // rebalance this tick
+        (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls, uint256 bonusFromReserve) = _liquidateTick(vars);
+        result.rawDebts += rawDebts;
+        result.rawColls += rawColls;
+        result.bonusRawColls += bonusRawColls;
+        result.bonusFromReserve += bonusFromReserve;
+
+        // goto next tick
+        (tick, hasDebt) = tickBitmap.nextDebtPositionWithinOneWord(tick - 1);
+      }
+      if (tick == type(int16).min) break;
+    }
+
+    _updateDebtAndCollateralShares(vars.totalDebtShares, vars.totalCollShares);
+    _updateDebtIndex(vars.debtIndex);
+  }
 
   /************************
    * Restricted Functions *
@@ -402,21 +484,13 @@ abstract contract BasePool is TickLogic, PositionLogic {
 
   function _liquidateTick(
     LiquidateVars memory vars
-  )
-    internal
-    returns (
-      uint256 rawDebts,
-      uint256 rawColls,
-      uint256 bonusRawColls,
-      uint256 bonusFromReserve,
-      uint256 debtShares,
-      uint256 collShares
-    )
-  {
+  ) internal returns (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls, uint256 bonusFromReserve) {
     uint256 virtualTickRawDebt = vars.tickRawDebts + vars.reservedRawColls;
     rawDebts = vars.tickRawDebts;
     if (rawDebts > vars.maxRawDebts) rawDebts = vars.maxRawDebts;
     rawColls = (rawDebts * PRECISION) / vars.price;
+    uint256 debtShares;
+    uint256 collShares;
     if (rawDebts == vars.tickRawDebts) {
       // full liquidation
       debtShares = vars.tickDebtShares;

@@ -11,6 +11,7 @@ import { ERC20PermitUpgradeable } from "@openzeppelin/contracts-upgradeable/toke
 import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
+import { IStrategy } from "../fund/IStrategy.sol";
 import { AggregatorV3Interface } from "../interfaces/Chainlink/AggregatorV3Interface.sol";
 import { IPegKeeper } from "../interfaces/IPegKeeper.sol";
 import { IPool } from "../interfaces/IPool.sol";
@@ -154,6 +155,18 @@ contract FxUSDBasePool is
     _;
   }
 
+  modifier sync() {
+    Allocation memory a = allocations[yieldToken];
+    if (a.strategy != address(0)) {
+      totalYieldToken = IStrategy(a.strategy).totalSupply() + IERC20(yieldToken).balanceOf(address(this));
+    }
+    Allocation memory b = allocations[stableToken];
+    if (b.strategy != address(0)) {
+      totalStableToken = IStrategy(b.strategy).totalSupply() + IERC20(stableToken).balanceOf(address(this));
+    }
+    _;
+  }
+
   /***************
    * Constructor *
    ***************/
@@ -278,7 +291,7 @@ contract FxUSDBasePool is
     address tokenIn,
     uint256 amountTokenToDeposit,
     uint256 minSharesOut
-  ) external override nonReentrant onlyValidToken(tokenIn) returns (uint256 amountSharesOut) {
+  ) external override nonReentrant onlyValidToken(tokenIn) sync returns (uint256 amountSharesOut) {
     if (amountTokenToDeposit == 0) revert ErrDepositZeroAmount();
 
     // we are very sure every token is normal token, so no fot check here.
@@ -309,7 +322,7 @@ contract FxUSDBasePool is
   function redeem(
     address receiver,
     uint256 amountSharesToRedeem
-  ) external nonReentrant returns (uint256 amountYieldOut, uint256 amountStableOut) {
+  ) external nonReentrant sync returns (uint256 amountYieldOut, uint256 amountStableOut) {
     address caller = _msgSender();
     RedeemRequest memory request = redeemRequests[caller];
     if (request.unlockAt > block.timestamp) revert ErrorRedeemLockedShares();
@@ -330,13 +343,13 @@ contract FxUSDBasePool is
     _burn(caller, amountSharesToRedeem);
 
     if (amountYieldOut > 0) {
-      IERC20(yieldToken).safeTransfer(receiver, amountYieldOut);
+      _transferOut(yieldToken, amountYieldOut, receiver);
       unchecked {
         totalYieldToken = cachedTotalYieldToken - amountYieldOut;
       }
     }
     if (amountStableOut > 0) {
-      IERC20(stableToken).safeTransfer(receiver, amountStableOut);
+      _transferOut(stableToken, amountStableOut, receiver);
       unchecked {
         totalStableToken = cachedTotalStableToken - amountStableOut;
       }
@@ -351,7 +364,7 @@ contract FxUSDBasePool is
     address tokenIn,
     uint256 maxAmount,
     uint256 minCollOut
-  ) external onlyValidToken(tokenIn) nonReentrant returns (uint256 tokenUsed, uint256 colls) {
+  ) external onlyValidToken(tokenIn) nonReentrant sync returns (uint256 tokenUsed, uint256 colls) {
     RebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(tokenIn, maxAmount);
     (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = IPoolManager(poolManager).rebalance(
       pool,
@@ -369,7 +382,7 @@ contract FxUSDBasePool is
     address tokenIn,
     uint256 maxAmount,
     uint256 minCollOut
-  ) external onlyValidToken(tokenIn) nonReentrant returns (uint256 tokenUsed, uint256 colls) {
+  ) external onlyValidToken(tokenIn) nonReentrant sync returns (uint256 tokenUsed, uint256 colls) {
     RebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(tokenIn, maxAmount);
     (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = IPoolManager(poolManager).liquidate(
       pool,
@@ -387,7 +400,7 @@ contract FxUSDBasePool is
     uint256 amountIn,
     address receiver,
     bytes calldata data
-  ) external onlyValidToken(srcToken) onlyPegKeeper nonReentrant returns (uint256 amountOut, uint256 bonusOut) {
+  ) external onlyValidToken(srcToken) onlyPegKeeper nonReentrant sync returns (uint256 amountOut, uint256 bonusOut) {
     address dstToken;
     uint256 expectedOut;
     uint256 cachedTotalYieldToken = totalYieldToken;
@@ -417,7 +430,7 @@ contract FxUSDBasePool is
         }
       }
     }
-    IERC20(srcToken).safeTransfer(pegKeeper, amountIn);
+    _transferOut(srcToken, amountIn, pegKeeper);
     uint256 actualOut = IERC20(dstToken).balanceOf(address(this));
     amountOut = IPegKeeper(pegKeeper).onSwap(srcToken, dstToken, amountIn, data);
     actualOut = IERC20(dstToken).balanceOf(address(this)) - actualOut;
@@ -430,7 +443,7 @@ contract FxUSDBasePool is
     totalStableToken = cachedTotalStableToken;
     bonusOut = amountOut - expectedOut;
     if (bonusOut > 0) {
-      IERC20(dstToken).safeTransfer(receiver, bonusOut);
+      _transferOut(dstToken, bonusOut, receiver);
     }
 
     emit Arbitrage(_msgSender(), srcToken, amountIn, amountOut, bonusOut);
