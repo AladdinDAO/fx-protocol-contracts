@@ -64,12 +64,16 @@ contract FxUSDBasePool is
 
   error ErrorInsufficientFreeBalance();
 
+  error ErrorInstantRedeemFeeTooLarge();
+
   /*************
    * Constants *
    *************/
 
   /// @dev The exchange rate precision.
   uint256 internal constant PRECISION = 1e18;
+
+  uint256 internal constant MAX_INSTANT_REDEEM_FEE = 5e16; // 5%
 
   /***********************
    * Immutable Variables *
@@ -139,6 +143,9 @@ contract FxUSDBasePool is
   /// @notice The number of seconds of cool down before redeem from this pool.
   uint256 public redeemCoolDownPeriod;
 
+  /// @notice The fee ratio for instantly redeem.
+  uint256 public instantRedeemFeeRatio;
+
   /*************
    * Modifiers *
    *************/
@@ -156,13 +163,12 @@ contract FxUSDBasePool is
   }
 
   modifier sync() {
-    Allocation memory a = allocations[yieldToken];
-    if (a.strategy != address(0)) {
-      totalYieldToken = IStrategy(a.strategy).totalSupply() + IERC20(yieldToken).balanceOf(address(this));
-    }
-    Allocation memory b = allocations[stableToken];
-    if (b.strategy != address(0)) {
-      totalStableToken = IStrategy(b.strategy).totalSupply() + IERC20(stableToken).balanceOf(address(this));
+    {
+      // we only manage stable token
+      Allocation memory b = allocations[stableToken];
+      if (b.strategy != address(0)) {
+        totalStableToken = IStrategy(b.strategy).totalSupply() + IERC20(stableToken).balanceOf(address(this));
+      }
     }
     _;
   }
@@ -359,6 +365,47 @@ contract FxUSDBasePool is
   }
 
   /// @inheritdoc IFxUSDBasePool
+  function instantRedeem(
+    address receiver,
+    uint256 amountSharesToRedeem
+  ) external returns (uint256 amountYieldOut, uint256 amountStableOut) {
+    if (amountSharesToRedeem == 0) revert ErrRedeemZeroShares();
+
+    address caller = _msgSender();
+    uint256 leftover = balanceOf(caller) - redeemRequests[caller].amount;
+    if (amountSharesToRedeem > leftover) revert ErrorInsufficientFreeBalance();
+
+    uint256 cachedTotalYieldToken = totalYieldToken;
+    uint256 cachedTotalStableToken = totalStableToken;
+    uint256 cachedTotalSupply = totalSupply();
+
+    amountYieldOut = (amountSharesToRedeem * cachedTotalYieldToken) / cachedTotalSupply;
+    amountStableOut = (amountSharesToRedeem * cachedTotalStableToken) / cachedTotalSupply;
+    uint256 feeRatio = instantRedeemFeeRatio;
+
+    _burn(caller, amountSharesToRedeem);
+
+    if (amountYieldOut > 0) {
+      uint256 fee = (amountYieldOut * feeRatio) / PRECISION;
+      amountYieldOut -= fee;
+      _transferOut(yieldToken, amountYieldOut, receiver);
+      unchecked {
+        totalYieldToken = cachedTotalYieldToken - amountYieldOut;
+      }
+    }
+    if (amountStableOut > 0) {
+      uint256 fee = (amountStableOut * feeRatio) / PRECISION;
+      amountStableOut -= fee;
+      _transferOut(stableToken, amountStableOut, receiver);
+      unchecked {
+        totalStableToken = cachedTotalStableToken - amountStableOut;
+      }
+    }
+
+    emit InstantRedeem(caller, receiver, amountSharesToRedeem, amountYieldOut, amountStableOut);
+  }
+
+  /// @inheritdoc IFxUSDBasePool
   function rebalance(
     address pool,
     address tokenIn,
@@ -465,6 +512,10 @@ contract FxUSDBasePool is
     _updateRedeemCoolDownPeriod(newPeriod);
   }
 
+  function updateInstantRedeemFeeRatio(uint256 newRatio) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateInstantRedeemFeeRatio(newRatio);
+  }
+
   /**********************
    * Internal Functions *
    **********************/
@@ -498,6 +549,17 @@ contract FxUSDBasePool is
     redeemCoolDownPeriod = newPeriod;
 
     emit UpdateRedeemCoolDownPeriod(oldPeriod, newPeriod);
+  }
+
+  /// @dev Internal function to update the instant redeem fee ratio.
+  /// @param newRatio The new instant redeem fee ratio, multiplied by 1e18.
+  function _updateInstantRedeemFeeRatio(uint256 newRatio) internal {
+    if (newRatio > MAX_INSTANT_REDEEM_FEE) revert ErrorInstantRedeemFeeTooLarge();
+
+    uint256 oldRatio = instantRedeemFeeRatio;
+    instantRedeemFeeRatio = newRatio;
+
+    emit UpdateInstantRedeemFeeRatio(oldRatio, newRatio);
   }
 
   /// @dev mint shares based on the deposited base tokens

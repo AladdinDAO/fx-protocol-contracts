@@ -245,7 +245,6 @@ abstract contract BasePool is TickLogic, PositionLogic {
   }
 
   struct RebalanceVars {
-    int16 tick;
     uint256 tickCollShares;
     uint256 tickDebtShares;
     uint256 tickRawColls;
@@ -292,7 +291,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
           break;
         }
         // rebalance this tick
-        (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls) = _rebalanceTick(vars);
+        (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls) = _rebalanceTick(tick, vars);
         result.rawDebts += rawDebts;
         result.rawColls += rawColls;
         result.bonusRawColls += bonusRawColls;
@@ -307,7 +306,6 @@ abstract contract BasePool is TickLogic, PositionLogic {
   }
 
   struct LiquidateVars {
-    int16 tick;
     uint256 tickCollShares;
     uint256 tickDebtShares;
     uint256 tickRawColls;
@@ -352,7 +350,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
           break;
         }
         // rebalance this tick
-        (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls, uint256 bonusFromReserve) = _liquidateTick(vars);
+        (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls, uint256 bonusFromReserve) = _liquidateTick(tick, vars);
         result.rawDebts += rawDebts;
         result.rawColls += rawColls;
         result.bonusRawColls += bonusRawColls;
@@ -457,6 +455,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
   }
 
   function _rebalanceTick(
+    int16 tick,
     RebalanceVars memory vars
   ) internal returns (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls) {
     // compute debts to rebalance to make debt ratio to `rebalanceDebtRatio`
@@ -477,15 +476,16 @@ abstract contract BasePool is TickLogic, PositionLogic {
     }
     uint256 collShares = _convertToCollShares(rawColls + bonusRawColls, vars.collIndex, Math.Rounding.Down);
 
-    _liquidateTick(vars.tick, collShares, debtShares, vars.price);
+    _liquidateTick(tick, collShares, debtShares, vars.price);
     vars.totalCollShares -= collShares;
     vars.totalDebtShares -= debtShares;
   }
 
   function _liquidateTick(
+    int16 tick,
     LiquidateVars memory vars
   ) internal returns (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls, uint256 bonusFromReserve) {
-    uint256 virtualTickRawDebt = vars.tickRawDebts + vars.reservedRawColls;
+    uint256 virtualTickRawColls = vars.tickRawColls + vars.reservedRawColls;
     rawDebts = vars.tickRawDebts;
     if (rawDebts > vars.maxRawDebts) rawDebts = vars.maxRawDebts;
     rawColls = (rawDebts * PRECISION) / vars.price;
@@ -498,9 +498,9 @@ abstract contract BasePool is TickLogic, PositionLogic {
       // partial liquidation
       debtShares = _convertToDebtShares(rawDebts, vars.debtIndex, Math.Rounding.Down);
     }
-    if (virtualTickRawDebt <= rawColls) {
+    if (virtualTickRawColls <= rawColls) {
       // even reserve funds cannot cover bad debts, no bonus and will trigger bad debt redistribution
-      rawColls = virtualTickRawDebt;
+      rawColls = virtualTickRawColls;
       bonusFromReserve = vars.reservedRawColls;
       debtShares = vars.tickDebtShares;
       collShares = vars.tickCollShares;
@@ -508,12 +508,12 @@ abstract contract BasePool is TickLogic, PositionLogic {
       // Bonus is from colls in tick, if it is not enough will use reserve funds
       bonusRawColls = (rawColls * vars.liquidateBonusRatio) / FEE_PRECISION;
       uint256 rawCollWithBonus = bonusRawColls + rawColls;
-      if (rawCollWithBonus > virtualTickRawDebt) {
-        rawCollWithBonus = virtualTickRawDebt;
+      if (rawCollWithBonus > virtualTickRawColls) {
+        rawCollWithBonus = virtualTickRawColls;
         bonusRawColls = rawCollWithBonus - rawColls;
       }
-      if (rawCollWithBonus >= vars.tickRawDebts) {
-        bonusFromReserve = rawCollWithBonus - vars.tickRawDebts;
+      if (rawCollWithBonus >= vars.tickRawColls) {
+        bonusFromReserve = rawCollWithBonus - vars.tickRawColls;
         collShares = vars.tickCollShares;
       } else {
         collShares = _convertToCollShares(rawCollWithBonus, vars.collIndex, Math.Rounding.Down);
@@ -531,7 +531,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
       vars.totalCollShares -= collShares;
       vars.totalDebtShares -= debtShares;
     }
-    _liquidateTick(vars.tick, collShares, debtShares, vars.price);
+    _liquidateTick(tick, collShares, debtShares, vars.price);
   }
 
   /// @dev Internal function to update collateral and debt index.

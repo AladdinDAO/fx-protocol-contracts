@@ -851,18 +851,14 @@ describe("PoolManager.spec", async () => {
 
         it("should revert, when ErrorPoolNotRegistered", async () => {
           await expect(
-            poolManager
-              .connect(deployer)
-              ["rebalance(address,address,int16,uint256,uint256)"](ZeroAddress, ZeroAddress, 0n, 0n, 0n)
+            poolManager.connect(deployer).rebalance(ZeroAddress, ZeroAddress, 0n, 0n)
           ).to.revertedWithCustomError(poolManager, "ErrorPoolNotRegistered");
         });
 
         it("should revert, when ErrorCallerNotFxUSDSave", async () => {
           await poolManager.updateThreshold(0);
           await expect(
-            poolManager
-              .connect(deployer)
-              ["rebalance(address,address,int16,uint256,uint256)"](pool.getAddress(), ZeroAddress, 0n, 0n, 0n)
+            poolManager.connect(deployer).rebalance(pool.getAddress(), ZeroAddress, 0n, 0n)
           ).to.revertedWithCustomError(poolManager, "ErrorCallerNotFxUSDSave");
         });
 
@@ -881,19 +877,12 @@ describe("PoolManager.spec", async () => {
 
           // rebalance to 0.88
           await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), await fxUSD.balanceOf(deployer.address));
-          const result = await fxBASE["rebalance(address,int16,uint256,uint256)"].staticCall(
-            pool.getAddress(),
-            4997,
-            MaxUint256,
-            0n
-          );
+          const result = await fxBASE.rebalance.staticCall(pool.getAddress(), MaxUint256, 0n);
           const fxusdBefore = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const poolFeesBefore = await poolManager.accumulatedPoolFees(pool.getAddress());
           const [, poolCollateralBefore, , , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxBASE
-            .connect(deployer)
-            ["rebalance(address,int16,uint256,uint256)"](pool.getAddress(), 4997, MaxUint256, 0n);
+          await fxBASE.connect(deployer).rebalance(pool.getAddress(), MaxUint256, 0n);
           const fxusdAfter = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const poolFeesAfter = await poolManager.accumulatedPoolFees(pool.getAddress());
@@ -926,19 +915,12 @@ describe("PoolManager.spec", async () => {
 
           // rebalance to 0.88
           await stableToken.mint(fxBASE.getAddress(), ethers.parseEther("1000000"));
-          const result = await fxBASE["rebalance(address,int16,uint256,uint256)"].staticCall(
-            pool.getAddress(),
-            4997,
-            0n,
-            ethers.parseEther("1000000")
-          );
+          const result = await fxBASE.rebalance.staticCall(pool.getAddress(), 0n, ethers.parseEther("1000000"));
           const stableBefore = await stableToken.balanceOf(fxBASE.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const poolFeesBefore = await poolManager.accumulatedPoolFees(pool.getAddress());
           const [, poolCollateralBefore, , , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxBASE
-            .connect(deployer)
-            ["rebalance(address,int16,uint256,uint256)"](pool.getAddress(), 4997, 0n, ethers.parseEther("1000000"));
+          await fxBASE.connect(deployer).rebalance(pool.getAddress(), 0n, ethers.parseEther("1000000"));
           const stableAfter = await stableToken.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const poolFeesAfter = await poolManager.accumulatedPoolFees(pool.getAddress());
@@ -972,9 +954,8 @@ describe("PoolManager.spec", async () => {
           // rebalance to 0.88
           await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), await fxUSD.balanceOf(deployer.address));
           await stableToken.mint(fxBASE.getAddress(), ethers.parseEther("1000000"));
-          const result = await fxBASE["rebalance(address,int16,uint256,uint256)"].staticCall(
+          const result = await fxBASE.rebalance.staticCall(
             pool.getAddress(),
-            4997,
             ethers.parseEther("2000"),
             ethers.parseEther("1000000")
           );
@@ -984,12 +965,7 @@ describe("PoolManager.spec", async () => {
           const [, poolCollateralBefore, , , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
           await fxBASE
             .connect(deployer)
-            ["rebalance(address,int16,uint256,uint256)"](
-              pool.getAddress(),
-              4997,
-              ethers.parseEther("2000"),
-              ethers.parseEther("1000000")
-            );
+            .rebalance(pool.getAddress(), ethers.parseEther("2000"), ethers.parseEther("1000000"));
           const stableAfter = await stableToken.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const poolFeesAfter = await poolManager.accumulatedPoolFees(pool.getAddress());
@@ -1024,26 +1000,12 @@ describe("PoolManager.spec", async () => {
           await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), ethers.parseEther("10000") - 1n);
           const result = await poolManager
             .connect(deployer)
-            ["rebalance(address,address,int16,uint256,uint256)"].staticCall(
-              pool.getAddress(),
-              deployer.address,
-              4997,
-              MaxUint256,
-              0n
-            );
+            .rebalance.staticCall(pool.getAddress(), deployer.address, MaxUint256, 0n);
           const fxusdBefore = await fxUSD.balanceOf(deployer.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const poolFeesBefore = await poolManager.accumulatedPoolFees(pool.getAddress());
           const [, poolCollateralBefore, , , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await poolManager
-            .connect(deployer)
-            ["rebalance(address,address,int16,uint256,uint256)"](
-              pool.getAddress(),
-              deployer.address,
-              4997,
-              MaxUint256,
-              0n
-            );
+          await poolManager.connect(deployer).rebalance(pool.getAddress(), deployer.address, MaxUint256, 0n);
           const fxusdAfter = await fxUSD.balanceOf(deployer.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const poolFeesAfter = await poolManager.accumulatedPoolFees(pool.getAddress());
@@ -1079,26 +1041,12 @@ describe("PoolManager.spec", async () => {
           await stableToken.connect(deployer).mint(fxBASE.getAddress(), ethers.parseUnits("10000", 6));
           const result = await poolManager
             .connect(deployer)
-            ["rebalance(address,address,int16,uint256,uint256)"].staticCall(
-              pool.getAddress(),
-              deployer.address,
-              4997,
-              MaxUint256,
-              0n
-            );
+            .rebalance.staticCall(pool.getAddress(), deployer.address, MaxUint256, 0n);
           const fxusdBefore = await fxUSD.balanceOf(deployer.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const poolFeesBefore = await poolManager.accumulatedPoolFees(pool.getAddress());
           const [, poolCollateralBefore, , , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await poolManager
-            .connect(deployer)
-            ["rebalance(address,address,int16,uint256,uint256)"](
-              pool.getAddress(),
-              deployer.address,
-              4997,
-              MaxUint256,
-              0n
-            );
+          await poolManager.connect(deployer).rebalance(pool.getAddress(), deployer.address, MaxUint256, 0n);
           const fxusdAfter = await fxUSD.balanceOf(deployer.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const poolFeesAfter = await poolManager.accumulatedPoolFees(pool.getAddress());
@@ -1111,190 +1059,6 @@ describe("PoolManager.spec", async () => {
           expect(result.colls).to.eq(ethers.parseEther("1.657172722747635639") / TokenScale);
           expect(result.fxUSDUsed).to.eq(ethers.parseEther("3986.938775510204081632"));
           expect(result.stableUsed).to.eq(0n);
-          expect((await poolManager.getPoolInfo(pool.getAddress())).rawCollateral).to.eq(
-            await pool.getTotalRawCollaterals()
-          );
-        });
-      });
-
-      context("rebalance on position", async () => {
-        beforeEach(async () => {
-          await mockAggregatorV3Interface.setPrice(ethers.parseUnits("0.991", 8));
-
-          await collateralToken.mint(deployer.address, ethers.parseEther("10000"));
-          await collateralToken.connect(deployer).approve(poolManager.getAddress(), MaxUint256);
-
-          // remove open fee
-          await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
-          await poolManager.grantRole(id("OPERATOR_ROLE"), deployer.address);
-
-          // open 3 positions on the same tick
-          await poolManager
-            .connect(deployer)
-            .operate(pool.getAddress(), 0, ethers.parseUnits("0.1", tokenDecimals), ethers.parseEther("220"));
-          await poolManager
-            .connect(deployer)
-            .operate(pool.getAddress(), 0, ethers.parseUnits("1", tokenDecimals), ethers.parseEther("2200"));
-          await poolManager
-            .connect(deployer)
-            .operate(pool.getAddress(), 0, ethers.parseUnits("10", tokenDecimals), ethers.parseEther("22000"));
-          expect(await pool.getNextTreeNodeId()).to.eq(2);
-          expect(await pool.getTopTick()).to.eq(4997);
-        });
-
-        it("should revert, when ErrorPoolNotRegistered", async () => {
-          await expect(
-            poolManager
-              .connect(deployer)
-              ["rebalance(address,address,uint32,uint256,uint256)"](ZeroAddress, ZeroAddress, 1n, 0n, 0n)
-          ).to.revertedWithCustomError(poolManager, "ErrorPoolNotRegistered");
-        });
-
-        it("should revert, when ErrorCallerNotFxUSDSave", async () => {
-          await poolManager.updateThreshold(0);
-          await expect(
-            poolManager
-              .connect(deployer)
-              ["rebalance(address,address,uint32,uint256,uint256)"](pool.getAddress(), ZeroAddress, 1n, 0n, 0n)
-          ).to.revertedWithCustomError(poolManager, "ErrorCallerNotFxUSDSave");
-        });
-
-        it("should succeed, only use fxUSD", async () => {
-          // current debt ratio is 0.596404763647503097 for min price = 2999
-          // min price drop to 2000, debt ratio became 0.894308943089430894
-          // raw colls = 0.018408163265306121, colls = 0.018408163265306121 / 1.23 = 0.014965986394557821
-          // bonus = 0.000365024058403850, revenue pool part = 0.000036502405840385
-          // raw debts = 35.918367346938775510
-          // fxusd = 35.918367346938775510
-          await mockPriceOracle.setPrices(
-            ethers.parseEther("2000"),
-            ethers.parseEther("2000"),
-            ethers.parseEther("2000")
-          );
-
-          // rebalance to 0.88
-          await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), await fxUSD.balanceOf(deployer.address));
-          const result = await fxBASE["rebalance(address,uint32,uint256,uint256)"].staticCall(
-            pool.getAddress(),
-            1,
-            MaxUint256,
-            0n
-          );
-          const fxusdBefore = await fxUSD.balanceOf(fxBASE.getAddress());
-          const collateralBefore = await collateralToken.balanceOf(deployer.address);
-          const poolFeesBefore = await poolManager.accumulatedPoolFees(pool.getAddress());
-          const [, poolCollateralBefore, , , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxBASE
-            .connect(deployer)
-            ["rebalance(address,uint32,uint256,uint256)"](pool.getAddress(), 1, MaxUint256, 0n);
-          const poolFeesAfter = await poolManager.accumulatedPoolFees(pool.getAddress());
-          const fxusdAfter = await fxUSD.balanceOf(fxBASE.getAddress());
-          const collateralAfter = await collateralToken.balanceOf(deployer.address);
-          const [, poolCollateralAfter, , , poolDebtAfter] = await poolManager.getPoolInfo(pool.getAddress());
-          expect(fxusdBefore - fxusdAfter).to.eq(result.yieldTokenUsed);
-          expect(poolDebtBefore - poolDebtAfter).to.eq(result.yieldTokenUsed);
-          expect(collateralAfter - collateralBefore).to.eq(result.colls);
-          expect(poolCollateralBefore - poolCollateralAfter).to.eq(result.colls + poolFeesAfter - poolFeesBefore);
-          expect(poolFeesAfter - poolFeesBefore).to.eq(ethers.parseEther("0.000036502405840384") / TokenScale);
-          expect(result.colls).to.eq(ethers.parseEther("0.014929483988717437") / TokenScale);
-          expect(result.yieldTokenUsed).to.eq(ethers.parseEther("35.918367346938775510"));
-          expect(result.stableTokenUsed).to.eq(0n);
-          expect((await poolManager.getPoolInfo(pool.getAddress())).rawCollateral).to.eq(
-            await pool.getTotalRawCollaterals()
-          );
-        });
-
-        it("should succeed, only use stable", async () => {
-          // current debt ratio is 0.596404763647503097 for min price = 2999
-          // min price drop to 2000, debt ratio became 0.894308943089430894
-          // raw colls = 0.018408163265306121, colls = 0.018408163265306121 / 1.23 = 0.014965986394557821
-          // raw debts = 35.918367346938775510
-          // fxusd = 0
-          // stable = 35.918367346938775510 / 0.991 = 36.244568463106736135
-          await mockPriceOracle.setPrices(
-            ethers.parseEther("2000"),
-            ethers.parseEther("2000"),
-            ethers.parseEther("2000")
-          );
-
-          // rebalance to 0.88
-          await stableToken.mint(fxBASE.getAddress(), ethers.parseEther("1000000"));
-          const result = await fxBASE["rebalance(address,uint32,uint256,uint256)"].staticCall(
-            pool.getAddress(),
-            1,
-            0n,
-            ethers.parseEther("1000000")
-          );
-          const stableBefore = await stableToken.balanceOf(fxBASE.getAddress());
-          const collateralBefore = await collateralToken.balanceOf(deployer.address);
-          const poolFeesBefore = await poolManager.accumulatedPoolFees(pool.getAddress());
-          const [, poolCollateralBefore, , , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxBASE
-            .connect(deployer)
-            ["rebalance(address,uint32,uint256,uint256)"](pool.getAddress(), 1, 0n, ethers.parseEther("1000000"));
-          const stableAfter = await stableToken.balanceOf(fxBASE.getAddress());
-          const collateralAfter = await collateralToken.balanceOf(deployer.address);
-          const poolFeesAfter = await poolManager.accumulatedPoolFees(pool.getAddress());
-          const [, poolCollateralAfter, , , poolDebtAfter] = await poolManager.getPoolInfo(pool.getAddress());
-          expect(stableBefore - stableAfter).to.eq(result.stableTokenUsed);
-          expect(poolDebtBefore - poolDebtAfter).to.eq(ethers.parseEther("35.918367346938775510"));
-          expect(collateralAfter - collateralBefore).to.eq(result.colls);
-          expect(poolCollateralBefore - poolCollateralAfter).to.eq(result.colls + poolFeesAfter - poolFeesBefore);
-          expect(poolFeesAfter - poolFeesBefore).to.eq(ethers.parseEther("0.000036502405840384") / TokenScale);
-          expect(result.colls).to.eq(ethers.parseEther("0.014929483988717437") / TokenScale);
-          expect(result.stableTokenUsed).to.eq(ethers.parseUnits("36.244569", 6)); // rounding up
-          expect(result.yieldTokenUsed).to.eq(0n);
-          expect((await poolManager.getPoolInfo(pool.getAddress())).rawCollateral).to.eq(
-            await pool.getTotalRawCollaterals()
-          );
-        });
-
-        it("should succeed, use fxUSD + stable", async () => {
-          // current debt ratio is 0.596404763647503097 for min price = 2999
-          // min price drop to 2000, debt ratio became 0.894308943089430894
-          // raw colls = 0.018408163265306121, colls = 0.018408163265306121 / 1.23 = 0.014965986394557821
-          // raw debts = 35.918367346938775510
-          // fxusd = 20
-          // stable = 15.918367346938775510 / 0.991 = 16.062933750695030787
-          await mockPriceOracle.setPrices(
-            ethers.parseEther("2000"),
-            ethers.parseEther("2000"),
-            ethers.parseEther("2000")
-          );
-
-          // rebalance to 0.88
-          await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), await fxUSD.balanceOf(deployer.address));
-          await stableToken.mint(fxBASE.getAddress(), ethers.parseEther("1000000"));
-          const result = await fxBASE["rebalance(address,uint32,uint256,uint256)"].staticCall(
-            pool.getAddress(),
-            1,
-            ethers.parseEther("20"),
-            ethers.parseEther("1000000")
-          );
-          const stableBefore = await stableToken.balanceOf(fxBASE.getAddress());
-          const collateralBefore = await collateralToken.balanceOf(deployer.address);
-          const poolFeesBefore = await poolManager.accumulatedPoolFees(pool.getAddress());
-          const [, poolCollateralBefore, , , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxBASE
-            .connect(deployer)
-            ["rebalance(address,uint32,uint256,uint256)"](
-              pool.getAddress(),
-              1,
-              ethers.parseEther("20"),
-              ethers.parseEther("1000000")
-            );
-          const stableAfter = await stableToken.balanceOf(fxBASE.getAddress());
-          const collateralAfter = await collateralToken.balanceOf(deployer.address);
-          const poolFeesAfter = await poolManager.accumulatedPoolFees(pool.getAddress());
-          const [, poolCollateralAfter, , , poolDebtAfter] = await poolManager.getPoolInfo(pool.getAddress());
-          expect(stableBefore - stableAfter).to.eq(result.stableTokenUsed);
-          expect(poolDebtBefore - poolDebtAfter).to.eq(ethers.parseEther("35.918367346938775510"));
-          expect(collateralAfter - collateralBefore).to.eq(result.colls);
-          expect(poolCollateralBefore - poolCollateralAfter).to.eq(result.colls + poolFeesAfter - poolFeesBefore);
-          expect(poolFeesAfter - poolFeesBefore).to.eq(ethers.parseEther("0.000036502405840384") / TokenScale);
-          expect(result.colls).to.eq(ethers.parseEther("0.014929483988717437") / TokenScale);
-          expect(result.stableTokenUsed).to.eq(ethers.parseUnits("16.062934", 6)); // rounding up
-          expect(result.yieldTokenUsed).to.eq(ethers.parseEther("20"));
           expect((await poolManager.getPoolInfo(pool.getAddress())).rawCollateral).to.eq(
             await pool.getTotalRawCollaterals()
           );
@@ -1328,14 +1092,14 @@ describe("PoolManager.spec", async () => {
 
         it("should revert, when ErrorPoolNotRegistered", async () => {
           await expect(
-            poolManager.connect(deployer).liquidate(ZeroAddress, ZeroAddress, 1n, 0n, 0n)
+            poolManager.connect(deployer).liquidate(ZeroAddress, ZeroAddress, 0n, 0n)
           ).to.revertedWithCustomError(poolManager, "ErrorPoolNotRegistered");
         });
 
         it("should revert, when ErrorCallerNotFxUSDSave", async () => {
           await poolManager.updateThreshold(0);
           await expect(
-            poolManager.connect(deployer).liquidate(pool.getAddress(), ZeroAddress, 1n, 0n, 0n)
+            poolManager.connect(deployer).liquidate(pool.getAddress(), ZeroAddress, 0n, 0n)
           ).to.revertedWithCustomError(poolManager, "ErrorCallerNotFxUSDSave");
         });
 
@@ -1352,13 +1116,13 @@ describe("PoolManager.spec", async () => {
 
           // liquidate position 1
           await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), await fxUSD.balanceOf(deployer.address));
-          const result = await fxBASE.liquidate.staticCall(pool.getAddress(), 1, MaxUint256, 0n);
+          const result = await fxBASE.liquidate.staticCall(pool.getAddress(), MaxUint256, 0n);
 
           const fxusdBefore = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const poolFeesBefore = await poolManager.accumulatedPoolFees(pool.getAddress());
           const [, poolCollateralBefore, , , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxBASE.connect(deployer).liquidate(pool.getAddress(), 1, MaxUint256, 0n);
+          await fxBASE.connect(deployer).liquidate(pool.getAddress(), MaxUint256, 0n);
           const fxusdAfter = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const poolFeesAfter = await poolManager.accumulatedPoolFees(pool.getAddress());
@@ -1392,14 +1156,14 @@ describe("PoolManager.spec", async () => {
           // liquidate position 1
           await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), await fxUSD.balanceOf(deployer.address));
           await collateralToken.mint(reservePool.getAddress(), ethers.parseEther("1") / TokenScale);
-          const result = await fxBASE.liquidate.staticCall(pool.getAddress(), 1, MaxUint256, 0n);
+          const result = await fxBASE.liquidate.staticCall(pool.getAddress(), MaxUint256, 0n);
 
           const fxusdBefore = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const reservePoolBefore = await collateralToken.balanceOf(reservePool.getAddress());
           const poolFeesBefore = await poolManager.accumulatedPoolFees(pool.getAddress());
           const [, poolCollateralBefore, , , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxBASE.connect(deployer).liquidate(pool.getAddress(), 1, MaxUint256, 0n);
+          await fxBASE.connect(deployer).liquidate(pool.getAddress(), MaxUint256, 0n);
           const fxusdAfter = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const reservePoolAfter = await collateralToken.balanceOf(reservePool.getAddress());
@@ -1436,13 +1200,13 @@ describe("PoolManager.spec", async () => {
           // liquidate position 1
           await fxUSD.connect(deployer).transfer(fxBASE.getAddress(), await fxUSD.balanceOf(deployer.address));
           await collateralToken.mint(reservePool.getAddress(), ethers.parseEther("0.001") / TokenScale);
-          const result = await fxBASE.liquidate.staticCall(pool.getAddress(), 1, MaxUint256, 0n);
+          const result = await fxBASE.liquidate.staticCall(pool.getAddress(), MaxUint256, 0n);
 
           const fxusdBefore = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralBefore = await collateralToken.balanceOf(deployer.address);
           const reservePoolBefore = await collateralToken.balanceOf(reservePool.getAddress());
           const [, poolCollateralBefore, , , poolDebtBefore] = await poolManager.getPoolInfo(pool.getAddress());
-          await fxBASE.connect(deployer).liquidate(pool.getAddress(), 1, MaxUint256, 0n);
+          await fxBASE.connect(deployer).liquidate(pool.getAddress(), MaxUint256, 0n);
           const fxusdAfter = await fxUSD.balanceOf(fxBASE.getAddress());
           const collateralAfter = await collateralToken.balanceOf(deployer.address);
           const reservePoolAfter = await collateralToken.balanceOf(reservePool.getAddress());
