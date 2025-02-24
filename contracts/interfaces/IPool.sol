@@ -6,12 +6,12 @@ interface IPool {
   /**********
    * Events *
    **********/
-  
+
   /// @notice Emitted when price oracle is updated.
   /// @param oldOracle The previous address of price oracle.
   /// @param newOracle The current address of price oracle.
   event UpdatePriceOracle(address oldOracle, address newOracle);
-  
+
   /// @notice Emitted when borrow status is updated.
   /// @param status The updated borrow status.
   event UpdateBorrowStatus(bool status);
@@ -19,16 +19,16 @@ interface IPool {
   /// @notice Emitted when redeem status is updated.
   /// @param status The updated redeem status.
   event UpdateRedeemStatus(bool status);
-  
+
   /// @notice Emitted when debt ratio range is updated.
   /// @param minDebtRatio The current value of minimum debt ratio, multiplied by 1e18.
   /// @param maxDebtRatio The current value of maximum debt ratio, multiplied by 1e18.
   event UpdateDebtRatioRange(uint256 minDebtRatio, uint256 maxDebtRatio);
-  
+
   /// @notice Emitted when max redeem ratio per tick is updated.
   /// @param ratio The current value of max redeem ratio per tick, multiplied by 1e9.
   event UpdateMaxRedeemRatioPerTick(uint256 ratio);
-  
+
   /// @notice Emitted when the rebalance ratio is updated.
   /// @param debtRatio The current value of rebalance debt ratio, multiplied by 1e18.
   /// @param bonusRatio The current value of rebalance bonus ratio, multiplied by 1e9.
@@ -38,7 +38,7 @@ interface IPool {
   /// @param debtRatio The current value of liquidate debt ratio, multiplied by 1e18.
   /// @param bonusRatio The current value of liquidate bonus ratio, multiplied by 1e9.
   event UpdateLiquidateRatios(uint256 debtRatio, uint256 bonusRatio);
-  
+
   /// @notice Emitted when position is updated.
   /// @param position The index of this position.
   /// @param tick The index of tick, this position belongs to.
@@ -46,7 +46,7 @@ interface IPool {
   /// @param debtShares The amount of debt shares in this position.
   /// @param price The price used for this operation.
   event PositionSnapshot(uint256 position, int16 tick, uint256 collShares, uint256 debtShares, uint256 price);
-  
+
   /// @notice Emitted when tick moved due to rebalance, liquidate or redeem.
   /// @param oldTick The index of the previous tick.
   /// @param newTick The index of the current tick.
@@ -57,7 +57,7 @@ interface IPool {
 
   /// @notice Emitted when debt index increase.
   event DebtIndexSnapshot(uint256 index);
-  
+
   /// @notice Emitted when collateral index increase.
   event CollateralIndexSnapshot(uint256 index);
 
@@ -105,13 +105,13 @@ interface IPool {
 
   /// @notice The address of price oracle.
   function priceOracle() external view returns (address);
-  
+
   /// @notice Return whether borrow is paused.
   function isBorrowPaused() external view returns (bool);
 
   /// @notice Return whether redeem is paused.
   function isRedeemPaused() external view returns (bool);
-  
+
   /// @notice Return the current top tick with debts.
   function getTopTick() external view returns (int16);
 
@@ -190,26 +190,14 @@ interface IPool {
   /// @return rawColls The amount of collateral tokens to redeemed.
   function redeem(uint256 rawDebts) external returns (uint256 rawColls);
 
-  /// @notice Rebalance all positions in the given tick.
-  /// @param tick The id of tick to rebalance.
+  /// @notice Rebalance all ticks in the decreasing order of LTV.
   /// @param maxRawDebts The maximum amount of debt tokens to rebalance.
   /// @return result The result of rebalance.
-  function rebalance(int16 tick, uint256 maxRawDebts) external returns (RebalanceResult memory result);
+  function rebalance(uint256 maxRawDebts) external returns (RebalanceResult memory result);
 
-  /// @notice Rebalance the given position.
-  /// @param positionId The id of position to rebalance.
-  /// @param maxRawDebts The maximum amount of debt tokens to rebalance.
-  /// @return result The result of rebalance.
-  function rebalance(uint32 positionId, uint256 maxRawDebts) external returns (RebalanceResult memory result);
-
-  /// @notice Liquidate the given position.
-  /// @param positionId The id of position to liquidate.
+  /// @notice Liquidate all ticks in the decreasing order of LTV.
   /// @param maxRawDebts The maximum amount of debt tokens to liquidate.
   /// @param reservedRawColls The amount of collateral tokens in reserve pool.
   /// @return result The result of liquidate.
-  function liquidate(
-    uint256 positionId,
-    uint256 maxRawDebts,
-    uint256 reservedRawColls
-  ) external returns (LiquidateResult memory result);
+  function liquidate(uint256 maxRawDebts, uint256 reservedRawColls) external returns (LiquidateResult memory result);
 }

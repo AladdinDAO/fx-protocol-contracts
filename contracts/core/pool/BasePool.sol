@@ -244,204 +244,126 @@ abstract contract BasePool is TickLogic, PositionLogic {
     _updateDebtAndCollateralShares(cachedTotalDebts, cachedTotalColls);
   }
 
-  /// @inheritdoc IPool
-  function rebalance(int16 tick, uint256 maxRawDebts) external onlyPoolManager returns (RebalanceResult memory result) {
-    (uint256 cachedCollIndex, uint256 cachedDebtIndex) = _updateCollAndDebtIndex();
-    uint256 price = IPriceOracle(priceOracle).getLiquidatePrice();
-    uint256 node = tickData[tick];
-    bytes32 value = tickTreeData[node].value;
-    uint256 tickRawColl = _convertToRawColl(
-      value.decodeUint(COLL_SHARE_OFFSET, 128),
-      cachedCollIndex,
-      Math.Rounding.Down
-    );
-    uint256 tickRawDebt = _convertToRawDebt(
-      value.decodeUint(DEBT_SHARE_OFFSET, 128),
-      cachedDebtIndex,
-      Math.Rounding.Down
-    );
-    (uint256 rebalanceDebtRatio, uint256 rebalanceBonusRatio) = _getRebalanceRatios();
-    (uint256 liquidateDebtRatio, ) = _getLiquidateRatios();
-    // rebalance only debt ratio >= `rebalanceDebtRatio` and ratio < `liquidateDebtRatio`
-    if (tickRawDebt * PRECISION * PRECISION < rebalanceDebtRatio * tickRawColl * price) {
-      revert ErrorRebalanceDebtRatioNotReached();
-    }
-    if (tickRawDebt * PRECISION * PRECISION >= liquidateDebtRatio * tickRawColl * price) {
-      revert ErrorRebalanceOnLiquidatableTick();
-    }
-
-    // compute debts to rebalance to make debt ratio to `rebalanceDebtRatio`
-    result.rawDebts = _getRawDebtToRebalance(tickRawColl, tickRawDebt, price, rebalanceDebtRatio, rebalanceBonusRatio);
-    if (maxRawDebts < result.rawDebts) result.rawDebts = maxRawDebts;
-
-    uint256 debtShareToRebalance = _convertToDebtShares(result.rawDebts, cachedDebtIndex, Math.Rounding.Down);
-    result.rawColls = (result.rawDebts * PRECISION) / price;
-    result.bonusRawColls = (result.rawColls * rebalanceBonusRatio) / FEE_PRECISION;
-    if (result.bonusRawColls > tickRawColl - result.rawColls) {
-      result.bonusRawColls = tickRawColl - result.rawColls;
-    }
-    uint256 collShareToRebalance = _convertToCollShares(
-      result.rawColls + result.bonusRawColls,
-      cachedCollIndex,
-      Math.Rounding.Down
-    );
-
-    _liquidateTick(tick, collShareToRebalance, debtShareToRebalance, price);
-    unchecked {
-      (uint256 totalDebts, uint256 totalColls) = _getDebtAndCollateralShares();
-      _updateDebtAndCollateralShares(totalDebts - debtShareToRebalance, totalColls - collShareToRebalance);
-    }
+  struct RebalanceVars {
+    uint256 tickCollShares;
+    uint256 tickDebtShares;
+    uint256 tickRawColls;
+    uint256 tickRawDebts;
+    uint256 maxRawDebts;
+    uint256 rebalanceDebtRatio;
+    uint256 rebalanceBonusRatio;
+    uint256 price;
+    uint256 collIndex;
+    uint256 debtIndex;
+    uint256 totalCollShares;
+    uint256 totalDebtShares;
   }
 
   /// @inheritdoc IPool
-  function rebalance(
-    uint32 positionId,
-    uint256 maxRawDebts
-  ) external onlyPoolManager returns (RebalanceResult memory result) {
-    _requireOwned(positionId);
+  function rebalance(uint256 maxRawDebts) external onlyPoolManager returns (RebalanceResult memory result) {
+    RebalanceVars memory vars;
+    vars.maxRawDebts = maxRawDebts;
+    (vars.rebalanceDebtRatio, vars.rebalanceBonusRatio) = _getRebalanceRatios();
+    (, vars.price, ) = IPriceOracle(priceOracle).getPrice();
+    (vars.collIndex, vars.debtIndex) = _updateCollAndDebtIndex();
+    (vars.totalDebtShares, vars.totalCollShares) = _getDebtAndCollateralShares();
+    (uint256 liquidateDebtRatio, ) = _getLiquidateRatios();
 
-    (uint256 cachedCollIndex, uint256 cachedDebtIndex) = _updateCollAndDebtIndex();
-    uint256 price = IPriceOracle(priceOracle).getLiquidatePrice();
-    PositionInfo memory position = _getAndUpdatePosition(positionId);
-    uint256 positionRawColl = _convertToRawColl(position.colls, cachedCollIndex, Math.Rounding.Down);
-    uint256 positionRawDebt = _convertToRawDebt(position.debts, cachedDebtIndex, Math.Rounding.Down);
-    (uint256 rebalanceDebtRatio, uint256 rebalanceBonusRatio) = _getRebalanceRatios();
-    // rebalance only debt ratio >= `rebalanceDebtRatio` and ratio < `liquidateDebtRatio`
-    if (positionRawDebt * PRECISION * PRECISION < rebalanceDebtRatio * positionRawColl * price) {
-      revert ErrorRebalanceDebtRatioNotReached();
-    }
-    {
-      (uint256 liquidateDebtRatio, ) = _getLiquidateRatios();
-      if (positionRawDebt * PRECISION * PRECISION >= liquidateDebtRatio * positionRawColl * price) {
-        revert ErrorRebalanceOnLiquidatableTick();
+    int16 tick = _getTopTick();
+    bool hasDebt = true;
+    while (vars.maxRawDebts > 0) {
+      if (!hasDebt) {
+        (tick, hasDebt) = tickBitmap.nextDebtPositionWithinOneWord(tick - 1);
+      } else {
+        (vars.tickCollShares, vars.tickDebtShares, vars.tickRawColls, vars.tickRawDebts) = _getTickRawCollAndDebts(
+          tick,
+          vars.collIndex,
+          vars.debtIndex
+        );
+        // skip bad debt and liquidatable positions: coll * price * liquidateDebtRatio <= debts
+        if (vars.tickRawColls * vars.price * liquidateDebtRatio <= vars.tickRawDebts * PRECISION * PRECISION) {
+          hasDebt = false;
+          tick = tick;
+          continue;
+        }
+        // no more rebalanceable tick: coll * price * rebalanceDebtRatio > debts
+        if (vars.tickRawColls * vars.price * vars.rebalanceDebtRatio > vars.tickRawDebts * PRECISION * PRECISION) {
+          break;
+        }
+        // rebalance this tick
+        (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls) = _rebalanceTick(tick, vars);
+        result.rawDebts += rawDebts;
+        result.rawColls += rawColls;
+        result.bonusRawColls += bonusRawColls;
+
+        // goto next tick
+        (tick, hasDebt) = tickBitmap.nextDebtPositionWithinOneWord(tick - 1);
       }
-    }
-    _removePositionFromTick(position);
-
-    // compute debts to rebalance to make debt ratio to `rebalanceDebtRatio`
-    result.rawDebts = _getRawDebtToRebalance(
-      positionRawColl,
-      positionRawDebt,
-      price,
-      rebalanceDebtRatio,
-      rebalanceBonusRatio
-    );
-    if (maxRawDebts < result.rawDebts) result.rawDebts = maxRawDebts;
-
-    uint256 debtShareToRebalance = _convertToDebtShares(result.rawDebts, cachedDebtIndex, Math.Rounding.Down);
-    result.rawColls = (result.rawDebts * PRECISION) / price;
-    result.bonusRawColls = (result.rawColls * rebalanceBonusRatio) / FEE_PRECISION;
-    if (result.bonusRawColls > positionRawColl - result.rawColls) {
-      result.bonusRawColls = positionRawColl - result.rawColls;
-    }
-    uint256 collShareToRebalance = _convertToCollShares(
-      result.rawColls + result.bonusRawColls,
-      cachedCollIndex,
-      Math.Rounding.Down
-    );
-    position.debts -= uint96(debtShareToRebalance);
-    position.colls -= uint96(collShareToRebalance);
-
-    {
-      int256 tick;
-      (tick, position.nodeId) = _addPositionToTick(position.colls, position.debts, false);
-      position.tick = int16(tick);
-    }
-    positionData[positionId] = position;
-    unchecked {
-      (uint256 totalDebts, uint256 totalColls) = _getDebtAndCollateralShares();
-      _updateDebtAndCollateralShares(totalDebts - debtShareToRebalance, totalColls - collShareToRebalance);
+      if (tick == type(int16).min) break;
     }
 
-    emit PositionSnapshot(positionId, position.tick, position.colls, position.debts, price);
+    _updateDebtAndCollateralShares(vars.totalDebtShares, vars.totalCollShares);
+  }
+
+  struct LiquidateVars {
+    uint256 tickCollShares;
+    uint256 tickDebtShares;
+    uint256 tickRawColls;
+    uint256 tickRawDebts;
+    uint256 maxRawDebts;
+    uint256 reservedRawColls;
+    uint256 liquidateDebtRatio;
+    uint256 liquidateBonusRatio;
+    uint256 price;
+    uint256 collIndex;
+    uint256 debtIndex;
+    uint256 totalCollShares;
+    uint256 totalDebtShares;
   }
 
   /// @inheritdoc IPool
   function liquidate(
-    uint256 positionId,
     uint256 maxRawDebts,
     uint256 reservedRawColls
   ) external onlyPoolManager returns (LiquidateResult memory result) {
-    _requireOwned(positionId);
+    LiquidateVars memory vars;
+    vars.maxRawDebts = maxRawDebts;
+    vars.reservedRawColls = reservedRawColls;
+    (vars.liquidateDebtRatio, vars.liquidateBonusRatio) = _getLiquidateRatios();
+    (, vars.price, ) = IPriceOracle(priceOracle).getPrice();
+    (vars.collIndex, vars.debtIndex) = _updateCollAndDebtIndex();
+    (vars.totalDebtShares, vars.totalCollShares) = _getDebtAndCollateralShares();
 
-    (uint256 cachedCollIndex, uint256 cachedDebtIndex) = _updateCollAndDebtIndex();
-    uint256 price = IPriceOracle(priceOracle).getLiquidatePrice();
-    PositionInfo memory position = _getAndUpdatePosition(positionId);
-    uint256 positionRawColl = _convertToRawColl(position.colls, cachedCollIndex, Math.Rounding.Down);
-    uint256 positionRawDebt = _convertToRawDebt(position.debts, cachedDebtIndex, Math.Rounding.Down);
-    uint256 liquidateBonusRatio;
-    // liquidate only debt ratio >= `liquidateDebtRatio`
-    {
-      uint256 liquidateDebtRatio;
-      (liquidateDebtRatio, liquidateBonusRatio) = _getLiquidateRatios();
-      if (positionRawDebt * PRECISION * PRECISION < liquidateDebtRatio * positionRawColl * price) {
-        revert ErrorLiquidateDebtRatioNotReached();
+    int16 tick = _getTopTick();
+    bool hasDebt = true;
+    while (vars.maxRawDebts > 0) {
+      if (!hasDebt) {
+        (tick, hasDebt) = tickBitmap.nextDebtPositionWithinOneWord(tick - 1);
+      } else {
+        (vars.tickCollShares, vars.tickDebtShares, vars.tickRawColls, vars.tickRawDebts) = _getTickRawCollAndDebts(
+          tick,
+          vars.collIndex,
+          vars.debtIndex
+        );
+        // no more liquidatable tick: coll * price * liquidateDebtRatio > debts
+        if (vars.tickRawColls * vars.price * vars.liquidateDebtRatio > vars.tickRawDebts * PRECISION * PRECISION) {
+          break;
+        }
+        // rebalance this tick
+        (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls, uint256 bonusFromReserve) = _liquidateTick(tick, vars);
+        result.rawDebts += rawDebts;
+        result.rawColls += rawColls;
+        result.bonusRawColls += bonusRawColls;
+        result.bonusFromReserve += bonusFromReserve;
+
+        // goto next tick
+        (tick, hasDebt) = tickBitmap.nextDebtPositionWithinOneWord(tick - 1);
       }
+      if (tick == type(int16).min) break;
     }
 
-    _removePositionFromTick(position);
-
-    result.rawDebts = positionRawDebt;
-    if (result.rawDebts > maxRawDebts) result.rawDebts = maxRawDebts;
-    uint256 debtShareToLiquidate = result.rawDebts == positionRawDebt
-      ? position.debts
-      : _convertToDebtShares(result.rawDebts, cachedDebtIndex, Math.Rounding.Down);
-    uint256 collShareToLiquidate;
-    result.rawColls = (result.rawDebts * PRECISION) / price;
-    if (positionRawColl < result.rawColls) {
-      // adjust result.rawColls, result.rawDebts and debtShareToLiquidate
-      result.rawColls = positionRawColl;
-      result.rawDebts = (positionRawColl * price) / PRECISION;
-      if (result.rawDebts > positionRawDebt) result.rawDebts = positionRawDebt;
-      debtShareToLiquidate = result.rawDebts == positionRawDebt
-        ? position.debts
-        : _convertToDebtShares(result.rawDebts, cachedDebtIndex, Math.Rounding.Down);
-    }
-
-    result.bonusRawColls = (result.rawColls * liquidateBonusRatio) / FEE_PRECISION;
-    if (result.bonusRawColls > positionRawColl - result.rawColls) {
-      uint256 diff = result.bonusRawColls - (positionRawColl - result.rawColls);
-      if (diff < reservedRawColls) result.bonusFromReserve = diff;
-      else result.bonusFromReserve = reservedRawColls;
-      result.bonusRawColls = positionRawColl - result.rawColls + result.bonusFromReserve;
-
-      collShareToLiquidate = position.colls;
-    } else {
-      collShareToLiquidate = _convertToCollShares(
-        result.rawColls + result.bonusRawColls,
-        cachedCollIndex,
-        Math.Rounding.Down
-      );
-    }
-    // clear leftover to trigger bad debts redistribution
-    if (result.rawColls + result.bonusRawColls >= positionRawColl) {
-      collShareToLiquidate = position.colls;
-    }
-    position.debts -= uint96(debtShareToLiquidate);
-    position.colls -= uint96(collShareToLiquidate);
-
-    unchecked {
-      (uint256 totalDebts, uint256 totalColls) = _getDebtAndCollateralShares();
-      _updateDebtAndCollateralShares(totalDebts - debtShareToLiquidate, totalColls - collShareToLiquidate);
-    }
-
-    // try distribute bad debts
-    if (position.colls == 0 && position.debts > 0) {
-      (uint256 totalDebts, ) = _getDebtAndCollateralShares();
-      totalDebts -= position.debts;
-      _updateDebtShares(totalDebts);
-      uint256 rawBadDebt = _convertToRawDebt(position.debts, cachedDebtIndex, Math.Rounding.Down);
-      _updateDebtIndex(cachedDebtIndex + (rawBadDebt * E96) / totalDebts);
-      position.debts = 0;
-    }
-    {
-      int256 tick;
-      (tick, position.nodeId) = _addPositionToTick(position.colls, position.debts, false);
-      position.tick = int16(tick);
-    }
-    positionData[positionId] = position;
-
-    emit PositionSnapshot(positionId, position.tick, position.colls, position.debts, price);
+    _updateDebtAndCollateralShares(vars.totalDebtShares, vars.totalCollShares);
+    _updateDebtIndex(vars.debtIndex);
   }
 
   /************************
@@ -517,6 +439,99 @@ abstract contract BasePool is TickLogic, PositionLogic {
     rawDebts =
       (debt * PRECISION * PRECISION - targetDebtRatio * price * coll) /
       (PRECISION * PRECISION - (PRECISION * targetDebtRatio * (FEE_PRECISION + incentiveRatio)) / FEE_PRECISION);
+  }
+
+  function _getTickRawCollAndDebts(
+    int16 tick,
+    uint256 collIndex,
+    uint256 debtIndex
+  ) internal view returns (uint256 colls, uint256 debts, uint256 rawColls, uint256 rawDebts) {
+    uint256 node = tickData[tick];
+    bytes32 value = tickTreeData[node].value;
+    colls = value.decodeUint(COLL_SHARE_OFFSET, 128);
+    debts = value.decodeUint(DEBT_SHARE_OFFSET, 128);
+    rawColls = _convertToRawColl(colls, collIndex, Math.Rounding.Down);
+    rawDebts = _convertToRawDebt(debts, debtIndex, Math.Rounding.Down);
+  }
+
+  function _rebalanceTick(
+    int16 tick,
+    RebalanceVars memory vars
+  ) internal returns (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls) {
+    // compute debts to rebalance to make debt ratio to `rebalanceDebtRatio`
+    rawDebts = _getRawDebtToRebalance(
+      vars.tickRawColls,
+      vars.tickRawDebts,
+      vars.price,
+      vars.rebalanceDebtRatio,
+      vars.rebalanceBonusRatio
+    );
+    if (vars.maxRawDebts < rawDebts) rawDebts = vars.maxRawDebts;
+
+    uint256 debtShares = _convertToDebtShares(rawDebts, vars.debtIndex, Math.Rounding.Down);
+    rawColls = (rawDebts * PRECISION) / vars.price;
+    bonusRawColls = (rawColls * vars.rebalanceBonusRatio) / FEE_PRECISION;
+    if (bonusRawColls > vars.tickRawColls - rawColls) {
+      bonusRawColls = vars.tickRawColls - rawColls;
+    }
+    uint256 collShares = _convertToCollShares(rawColls + bonusRawColls, vars.collIndex, Math.Rounding.Down);
+
+    _liquidateTick(tick, collShares, debtShares, vars.price);
+    vars.totalCollShares -= collShares;
+    vars.totalDebtShares -= debtShares;
+  }
+
+  function _liquidateTick(
+    int16 tick,
+    LiquidateVars memory vars
+  ) internal returns (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls, uint256 bonusFromReserve) {
+    uint256 virtualTickRawColls = vars.tickRawColls + vars.reservedRawColls;
+    rawDebts = vars.tickRawDebts;
+    if (rawDebts > vars.maxRawDebts) rawDebts = vars.maxRawDebts;
+    rawColls = (rawDebts * PRECISION) / vars.price;
+    uint256 debtShares;
+    uint256 collShares;
+    if (rawDebts == vars.tickRawDebts) {
+      // full liquidation
+      debtShares = vars.tickDebtShares;
+    } else {
+      // partial liquidation
+      debtShares = _convertToDebtShares(rawDebts, vars.debtIndex, Math.Rounding.Down);
+    }
+    if (virtualTickRawColls <= rawColls) {
+      // even reserve funds cannot cover bad debts, no bonus and will trigger bad debt redistribution
+      rawColls = virtualTickRawColls;
+      bonusFromReserve = vars.reservedRawColls;
+      debtShares = vars.tickDebtShares;
+      collShares = vars.tickCollShares;
+    } else {
+      // Bonus is from colls in tick, if it is not enough will use reserve funds
+      bonusRawColls = (rawColls * vars.liquidateBonusRatio) / FEE_PRECISION;
+      uint256 rawCollWithBonus = bonusRawColls + rawColls;
+      if (rawCollWithBonus > virtualTickRawColls) {
+        rawCollWithBonus = virtualTickRawColls;
+        bonusRawColls = rawCollWithBonus - rawColls;
+      }
+      if (rawCollWithBonus >= vars.tickRawColls) {
+        bonusFromReserve = rawCollWithBonus - vars.tickRawColls;
+        collShares = vars.tickCollShares;
+      } else {
+        collShares = _convertToCollShares(rawCollWithBonus, vars.collIndex, Math.Rounding.Down);
+      }
+    }
+
+    if (collShares == vars.tickCollShares && debtShares < vars.tickDebtShares) {
+      // trigger bad debt redistribution
+      uint256 rawBadDebt = _convertToRawDebt(vars.tickDebtShares - debtShares, vars.debtIndex, Math.Rounding.Down);
+      debtShares = vars.tickDebtShares;
+      vars.totalCollShares -= collShares;
+      vars.totalDebtShares -= debtShares;
+      vars.debtIndex += (rawBadDebt * E96) / vars.totalDebtShares;
+    } else {
+      vars.totalCollShares -= collShares;
+      vars.totalDebtShares -= debtShares;
+    }
+    _liquidateTick(tick, collShares, debtShares, vars.price);
   }
 
   /// @dev Internal function to update collateral and debt index.
