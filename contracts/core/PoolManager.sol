@@ -47,6 +47,9 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
    * Constants *
    *************/
 
+  /// @dev The role for emergency operations.
+  bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
+
   /// @dev The precision for token rate.
   uint256 internal constant PRECISION = 1e18;
 
@@ -257,7 +260,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     uint256 positionId,
     int256 newColl,
     int256 newDebt
-  ) external onlyRegisteredPool(pool) nonReentrant returns (uint256) {
+  ) external onlyRegisteredPool(pool) nonReentrant whenNotPaused returns (uint256) {
     address collateralToken = IPool(pool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
 
@@ -303,7 +306,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     address pool,
     uint256 debts,
     uint256 minColls
-  ) external onlyRegisteredPool(pool) nonReentrant returns (uint256 colls) {
+  ) external onlyRegisteredPool(pool) nonReentrant whenNotPaused returns (uint256 colls) {
     if (debts > IERC20(fxUSD).balanceOf(_msgSender())) {
       revert ErrorRedeemExceedBalance();
     }
@@ -338,6 +341,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     external
     onlyRegisteredPool(pool)
     nonReentrant
+    whenNotPaused
     onlyFxUSDSave
     returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
   {
@@ -361,6 +365,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     external
     onlyRegisteredPool(pool)
     nonReentrant
+    whenNotPaused
     onlyFxUSDSave
     returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
   {
@@ -469,6 +474,13 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   /************************
    * Restricted Functions *
    ************************/
+  
+  /// @notice Pause or unpause the system.
+  /// @param status The pause status to update.
+  function setPause(bool status) external onlyRole(EMERGENCY_ROLE) {
+    if (status) _pause();
+    else _unpause();
+  }
 
   /// @notice Register a new pool with reward splitter.
   /// @param pool The address of pool.

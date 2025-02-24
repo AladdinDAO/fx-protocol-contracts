@@ -63,7 +63,6 @@ const config: HardhatUserConfig = {
   ignition: {
     blockPollingInterval: 1_000,
     timeBeforeBumpingFees: 3 * 60 * 1_000,
-    requiredConfirmations: 2,
     maxFeeBumps: 3,
     disableFeeBumping: false,
   },

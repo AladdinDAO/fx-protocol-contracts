@@ -89,7 +89,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
 
     OperationMemoryVar memory op;
     // price precision and ratio precision are both 1e18, use min price here
-    (, op.price, ) = IPriceOracle(priceOracle).getPrice();
+    op.price = IPriceOracle(priceOracle).getExchangePrice();
     (op.globalDebt, op.globalColl) = _getDebtAndCollateralShares();
     (op.collIndex, op.debtIndex) = _updateCollAndDebtIndex();
     if (positionId == 0) {
@@ -193,7 +193,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
 
     (uint256 cachedCollIndex, uint256 cachedDebtIndex) = _updateCollAndDebtIndex();
     (uint256 cachedTotalDebts, uint256 cachedTotalColls) = _getDebtAndCollateralShares();
-    (, , uint256 price) = IPriceOracle(priceOracle).getPrice(); // use max price
+    uint256 price = IPriceOracle(priceOracle).getRedeemPrice();
     // check global debt ratio, if global debt ratio >= 1, disable redeem
     {
       uint256 totalRawColls = _convertToRawColl(cachedTotalColls, cachedCollIndex, Math.Rounding.Down);
