@@ -42,7 +42,7 @@ abstract contract ConcentratorBase is AccessControlUpgradeable, IConcentratorBas
   uint256 private constant MAX_EXPENSE_RATIO = 5e8; // 50%
 
   /// @dev The maximum harvester ratio.
-  uint256 private constant MAX_HARVESTER_RATIO = 1e8; // 20%
+  uint256 private constant MAX_HARVESTER_RATIO = 1e8; // 10%
 
   /// @dev The number of bits for fee ratios.
   uint256 private constant RATIO_BITS = 30;

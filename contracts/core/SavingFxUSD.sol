@@ -217,10 +217,14 @@ contract SavingFxUSD is ERC20PermitUpgradeable, ERC4626Upgradeable, Concentrator
     address cachedHarvester = harvester;
     uint256 harvesterRatio = getHarvesterRatio();
     uint256 expenseRatio = getExpenseRatio();
+    bool hasFXN = false;
     for (uint256 i = 0; i < tokens.length; ++i) {
       _transferRewards(tokens[i], cachedHarvester, harvesterRatio, expenseRatio);
+      if (tokens[i] == FXN) hasFXN = true;
     }
-    _transferRewards(FXN, cachedHarvester, harvesterRatio, expenseRatio);
+    if (!hasFXN) {
+      _transferRewards(FXN, cachedHarvester, harvesterRatio, expenseRatio);
+    }
   }
 
   /************************
