@@ -54,6 +54,14 @@ interface IPoolManager {
   /// @param protocolFees The amount of protocol fees charges.
   event Redeem(address indexed pool, uint256 colls, uint256 debts, uint256 protocolFees);
 
+  /// @notice Emitted when rebalance for a tick happened.
+  /// @param pool The address of pool rebalanced.
+  /// @param tick The index of tick rebalanced.
+  /// @param colls The amount of collateral tokens rebalanced.
+  /// @param fxUSDDebts The amount of fxUSD rebalanced.
+  /// @param stableDebts The amount of stable token (a.k.a USDC) rebalanced.
+  event RebalanceTick(address indexed pool, int16 indexed tick, uint256 colls, uint256 fxUSDDebts, uint256 stableDebts);
+
   /// @notice Emitted when rebalance happened.
   /// @param pool The address of pool rebalanced.
   /// @param colls The amount of collateral tokens rebalanced.
@@ -122,6 +130,23 @@ interface IPoolManager {
   /// @param minColls The minimum amount of collateral tokens should redeem.
   /// @return colls The amount of collateral tokens redeemed.
   function redeem(address pool, uint256 debts, uint256 minColls) external returns (uint256 colls);
+
+  /// @notice Rebalance all positions in the given tick.
+  /// @param pool The address of pool to rebalance.
+  /// @param receiver The address of recipient for rebalanced tokens.
+  /// @param tick The index of tick to rebalance.
+  /// @param maxFxUSD The maximum amount of fxUSD to rebalance.
+  /// @param maxStable The maximum amount of stable token (a.k.a USDC) to rebalance.
+  /// @return colls The amount of collateral tokens rebalanced.
+  /// @return fxUSDUsed The amount of fxUSD used to rebalance.
+  /// @return stableUsed The amount of stable token used to rebalance.
+  function rebalance(
+    address pool,
+    address receiver,
+    int16 tick,
+    uint256 maxFxUSD,
+    uint256 maxStable
+  ) external returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed);
 
   /// @notice Rebalance all positions in the given tick.
   /// @param pool The address of pool to rebalance.

@@ -244,6 +244,55 @@ abstract contract BasePool is TickLogic, PositionLogic {
     _updateDebtAndCollateralShares(cachedTotalDebts, cachedTotalColls);
   }
 
+  /// @inheritdoc IPool
+  function rebalance(int16 tick, uint256 maxRawDebts) external onlyPoolManager returns (RebalanceResult memory result) {
+    (uint256 cachedCollIndex, uint256 cachedDebtIndex) = _updateCollAndDebtIndex();
+    (, uint256 price, ) = IPriceOracle(priceOracle).getPrice(); // use min price
+    uint256 node = tickData[tick];
+    bytes32 value = tickTreeData[node].value;
+    uint256 tickRawColl = _convertToRawColl(
+      value.decodeUint(COLL_SHARE_OFFSET, 128),
+      cachedCollIndex,
+      Math.Rounding.Down
+    );
+    uint256 tickRawDebt = _convertToRawDebt(
+      value.decodeUint(DEBT_SHARE_OFFSET, 128),
+      cachedDebtIndex,
+      Math.Rounding.Down
+    );
+    (uint256 rebalanceDebtRatio, uint256 rebalanceBonusRatio) = _getRebalanceRatios();
+    (uint256 liquidateDebtRatio, ) = _getLiquidateRatios();
+    // rebalance only debt ratio >= `rebalanceDebtRatio` and ratio < `liquidateDebtRatio`
+    if (tickRawDebt * PRECISION * PRECISION < rebalanceDebtRatio * tickRawColl * price) {
+      revert ErrorRebalanceDebtRatioNotReached();
+    }
+    if (tickRawDebt * PRECISION * PRECISION >= liquidateDebtRatio * tickRawColl * price) {
+      revert ErrorRebalanceOnLiquidatableTick();
+    }
+
+    // compute debts to rebalance to make debt ratio to `rebalanceDebtRatio`
+    result.rawDebts = _getRawDebtToRebalance(tickRawColl, tickRawDebt, price, rebalanceDebtRatio, rebalanceBonusRatio);
+    if (maxRawDebts < result.rawDebts) result.rawDebts = maxRawDebts;
+
+    uint256 debtShareToRebalance = _convertToDebtShares(result.rawDebts, cachedDebtIndex, Math.Rounding.Down);
+    result.rawColls = (result.rawDebts * PRECISION) / price;
+    result.bonusRawColls = (result.rawColls * rebalanceBonusRatio) / FEE_PRECISION;
+    if (result.bonusRawColls > tickRawColl - result.rawColls) {
+      result.bonusRawColls = tickRawColl - result.rawColls;
+    }
+    uint256 collShareToRebalance = _convertToCollShares(
+      result.rawColls + result.bonusRawColls,
+      cachedCollIndex,
+      Math.Rounding.Down
+    );
+
+    _liquidateTick(tick, collShareToRebalance, debtShareToRebalance, price);
+    unchecked {
+      (uint256 totalDebts, uint256 totalColls) = _getDebtAndCollateralShares();
+      _updateDebtAndCollateralShares(totalDebts - debtShareToRebalance, totalColls - collShareToRebalance);
+    }
+  }
+
   struct RebalanceVars {
     uint256 tickCollShares;
     uint256 tickDebtShares;

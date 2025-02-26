@@ -50,13 +50,14 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   /// @dev The role for emergency operations.
   bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
 
+  /// @dev The role for harvester
+  bytes32 public constant HARVESTER_ROLE = keccak256("HARVESTER_ROLE");
+
   /// @dev The precision for token rate.
   uint256 internal constant PRECISION = 1e18;
 
   /// @dev The precision for token rate.
   int256 internal constant PRECISION_I256 = 1e18;
-
-  bytes32 private constant HARVESTER_ROLE = keccak256("HARVESTER_ROLE");
 
   uint256 private constant COLLATERAL_CAPACITY_OFFSET = 0;
   uint256 private constant COLLATERAL_BALANCE_OFFSET = 85;
@@ -329,6 +330,30 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     IFxUSDRegeneracy(fxUSD).burn(_msgSender(), debts);
 
     emit Redeem(pool, colls, debts, protocolFees);
+  }
+
+  /// @inheritdoc IPoolManager
+  function rebalance(
+    address pool,
+    address receiver,
+    int16 tick,
+    uint256 maxFxUSD,
+    uint256 maxStable
+  )
+    external
+    onlyRegisteredPool(pool)
+    nonReentrant
+    onlyFxUSDSave
+    returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
+  {
+    LiquidateOrRebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(pool);
+    IPool.RebalanceResult memory result = IPool(pool).rebalance(tick, maxFxUSD + _scaleUp(maxStable, op.stablePrice));
+    op.rawColls = result.rawColls + result.bonusRawColls;
+    op.bonusRawColls = result.bonusRawColls;
+    op.rawDebts = result.rawDebts;
+    (colls, fxUSDUsed, stableUsed) = _afterRebalanceOrLiquidate(pool, maxFxUSD, op, receiver);
+
+    emit RebalanceTick(pool, tick, colls, fxUSDUsed, stableUsed);
   }
 
   /// @inheritdoc IPoolManager

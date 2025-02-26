@@ -12,7 +12,7 @@ import { IStrategy } from "./IStrategy.sol";
 abstract contract AssetManagement is AccessControlUpgradeable {
   using SafeERC20 for IERC20;
 
-  bytes32 public ASSET_MANAGER_ROLE = keccak256("ASSET_MANAGER_ROLE");
+  bytes32 public constant ASSET_MANAGER_ROLE = keccak256("ASSET_MANAGER_ROLE");
 
   struct Allocation {
     address strategy;

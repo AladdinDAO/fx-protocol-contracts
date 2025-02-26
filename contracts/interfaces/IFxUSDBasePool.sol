@@ -174,6 +174,22 @@ interface IFxUSDBasePool {
   /// @return amountStableOut The amount of stable token should received.
   function instantRedeem(address receiver, uint256 shares) external returns (uint256 amountYieldOut, uint256 amountStableOut);
 
+  /// @notice Rebalance all positions in the given tick.
+  /// @param pool The address of pool to rebalance.
+  /// @param tick The index of tick to rebalance.
+  /// @param tokenIn The address of token to rebalance.
+  /// @param maxAmount The maximum amount of input token to rebalance.
+  /// @param minBaseOut The minimum amount of collateral tokens should receive.
+  /// @return tokenUsed The amount of input token used to rebalance.
+  /// @return baseOut The amount of collateral tokens rebalanced.
+  function rebalance(
+    address pool,
+    int16 tick,
+    address tokenIn,
+    uint256 maxAmount,
+    uint256 minBaseOut
+  ) external returns (uint256 tokenUsed, uint256 baseOut);
+
   /// @notice Rebalance all possible ticks.
   /// @param pool The address of pool to rebalance.
   /// @param tokenIn The address of token to rebalance.
