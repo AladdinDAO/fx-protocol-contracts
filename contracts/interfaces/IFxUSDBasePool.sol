@@ -17,6 +17,11 @@ interface IFxUSDBasePool {
   /// @param newPeriod The value of current redeem cool down period.
   event UpdateRedeemCoolDownPeriod(uint256 oldPeriod, uint256 newPeriod);
 
+  /// @notice Emitted when the instant redeem fee ratio is updated.
+  /// @param oldRatio The value of previous instant redeem fee ratio, multiplied by 1e18.
+  /// @param newRatio The value of current instant redeem fee ratio, multiplied by 1e18.
+  event UpdateInstantRedeemFeeRatio(uint256 oldRatio, uint256 newRatio);
+
   /// @notice Emitted when deposit tokens.
   /// @param caller The address of caller.
   /// @param receiver The address of pool share recipient.
@@ -44,6 +49,20 @@ interface IFxUSDBasePool {
   /// @param amountYieldTokenOut The amount of yield tokens redeemed.
   /// @param amountStableTokenOut The amount of stable tokens redeemed.
   event Redeem(
+    address indexed caller,
+    address indexed receiver,
+    uint256 amountSharesToRedeem,
+    uint256 amountYieldTokenOut,
+    uint256 amountStableTokenOut
+  );
+
+  /// @notice Emitted when instant redeem pool shares.
+  /// @param caller The address of caller.
+  /// @param receiver The address of pool share recipient.
+  /// @param amountSharesToRedeem The amount of pool shares burned.
+  /// @param amountYieldTokenOut The amount of yield tokens redeemed.
+  /// @param amountStableTokenOut The amount of stable tokens redeemed.
+  event InstantRedeem(
     address indexed caller,
     address indexed receiver,
     uint256 amountSharesToRedeem,
@@ -148,6 +167,13 @@ interface IFxUSDBasePool {
   /// @return amountStableOut The amount of stable token should received.
   function redeem(address receiver, uint256 shares) external returns (uint256 amountYieldOut, uint256 amountStableOut);
 
+  /// @notice Redeem pool shares instantly with withdraw fee.
+  /// @param receiver The address of token recipient.
+  /// @param shares The amount of pool shares to redeem.
+  /// @return amountYieldOut The amount of yield token should received.
+  /// @return amountStableOut The amount of stable token should received.
+  function instantRedeem(address receiver, uint256 shares) external returns (uint256 amountYieldOut, uint256 amountStableOut);
+
   /// @notice Rebalance all positions in the given tick.
   /// @param pool The address of pool to rebalance.
   /// @param tick The index of tick to rebalance.
@@ -164,9 +190,8 @@ interface IFxUSDBasePool {
     uint256 minBaseOut
   ) external returns (uint256 tokenUsed, uint256 baseOut);
 
-  /// @notice Rebalance the give position.
+  /// @notice Rebalance all possible ticks.
   /// @param pool The address of pool to rebalance.
-  /// @param position The index of position to rebalance.
   /// @param tokenIn The address of token to rebalance.
   /// @param maxAmount The maximum amount of input token to rebalance.
   /// @param minBaseOut The minimum amount of collateral tokens should receive.
@@ -174,15 +199,13 @@ interface IFxUSDBasePool {
   /// @return baseOut The amount of collateral tokens rebalanced.
   function rebalance(
     address pool,
-    uint32 position,
     address tokenIn,
     uint256 maxAmount,
     uint256 minBaseOut
   ) external returns (uint256 tokenUsed, uint256 baseOut);
 
-  /// @notice Liquidate the give position.
+  /// @notice Liquidate all possible ticks.
   /// @param pool The address of pool to rebalance.
-  /// @param position The index of position to rebalance.
   /// @param tokenIn The address of token to rebalance.
   /// @param maxAmount The maximum amount of input token to rebalance.
   /// @param minBaseOut The minimum amount of collateral tokens should receive.
@@ -190,7 +213,6 @@ interface IFxUSDBasePool {
   /// @return baseOut The amount of collateral tokens rebalanced.
   function liquidate(
     address pool,
-    uint32 position,
     address tokenIn,
     uint256 maxAmount,
     uint256 minBaseOut

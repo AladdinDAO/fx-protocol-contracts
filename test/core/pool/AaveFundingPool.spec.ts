@@ -988,14 +988,11 @@ describe("AaveFundingPool.spec", async () => {
     });
 
     it("should revert, when ErrorCallerNotPoolManager", async () => {
-      await expect(pool.connect(deployer)["rebalance(int16,uint256)"](0, 0)).to.revertedWithCustomError(
-        pool,
-        "ErrorCallerNotPoolManager"
-      );
+      await expect(pool.connect(deployer).rebalance(0)).to.revertedWithCustomError(pool, "ErrorCallerNotPoolManager");
     });
 
     it("should revert, when ErrorRebalanceDebtRatioNotReached", async () => {
-      await expect(pool.connect(signer)["rebalance(int16,uint256)"](4997, MaxUint256)).to.revertedWithCustomError(
+      await expect(pool.connect(signer).rebalance(MaxUint256)).to.revertedWithCustomError(
         pool,
         "ErrorRebalanceDebtRatioNotReached"
       );
@@ -1006,7 +1003,7 @@ describe("AaveFundingPool.spec", async () => {
       // min price drop to 1000,
       await mockPriceOracle.setPrices(ethers.parseEther("1000"), ethers.parseEther("1000"), ethers.parseEther("1000"));
 
-      await expect(pool.connect(signer)["rebalance(int16,uint256)"](4997, MaxUint256)).to.revertedWithCustomError(
+      await expect(pool.connect(signer).rebalance(MaxUint256)).to.revertedWithCustomError(
         pool,
         "ErrorRebalanceOnLiquidatableTick"
       );
@@ -1018,13 +1015,11 @@ describe("AaveFundingPool.spec", async () => {
       await mockPriceOracle.setPrices(ethers.parseEther("2000"), ethers.parseEther("2000"), ethers.parseEther("2000"));
 
       // rebalance to 0.88
-      const [rawColls, rawDebts, bonusRawColls] = await pool
-        .connect(signer)
-        ["rebalance(int16,uint256)"].staticCall(4997, MaxUint256);
+      const [rawColls, rawDebts, bonusRawColls] = await pool.connect(signer).rebalance.staticCall(MaxUint256);
       expect(rawColls).to.eq(1993469387755102040n);
       expect(rawDebts).to.eq(3986938775510204081632n);
       expect(bonusRawColls).to.eq((rawColls * 25n) / 1000n);
-      await pool.connect(signer)["rebalance(int16,uint256)"](4997, MaxUint256);
+      await pool.connect(signer).rebalance(MaxUint256);
       expect(await pool.getTopTick()).to.eq(4986);
       expect(await pool.getTotalRawCollaterals()).to.closeTo(ethers.parseEther("11.609693877551020409"), 10n);
       expect(await pool.getTotalRawDebts()).to.closeTo(ethers.parseEther("20433.061224489795918368"), 10n);
@@ -1049,88 +1044,6 @@ describe("AaveFundingPool.spec", async () => {
     });
   });
 
-  context("rebalance on position", async () => {
-    let signer: HardhatEthersSigner;
-
-    beforeEach(async () => {
-      await unlockAccounts([await poolManager.getAddress()]);
-      signer = await ethers.getSigner(await poolManager.getAddress());
-      await mockETHBalance(signer.address, ethers.parseEther("100"));
-      // remove open fee
-      await pool.connect(admin).updateOpenRatio(0n, ethers.parseEther("1"));
-
-      // open 3 positions on the same tick
-      await pool.connect(signer).operate(0, ethers.parseEther("0.123"), ethers.parseEther("220"), deployer.address);
-      await pool.connect(signer).operate(0, ethers.parseEther("1.23"), ethers.parseEther("2200"), deployer.address);
-      await pool.connect(signer).operate(0, ethers.parseEther("12.3"), ethers.parseEther("22000"), deployer.address);
-      expect(await pool.getNextTreeNodeId()).to.eq(2);
-      expect(await pool.getTopTick()).to.eq(4997);
-    });
-
-    it("should revert, when ErrorCallerNotPoolManager", async () => {
-      await expect(pool.connect(deployer)["rebalance(uint32,uint256)"](0, 0)).to.revertedWithCustomError(
-        pool,
-        "ErrorCallerNotPoolManager"
-      );
-    });
-
-    it("should revert, when ErrorRebalanceDebtRatioNotReached", async () => {
-      await expect(pool.connect(signer)["rebalance(uint32,uint256)"](1, MaxUint256)).to.revertedWithCustomError(
-        pool,
-        "ErrorRebalanceDebtRatioNotReached"
-      );
-    });
-
-    it("should revert, when ErrorRebalanceOnLiquidatableTick", async () => {
-      // current debt ratio is 0.596404763647503097 for min price = 2999
-      // min price drop to 1000,
-      await mockPriceOracle.setPrices(ethers.parseEther("1000"), ethers.parseEther("1000"), ethers.parseEther("1000"));
-
-      await expect(pool.connect(signer)["rebalance(uint32,uint256)"](1, MaxUint256)).to.revertedWithCustomError(
-        pool,
-        "ErrorRebalanceOnLiquidatableTick"
-      );
-    });
-
-    it("should ok", async () => {
-      // current debt ratio is 0.596404763647503097 for min price = 2999
-      // min price drop to 2000, debt ratio became 0.894308943089430894
-      await mockPriceOracle.setPrices(ethers.parseEther("2000"), ethers.parseEther("2000"), ethers.parseEther("2000"));
-
-      // rebalance position 1 to 0.88
-      await pool.connect(signer)["rebalance(uint32,uint256)"](1, MaxUint256);
-      expect((await pool.getPosition(1)).rawColls).to.closeTo(ethers.parseEther("0.104591836734693877"), 1000000n);
-      expect((await pool.getPosition(1)).rawDebts).to.closeTo(ethers.parseEther("184.081632653061224305"), 1000000n);
-      expect(
-        ((await pool.getPosition(1)).rawDebts * 10n ** 18n) / ((await pool.getPosition(1)).rawColls * 2000n)
-      ).to.closeTo(ethers.parseEther("0.88"), 1000000n);
-      expect(await pool.getTopTick()).to.eq(4997);
-      // rebalance position 2 to 0.88
-      await pool.connect(signer)["rebalance(uint32,uint256)"](2, MaxUint256);
-      expect((await pool.getPosition(2)).rawColls).to.closeTo(ethers.parseEther("1.045918367346938774"), 1000000n);
-      expect((await pool.getPosition(2)).rawDebts).to.closeTo(ethers.parseEther("1840.816326530612243057"), 1000000n);
-      expect(
-        ((await pool.getPosition(2)).rawDebts * 10n ** 18n) / ((await pool.getPosition(2)).rawColls * 2000n)
-      ).to.closeTo(ethers.parseEther("0.88"), 1000000n);
-      expect(await pool.getTopTick()).to.eq(4997);
-      // rebalance position 3 to 0.88
-      await pool.connect(signer)["rebalance(uint32,uint256)"](3, MaxUint256);
-      expect((await pool.getPosition(3)).rawColls).to.closeTo(ethers.parseEther("10.459183673469387745"), 1000000n);
-      expect((await pool.getPosition(3)).rawDebts).to.closeTo(ethers.parseEther("18408.163265306122430572"), 1000000n);
-      expect(
-        ((await pool.getPosition(3)).rawDebts * 10n ** 18n) / ((await pool.getPosition(3)).rawColls * 2000n)
-      ).to.closeTo(ethers.parseEther("0.88"), 1000000n);
-      expect(await pool.getTopTick()).to.eq(4986);
-
-      // check final states
-      expect(await pool.getTotalRawCollaterals()).to.closeTo(ethers.parseEther("11.609693877551020409"), 1000000n);
-      expect(await pool.getTotalRawDebts()).to.closeTo(ethers.parseEther("20433.061224489795918368"), 1000000n);
-      expect(
-        ((await pool.getTotalRawDebts()) * 10n ** 18n) / ((await pool.getTotalRawCollaterals()) * 2000n)
-      ).to.closeTo(ethers.parseEther("0.88"), 1000000n);
-    });
-  });
-
   context("liquidate on position", async () => {
     let signer: HardhatEthersSigner;
 
@@ -1150,14 +1063,14 @@ describe("AaveFundingPool.spec", async () => {
     });
 
     it("should revert, when ErrorCallerNotPoolManager", async () => {
-      await expect(pool.connect(deployer).liquidate(0, 0, 0)).to.revertedWithCustomError(
+      await expect(pool.connect(deployer).liquidate(0, 0)).to.revertedWithCustomError(
         pool,
         "ErrorCallerNotPoolManager"
       );
     });
 
     it("should revert, when ErrorLiquidateDebtRatioNotReached", async () => {
-      await expect(pool.connect(signer).liquidate(1, MaxUint256, MaxUint256)).to.revertedWithCustomError(
+      await expect(pool.connect(signer).liquidate(MaxUint256, MaxUint256)).to.revertedWithCustomError(
         pool,
         "ErrorLiquidateDebtRatioNotReached"
       );
@@ -1171,24 +1084,24 @@ describe("AaveFundingPool.spec", async () => {
       // liquidate position 1
       let [rawColls, rawDebts, bonusRawColls, bonusFromReserve] = await pool
         .connect(signer)
-        .liquidate.staticCall(1, MaxUint256, MaxUint256);
+        .liquidate.staticCall(MaxUint256, MaxUint256 / 2n);
       expect(rawColls).to.closeTo(ethers.parseEther("0.115789473684210526"), 1000000n);
       expect(rawDebts).to.eq(ethers.parseEther("220"));
       expect(bonusRawColls).to.closeTo((rawColls * 5n) / 100n, 1000000n);
       expect(bonusFromReserve).to.eq(0n);
-      await pool.connect(signer).liquidate(1, MaxUint256, MaxUint256);
+      await pool.connect(signer).liquidate(MaxUint256, MaxUint256);
       expect((await pool.getPosition(1)).rawColls).to.closeTo(ethers.parseEther("0.001421052631578948"), 1000000n);
       expect((await pool.getPosition(1)).rawDebts).to.eq(0n);
 
       // partial liquidate position 2
       [rawColls, rawDebts, bonusRawColls, bonusFromReserve] = await pool
         .connect(signer)
-        .liquidate.staticCall(2, ethers.parseEther("1000"), MaxUint256);
+        .liquidate.staticCall(ethers.parseEther("1000"), MaxUint256 / 2n);
       expect(rawColls).to.closeTo(ethers.parseEther("0.526315789473684210"), 1000000n);
       expect(rawDebts).to.eq(ethers.parseEther("1000"));
       expect(bonusRawColls).to.closeTo((rawColls * 5n) / 100n, 1000000n);
       expect(bonusFromReserve).to.eq(0n);
-      await pool.connect(signer).liquidate(2, ethers.parseEther("1000"), MaxUint256);
+      await pool.connect(signer).liquidate(ethers.parseEther("1000"), MaxUint256);
       expect((await pool.getPosition(2)).rawColls).to.closeTo(ethers.parseEther("0.677368421052631580"), 1000000n);
       expect((await pool.getPosition(2)).rawDebts).to.eq(ethers.parseEther("1200"));
 
@@ -1204,12 +1117,12 @@ describe("AaveFundingPool.spec", async () => {
       // liquidate position 1
       let [rawColls, rawDebts, bonusRawColls, bonusFromReserve] = await pool
         .connect(signer)
-        .liquidate.staticCall(1, MaxUint256, MaxUint256);
+        .liquidate.staticCall(MaxUint256, MaxUint256 / 2n);
       expect(rawColls).to.closeTo(ethers.parseEther("0.118918918918918918"), 1000000n);
       expect(rawDebts).to.eq(ethers.parseEther("220"));
       expect(bonusRawColls).to.closeTo((rawColls * 5n) / 100n, 1000000n);
       expect(bonusFromReserve).to.closeTo(ethers.parseEther("0.001864864864864863"), 1000000n);
-      await pool.connect(signer).liquidate(1, MaxUint256, MaxUint256);
+      await pool.connect(signer).liquidate(MaxUint256, MaxUint256 / 2n);
       expect((await pool.getPosition(1)).rawColls).to.eq(0n);
       expect((await pool.getPosition(1)).rawDebts).to.eq(0n);
 
@@ -1225,12 +1138,12 @@ describe("AaveFundingPool.spec", async () => {
       // liquidate position 1
       let [rawColls, rawDebts, bonusRawColls, bonusFromReserve] = await pool
         .connect(signer)
-        .liquidate.staticCall(1, MaxUint256, ethers.parseEther("0.001"));
+        .liquidate.staticCall(MaxUint256, ethers.parseEther("0.001"));
       expect(rawColls).to.closeTo(ethers.parseEther("0.118918918918918918"), 1000000n);
       expect(rawDebts).to.eq(ethers.parseEther("220"));
       expect(bonusRawColls).to.closeTo(ethers.parseEther(".005081081081081082"), 1000000n);
       expect(bonusFromReserve).to.closeTo(ethers.parseEther("0.001"), 1000000n);
-      await pool.connect(signer).liquidate(1, MaxUint256, ethers.parseEther("0.001"));
+      await pool.connect(signer).liquidate(MaxUint256, ethers.parseEther("0.001"));
       expect((await pool.getPosition(1)).rawColls).to.eq(0n);
       expect((await pool.getPosition(1)).rawDebts).to.eq(0n);
 
@@ -1246,13 +1159,13 @@ describe("AaveFundingPool.spec", async () => {
       // liquidate position 1, and bad debt distribute to position 2 and 3
       let [rawColls, rawDebts, bonusRawColls, bonusFromReserve] = await pool
         .connect(signer)
-        .liquidate.staticCall(1, ethers.parseEther("209"), 0n);
+        .liquidate.staticCall(ethers.parseEther("209"), 0n);
       expect(rawColls).to.closeTo(ethers.parseEther("0.122941176470588235"), 1000000n);
       expect(rawDebts).to.eq(ethers.parseEther("209"));
       expect(bonusRawColls).to.closeTo(ethers.parseEther("0.000058823529411765"), 1000000n);
       expect(bonusFromReserve).to.eq(0n);
       expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([2n ** 96n, 2n ** 96n]);
-      await pool.connect(signer).liquidate(1, ethers.parseEther("209"), 0n);
+      await pool.connect(signer).liquidate(ethers.parseEther("209"), 0n);
       expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([79264175315407185019722833949n, 2n ** 96n]);
       expect(await pool.getTotalRawCollaterals()).to.closeTo(ethers.parseEther("13.53"), 1000000n);
       expect(await pool.getTotalRawDebts()).to.closeTo(ethers.parseEther("24211"), 1000000n);
@@ -1272,13 +1185,13 @@ describe("AaveFundingPool.spec", async () => {
       // liquidate position 1, and bad debt distribute to position 2 and 3
       let [rawColls, rawDebts, bonusRawColls, bonusFromReserve] = await pool
         .connect(signer)
-        .liquidate.staticCall(1, MaxUint256, 0n);
+        .liquidate.staticCall(MaxUint256, 0n);
       expect(rawColls).to.closeTo(ethers.parseEther("0.123"), 1000000n);
       expect(rawDebts).to.eq(ethers.parseEther("209.1"));
       expect(bonusRawColls).to.eq(0n);
       expect(bonusFromReserve).to.eq(0n);
       expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([2n ** 96n, 2n ** 96n]);
-      await pool.connect(signer).liquidate(1, MaxUint256, 0n);
+      await pool.connect(signer).liquidate(MaxUint256, 0n);
       expect(await pool.getDebtAndCollateralIndex()).to.deep.eq([79263847926305886406757571371n, 2n ** 96n]);
       expect(await pool.getTotalRawCollaterals()).to.closeTo(ethers.parseEther("13.53"), 1000000n);
       expect(await pool.getTotalRawDebts()).to.closeTo(ethers.parseEther("24210.899999999999999999"), 1000000n);

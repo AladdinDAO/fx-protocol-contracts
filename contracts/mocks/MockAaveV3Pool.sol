@@ -27,4 +27,8 @@ contract MockAaveV3Pool is IAaveV3Pool {
   function getReserveNormalizedVariableDebt(address) external view returns (uint256) {
     return reserveNormalizedVariableDebt;
   }
+
+  function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external override {}
+
+  function withdraw(address asset, uint256 amount, address to) external override returns (uint256) {}
 }

@@ -6,13 +6,14 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 import { IPool } from "../interfaces/IPool.sol";
 import { IProtocolFees } from "../interfaces/IProtocolFees.sol";
 
 import { WordCodec } from "../common/codec/WordCodec.sol";
 
-abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
+abstract contract ProtocolFees is AccessControlUpgradeable, PausableUpgradeable, IProtocolFees {
   using SafeERC20 for IERC20;
   using WordCodec for bytes32;
 

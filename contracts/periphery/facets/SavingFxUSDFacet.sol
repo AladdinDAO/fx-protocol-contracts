@@ -84,4 +84,20 @@ contract SavingFxUSDFacet {
     LibRouter.convertAndTransferOut(fxusdParams, fxUSD, amountFxUSD, receiver);
     LibRouter.convertAndTransferOut(usdcParams, USDC, amountUSDC, receiver);
   }
+
+  /// @notice Burn fxSave shares and then convert USDC and fxUSD to another token instantly.
+  /// @param fxusdParams The parameters to convert fxUSD to target token.
+  /// @param usdcParams The parameters to convert USDC to target token.
+  /// @param receiver The address of token recipient.
+  function instantRedeemFromFxSave(
+    LibRouter.ConvertOutParams memory fxusdParams,
+    LibRouter.ConvertOutParams memory usdcParams,
+    uint256 shares,
+    address receiver
+  ) external {
+    uint256 assets = IERC4626(fxSAVE).redeem(shares, address(this), msg.sender);
+    (uint256 amountFxUSD, uint256 amountUSDC) = IFxUSDBasePool(fxBASE).instantRedeem(address(this), assets);
+    LibRouter.convertAndTransferOut(fxusdParams, fxUSD, amountFxUSD, receiver);
+    LibRouter.convertAndTransferOut(usdcParams, USDC, amountUSDC, receiver);
+  }
 }

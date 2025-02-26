@@ -21,7 +21,24 @@ contract MockPriceOracle is IPriceOracle {
     maxPrice = _maxPrice;
   }
 
-  function getPrice() external view returns (uint256, uint256, uint256) {
+  function getPrice() public view returns (uint256, uint256, uint256) {
     return (anchorPrice, minPrice, maxPrice);
+  }
+
+  /// @inheritdoc IPriceOracle
+  function getExchangePrice() public view returns (uint256) {
+    (, uint256 price, ) = getPrice();
+    return price;
+  }
+
+  /// @inheritdoc IPriceOracle
+  function getLiquidatePrice() external view returns (uint256) {
+    return getExchangePrice();
+  }
+
+  /// @inheritdoc IPriceOracle
+  function getRedeemPrice() external view returns (uint256) {
+    (, , uint256 price) = getPrice();
+    return price;
   }
 }
