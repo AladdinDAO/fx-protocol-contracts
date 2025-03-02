@@ -402,6 +402,12 @@ abstract contract BasePool is TickLogic, PositionLogic {
         );
         // no more liquidatable tick: coll * price * liquidateDebtRatio > debts
         if (vars.tickRawColls * vars.price * vars.liquidateDebtRatio > vars.tickRawDebts * PRECISION * PRECISION) {
+          // skip dust, since the results might be wrong
+          if (vars.tickRawDebts < uint256(MIN_DEBT)) {
+            hasDebt = false;
+            tick = tick;
+            continue;
+          }
           break;
         }
         // rebalance this tick
