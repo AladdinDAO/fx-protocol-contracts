@@ -59,15 +59,13 @@ export default buildModule("Upgrade202502xx", (m) => {
 
   // upgrade facets
   const diamondCutFacet = m.contractAt("DiamondCutFacet", m.getParameter("Router"));
-  m.call(diamondCutFacet, "diamondCut", [
+  /*m.call(diamondCutFacet, "diamondCut", [
     [
-      /*
       {
         facetAddress: PositionOperateFlashLoanFacetV2,
         action: 0,
         functionSelectors: getAllSignatures(PositionOperateFlashLoanFacetV2__factory.createInterface()),
       },
-      */
       {
         facetAddress: MorphoFlashLoanCallbackFacet,
         action: 0,
@@ -76,7 +74,8 @@ export default buildModule("Upgrade202502xx", (m) => {
     ],
     ZeroAddress,
     "0x",
-  ], {id: "diamondCut2"});
+  ]);
+  */
 
   return {
     PositionOperateFlashLoanFacetV2,
