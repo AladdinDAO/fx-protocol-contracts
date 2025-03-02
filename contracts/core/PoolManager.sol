@@ -281,12 +281,13 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
 
     newColl = _scaleDown(newRawColl, scalingFactor);
     uint256 protocolFees = _scaleDown(rawProtocolFees, scalingFactor);
-    _accumulatePoolFee(pool, protocolFees);
     _changePoolDebts(pool, newDebt);
     if (newRawColl > 0) {
+      _accumulatePoolOpenFee(pool, protocolFees);
       _changePoolCollateral(pool, newColl, newRawColl);
       IERC20(collateralToken).safeTransferFrom(_msgSender(), address(this), uint256(newColl) + protocolFees);
     } else if (newRawColl < 0) {
+      _accumulatePoolCloseFee(pool, protocolFees);
       _changePoolCollateral(pool, newColl - int256(protocolFees), newRawColl - int256(rawProtocolFees));
       _transferOut(collateralToken, uint256(-newColl), _msgSender());
     }
@@ -322,7 +323,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     _changePoolDebts(pool, -int256(debts));
 
     uint256 protocolFees = (colls * getRedeemFeeRatio()) / FEE_PRECISION;
-    _accumulatePoolFee(pool, protocolFees);
+    _accumulatePoolMiscFee(pool, protocolFees);
     colls -= protocolFees;
     if (colls < minColls) revert ErrorInsufficientRedeemedCollateral();
 
@@ -343,6 +344,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     external
     onlyRegisteredPool(pool)
     nonReentrant
+    whenNotPaused
     onlyFxUSDSave
     returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
   {
@@ -671,7 +673,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     // transfer collateral
     uint256 protocolRevenue = (_scaleDown(op.bonusRawColls, op.scalingFactor) * getLiquidationExpenseRatio()) /
       FEE_PRECISION;
-    _accumulatePoolFee(pool, protocolRevenue);
+    _accumulatePoolMiscFee(pool, protocolRevenue);
     unchecked {
       colls -= protocolRevenue;
     }

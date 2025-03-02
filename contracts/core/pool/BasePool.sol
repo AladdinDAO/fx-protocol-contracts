@@ -335,6 +335,12 @@ abstract contract BasePool is TickLogic, PositionLogic {
           tick = tick;
           continue;
         }
+        // skip dust
+        if (vars.tickRawDebts < uint256(MIN_DEBT)) {
+          hasDebt = false;
+          tick = tick;
+          continue;
+        }
         // no more rebalanceable tick: coll * price * rebalanceDebtRatio > debts
         if (vars.tickRawColls * vars.price * vars.rebalanceDebtRatio > vars.tickRawDebts * PRECISION * PRECISION) {
           break;
@@ -399,7 +405,10 @@ abstract contract BasePool is TickLogic, PositionLogic {
           break;
         }
         // rebalance this tick
-        (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls, uint256 bonusFromReserve) = _liquidateTick(tick, vars);
+        (uint256 rawDebts, uint256 rawColls, uint256 bonusRawColls, uint256 bonusFromReserve) = _liquidateTick(
+          tick,
+          vars
+        );
         result.rawDebts += rawDebts;
         result.rawColls += rawColls;
         result.bonusRawColls += bonusRawColls;
@@ -551,7 +560,8 @@ abstract contract BasePool is TickLogic, PositionLogic {
       // even reserve funds cannot cover bad debts, no bonus and will trigger bad debt redistribution
       rawColls = virtualTickRawColls;
       bonusFromReserve = vars.reservedRawColls;
-      debtShares = vars.tickDebtShares;
+      rawDebts = (virtualTickRawColls * vars.price) / PRECISION;
+      debtShares = _convertToDebtShares(rawDebts, vars.debtIndex, Math.Rounding.Down);
       collShares = vars.tickCollShares;
     } else {
       // Bonus is from colls in tick, if it is not enough will use reserve funds

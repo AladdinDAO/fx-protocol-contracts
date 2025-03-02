@@ -1,25 +1,19 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
+import { ethers, id, ZeroAddress } from "ethers";
 
-import { EthereumTokens } from "@/utils/tokens";
+import { ChainlinkPriceFeed, encodeChainlinkPriceFeed, EthereumTokens, SpotPriceEncodings } from "@/utils/index";
 
 import FxProtocolModule from "../FxProtocol";
 import PriceOracleModule from "../PriceOracle";
 import ProxyAdminModule from "../ProxyAdmin";
-import AaveFundingPoolModule from "./AaveFundingPool";
-import { ethers, ZeroAddress } from "ethers";
-import { ChainlinkPriceFeed, encodeChainlinkPriceFeed, SpotPriceEncodings } from "@/utils/index";
+import Upgrade202502xxModule from "../upgrades/Upgrade.202502xx";
 
 export default buildModule("WBTCPool", (m) => {
   const admin = m.getAccount(0);
   // const { fx: ProxyAdmin } = m.useModule(ProxyAdminModule);
-  // const { AaveFundingPoolImplementation } = m.useModule(AaveFundingPoolModule);
+  const { AaveFundingPoolImplementation } = m.useModule(Upgrade202502xxModule);
   // const { PoolManagerProxy, GaugeRewarder, RevenuePool } = m.useModule(FxProtocolModule);
 
-  const AaveFundingPoolImplementation = m.contractAt(
-    "AaveFundingPool",
-    m.getParameter("AaveFundingPoolImplementation"),
-    { id: "AaveFundingPoolImplementation" }
-  );
   const ProxyAdmin = m.contractAt("ProxyAdmin", m.getParameter("ProxyAdmin"));
 
   // deploy WBTCPriceOracle
@@ -61,7 +55,8 @@ export default buildModule("WBTCPool", (m) => {
     m.getParameter("LiquidateDebtRatio"),
     m.getParameter("LiquidateBonusRatio"),
   ]);
-  m.call(WBTCPool, "updateBorrowAndRedeemStatus", [true, true]);
+  const grantRole = m.call(WBTCPool, "grantRole", [id("EMERGENCY_ROLE"), admin]);
+  m.call(WBTCPool, "updateBorrowAndRedeemStatus", [true, true], { after: [grantRole] });
   m.call(WBTCPool, "updateOpenRatio", [m.getParameter("OpenRatio"), m.getParameter("OpenRatioStep")]);
   m.call(WBTCPool, "updateCloseFeeRatio", [m.getParameter("CloseFeeRatio")]);
   m.call(WBTCPool, "updateFundingRatio", [m.getParameter("FundingRatio")]);
