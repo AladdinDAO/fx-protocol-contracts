@@ -95,7 +95,6 @@ contract MockFxUSDSave {
 
   function rebalance(
     address pool,
-    uint32 positionId,
     uint256 maxFxUSD,
     uint256 maxStable
   ) external returns (uint256 colls, uint256 yieldTokenUsed, uint256 stableTokenUsed) {
@@ -104,7 +103,6 @@ contract MockFxUSDSave {
     (colls, yieldTokenUsed, stableTokenUsed) = IPoolManager(poolManager).rebalance(
       pool,
       msg.sender,
-      positionId,
       maxFxUSD,
       maxStable
     );
@@ -112,7 +110,6 @@ contract MockFxUSDSave {
 
   function liquidate(
     address pool,
-    uint32 positionId,
     uint256 maxFxUSD,
     uint256 maxStable
   ) external returns (uint256 colls, uint256 yieldTokenUsed, uint256 stableTokenUsed) {
@@ -121,7 +118,6 @@ contract MockFxUSDSave {
     (colls, yieldTokenUsed, stableTokenUsed) = IPoolManager(poolManager).liquidate(
       pool,
       msg.sender,
-      positionId,
       maxFxUSD,
       maxStable
     );

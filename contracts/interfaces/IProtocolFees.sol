@@ -17,10 +17,20 @@ interface IProtocolFees {
   /// @param newTreasury The address of current treasury contract.
   event UpdateTreasury(address indexed oldTreasury, address indexed newTreasury);
 
-  /// @notice Emitted when the revenue pool contract is updated.
+  /// @notice Emitted when the open revenue pool contract is updated.
   /// @param oldPool The address of previous revenue pool contract.
   /// @param newPool The address of current revenue pool contract.
-  event UpdateRevenuePool(address indexed oldPool, address indexed newPool);
+  event UpdateOpenRevenuePool(address indexed oldPool, address indexed newPool);
+
+  /// @notice Emitted when the close revenue pool contract is updated.
+  /// @param oldPool The address of previous revenue pool contract.
+  /// @param newPool The address of current revenue pool contract.
+  event UpdateCloseRevenuePool(address indexed oldPool, address indexed newPool);
+
+  /// @notice Emitted when the misc revenue pool contract is updated.
+  /// @param oldPool The address of previous revenue pool contract.
+  /// @param newPool The address of current revenue pool contract.
+  event UpdateMiscRevenuePool(address indexed oldPool, address indexed newPool);
 
   /// @notice Emitted when the ratio for treasury is updated.
   /// @param oldRatio The value of the previous ratio, multiplied by 1e9.
@@ -87,10 +97,22 @@ interface IProtocolFees {
   function treasury() external view returns (address);
 
   /// @notice Return the address of protocol revenue pool.
-  function revenuePool() external view returns (address);
+  function openRevenuePool() external view returns (address);
 
-  /// @notice Return the amount of protocol fees accumulated by the given pool.
-  function accumulatedPoolFees(address pool) external view returns (uint256);
+  /// @notice Return the address of protocol revenue pool.
+  function closeRevenuePool() external view returns (address);
+
+  /// @notice Return the address of protocol revenue pool.
+  function miscRevenuePool() external view returns (address);
+
+  /// @notice Return the amount of protocol open fees accumulated by the given pool.
+  function accumulatedPoolOpenFees(address pool) external view returns (uint256);
+
+  /// @notice Return the amount of protocol close fees accumulated by the given pool.
+  function accumulatedPoolCloseFees(address pool) external view returns (uint256);
+
+  /// @notice Return the amount of protocol misc fees accumulated by the given pool.
+  function accumulatedPoolMiscFees(address pool) external view returns (uint256);
 
   /****************************
    * Public Mutated Functions *

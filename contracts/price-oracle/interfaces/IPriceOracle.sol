@@ -22,4 +22,13 @@ interface IPriceOracle {
   /// @return minPrice The minimum oracle price among all available price sources (including twap), multiplied by 1e18.
   /// @return maxPrice The maximum oracle price among all available price sources (including twap), multiplied by 1e18.
   function getPrice() external view returns (uint256 anchorPrice, uint256 minPrice, uint256 maxPrice);
+
+  /// @notice Return the oracle price for exchange with 18 decimal places.
+  function getExchangePrice() external view returns (uint256);
+
+  /// @notice Return the oracle price for liquidation with 18 decimal places.
+  function getLiquidatePrice() external view returns (uint256);
+
+  /// @notice Return the oracle price for redemption with 18 decimal places.
+  function getRedeemPrice() external view returns (uint256);
 }
