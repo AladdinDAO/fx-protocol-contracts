@@ -543,6 +543,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
     _liquidateTick(tick, collShares, debtShares, vars.price);
     vars.totalCollShares -= collShares;
     vars.totalDebtShares -= debtShares;
+    vars.maxRawDebts -= rawDebts;
   }
 
   function _liquidateTick(
@@ -596,6 +597,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
       vars.totalCollShares -= collShares;
       vars.totalDebtShares -= debtShares;
     }
+    vars.maxRawDebts -= rawDebts;
     _liquidateTick(tick, collShares, debtShares, vars.price);
   }
 
