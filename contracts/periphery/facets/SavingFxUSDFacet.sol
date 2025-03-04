@@ -95,6 +95,7 @@ contract SavingFxUSDFacet {
     uint256 shares,
     address receiver
   ) external {
+    IERC20(fxSAVE).safeTransferFrom(msg.sender, address(this), shares);
     uint256 assets = IERC4626(fxSAVE).redeem(shares, address(this), msg.sender);
     (uint256 amountFxUSD, uint256 amountUSDC) = IFxUSDBasePool(fxBASE).instantRedeem(address(this), assets);
     LibRouter.convertAndTransferOut(fxusdParams, fxUSD, amountFxUSD, receiver);
