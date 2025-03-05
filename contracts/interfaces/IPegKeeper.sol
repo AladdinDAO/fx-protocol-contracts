@@ -60,7 +60,7 @@ interface IPegKeeper {
 
   /// @notice Swap callback from `buyback` and `stabilize`.
   /// @param srcToken The address of source token.
-  /// @param srcToken The address of target token.
+  /// @param targetToken The address of target token.
   /// @param amountIn the amount of source token to use.
   /// @param data The callback data.
   /// @return amountOut The amount of target token swapped.
