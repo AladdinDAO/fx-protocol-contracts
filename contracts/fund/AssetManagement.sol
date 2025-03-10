@@ -57,7 +57,7 @@ abstract contract AssetManagement is AccessControlUpgradeable {
       IERC20(asset).safeTransfer(receiver, amount);
     } else {
       IERC20(asset).safeTransfer(receiver, balance);
-      uint256 diff = balance - amount;
+      uint256 diff = amount - balance;
       Allocation memory curAlloc = allocations[asset];
       if (curAlloc.strategy == address(0)) revert();
       IStrategy(curAlloc.strategy).withdraw(diff, receiver);

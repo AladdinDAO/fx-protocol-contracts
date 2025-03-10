@@ -586,6 +586,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
       }
     }
 
+    vars.reservedRawColls -= bonusFromReserve;
     if (collShares == vars.tickCollShares && debtShares < vars.tickDebtShares) {
       // trigger bad debt redistribution
       uint256 rawBadDebt = _convertToRawDebt(vars.tickDebtShares - debtShares, vars.debtIndex, Math.Rounding.Down);

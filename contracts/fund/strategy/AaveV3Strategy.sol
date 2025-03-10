@@ -60,16 +60,20 @@ contract AaveV3Strategy is StrategyBase {
   }
 
   function kill() external onlyOperator {
-    IAaveV3Pool(POOL).withdraw(ASSET, type(uint256).max, operator);
+    if (totalSupply() > 0) {
+      IAaveV3Pool(POOL).withdraw(ASSET, type(uint256).max, operator);
+    }
     principal = 0;
   }
 
   function _harvest(address receiver) internal virtual override {
     uint256 rewards = totalSupply() - principal;
 
-    IAaveV3Pool(POOL).withdraw(ASSET, rewards, receiver);
+    if (rewards > 0) {
+      IAaveV3Pool(POOL).withdraw(ASSET, rewards, receiver);
+    }
     address[] memory assets = new address[](1);
-    assets[0] = ASSET;
+    assets[0] = ATOKEN;
     IAaveRewardsController(INCENTIVE).claimAllRewards(assets, receiver);
   }
 }
