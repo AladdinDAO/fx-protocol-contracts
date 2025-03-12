@@ -4,12 +4,12 @@ pragma solidity ^0.8.20;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { SpotPriceOracleBase } from "./SpotPriceOracleBase.sol";
+import { SpotPriceOracleBase } from "../../price-oracle/SpotPriceOracleBase.sol";
 
-import { IPriceOracle } from "./interfaces/IPriceOracle.sol";
-import { ITwapOracle } from "./interfaces/ITwapOracle.sol";
+import { IPriceOracle } from "../../price-oracle/interfaces/IPriceOracle.sol";
+import { ITwapOracle } from "../../price-oracle/interfaces/ITwapOracle.sol";
 
-abstract contract LSDPriceOracleBase is SpotPriceOracleBase, IPriceOracle {
+contract BaseStETHPriceOracle is SpotPriceOracleBase, IPriceOracle {
   /*************
    * Constants *
    *************/
@@ -18,18 +18,26 @@ abstract contract LSDPriceOracleBase is SpotPriceOracleBase, IPriceOracle {
   /// @dev See comments of `_readSpotPriceByChainlink` for more details.
   bytes32 public immutable Chainlink_ETH_USD_Spot;
 
+  /// @notice The Chainlink wstETH/USD price feed.
+  /// @dev See comments of `_readSpotPriceByChainlink` for more details.
+  bytes32 public immutable Chainlink_wstETH_ETH_Spot;
+
+  /// @notice The Chainlink wstETH/stETH price feed.
+  /// @dev See comments of `_readSpotPriceByChainlink` for more details.
+  bytes32 public immutable Chainlink_wstETH_stETH_Spot;
+
   /*************
    * Variables *
    *************/
 
   /// @dev The encodings for ETH/USD spot sources.
-  bytes private onchainSpotEncodings_ETHUSD;
+  bytes private onchainSpotEncodings_ETH_USD;
 
-  /// @dev The encodings for LSD/ETH spot sources.
-  bytes private onchainSpotEncodings_LSDETH;
+  /// @dev The encodings for wstETH/ETH spot sources.
+  bytes private onchainSpotEncodings_wstETH_ETH;
 
-  /// @dev The encodings for LSD/USD spot sources.
-  bytes private onchainSpotEncodings_LSDUSD;
+  /// @dev The encodings for wstETH/USD spot sources.
+  bytes private onchainSpotEncodings_wstETH_USD;
 
   /// @notice The value of maximum price deviation, multiplied by 1e18.
   uint256 public maxPriceDeviation;
@@ -38,8 +46,15 @@ abstract contract LSDPriceOracleBase is SpotPriceOracleBase, IPriceOracle {
    * Constructor *
    ***************/
 
-  constructor(bytes32 _Chainlink_ETH_USD_Spot) {
+  constructor(
+    address _spotPriceOracle,
+    bytes32 _Chainlink_ETH_USD_Spot,
+    bytes32 _Chainlink_wstETH_ETH_Spot,
+    bytes32 _Chainlink_wstETH_stETH_Spot
+  ) SpotPriceOracleBase(_spotPriceOracle) {
     Chainlink_ETH_USD_Spot = _Chainlink_ETH_USD_Spot;
+    Chainlink_wstETH_ETH_Spot = _Chainlink_wstETH_ETH_Spot;
+    Chainlink_wstETH_stETH_Spot = _Chainlink_wstETH_stETH_Spot;
 
     _updateMaxPriceDeviation(1e16); // 1%
   }
@@ -48,43 +63,35 @@ abstract contract LSDPriceOracleBase is SpotPriceOracleBase, IPriceOracle {
    * Public View Functions *
    *************************/
 
-  /// @notice Return the ETH/USD spot price.
+  /// @notice Return the wstETH/USD spot price.
   /// @return chainlinkPrice The spot price from Chainlink price feed.
   /// @return minPrice The minimum spot price among all available sources.
   /// @return maxPrice The maximum spot price among all available sources.
-  function getETHUSDSpotPrice() external view returns (uint256 chainlinkPrice, uint256 minPrice, uint256 maxPrice) {
-    (chainlinkPrice, minPrice, maxPrice) = _getETHUSDSpotPrice();
+  function getWstETHUSDSpotPrice() external view returns (uint256 chainlinkPrice, uint256 minPrice, uint256 maxPrice) {
+    (chainlinkPrice, minPrice, maxPrice) = _getWstETHUSDSpotPrice();
   }
 
-  /// @notice Return the ETH/USD spot prices.
+  /// @notice Return the wstETH/USD spot prices.
   /// @return prices The list of spot price among all available sources, multiplied by 1e18.
-  function getETHUSDSpotPrices() external view returns (uint256[] memory prices) {
-    prices = _getSpotPriceByEncoding(onchainSpotEncodings_ETHUSD);
+  function getWstETHUSDSpotPrices() external view returns (uint256[] memory prices) {
+    prices = _getSpotPriceByEncoding(onchainSpotEncodings_wstETH_USD);
   }
 
-  /// @notice Return the LSD/ETH spot prices.
+  /// @notice Return the wstETH/ETH spot prices.
   /// @return prices The list of spot price among all available sources, multiplied by 1e18.
-  function getLSDETHSpotPrices() public view returns (uint256[] memory prices) {
-    prices = _getSpotPriceByEncoding(onchainSpotEncodings_LSDETH);
-  }
-
-  /// @notice Return the LSD/ETH spot prices.
-  /// @return prices The list of spot price among all available sources, multiplied by 1e18.
-  function getLSDUSDSpotPrices() public view returns (uint256[] memory prices) {
-    prices = _getSpotPriceByEncoding(onchainSpotEncodings_LSDUSD);
-  }
-
-  /// @notice Return the LSD/USD anchor price, the price that is hard to manipulate in single tx.
-  /// @return price The anchor price, multiplied by 1e18.
-  function getLSDUSDAnchorPrice() external view returns (uint256 price) {
-    price = _getLSDUSDAnchorPrice();
+  function getWstETHETHSpotPrices() external view returns (uint256[] memory prices) {
+    prices = _getSpotPriceByEncoding(onchainSpotEncodings_wstETH_ETH);
   }
 
   /// @inheritdoc IPriceOracle
   /// @dev The price is valid iff |maxPrice-minPrice|/minPrice < maxPriceDeviation
   function getPrice() public view override returns (uint256 anchorPrice, uint256 minPrice, uint256 maxPrice) {
-    anchorPrice = _getLSDUSDAnchorPrice();
-    (minPrice, maxPrice) = _getLSDMinMaxPrice(anchorPrice);
+    (anchorPrice, minPrice, maxPrice) = _getWstETHUSDSpotPrice();
+
+    uint256 chainlinkPrice_wstETH_stETH = _readSpotPriceByChainlink(Chainlink_wstETH_stETH_Spot);
+    anchorPrice = (anchorPrice * PRECISION) / chainlinkPrice_wstETH_stETH;
+    minPrice = (minPrice * PRECISION) / chainlinkPrice_wstETH_stETH;
+    maxPrice = (maxPrice * PRECISION) / chainlinkPrice_wstETH_stETH;
 
     uint256 cachedMaxPriceDeviation = maxPriceDeviation; // gas saving
     // use anchor price when the price deviation between anchor price and min price exceed threshold
@@ -127,12 +134,12 @@ abstract contract LSDPriceOracleBase is SpotPriceOracleBase, IPriceOracle {
     uint256[] memory prices = _getSpotPriceByEncoding(encodings);
 
     if (spotType == 0) {
-      onchainSpotEncodings_ETHUSD = encodings;
+      onchainSpotEncodings_ETH_USD = encodings;
       if (prices.length == 0) revert ErrorInvalidEncodings();
     } else if (spotType == 1) {
-      onchainSpotEncodings_LSDETH = encodings;
+      onchainSpotEncodings_wstETH_ETH = encodings;
     } else if (spotType == 2) {
-      onchainSpotEncodings_LSDUSD = encodings;
+      onchainSpotEncodings_wstETH_USD = encodings;
     }
   }
 
@@ -159,54 +166,38 @@ abstract contract LSDPriceOracleBase is SpotPriceOracleBase, IPriceOracle {
     emit UpdateMaxPriceDeviation(oldMaxPriceDeviation, newMaxPriceDeviation);
   }
 
-  /// @dev Internal function to calculate the ETH/USD spot price.
+  /// @dev Internal function to calculate the cbBTC/USD spot price.
   /// @return chainlinkPrice The spot price from Chainlink price feed, multiplied by 1e18.
   /// @return minPrice The minimum spot price among all available sources, multiplied by 1e18.
   /// @return maxPrice The maximum spot price among all available sources, multiplied by 1e18.
-  function _getETHUSDSpotPrice() internal view returns (uint256 chainlinkPrice, uint256 minPrice, uint256 maxPrice) {
-    chainlinkPrice = _readSpotPriceByChainlink(Chainlink_ETH_USD_Spot);
-    uint256[] memory prices = _getSpotPriceByEncoding(onchainSpotEncodings_ETHUSD);
+  function _getWstETHUSDSpotPrice() internal view returns (uint256 chainlinkPrice, uint256 minPrice, uint256 maxPrice) {
+    // compute chainlink price
+    uint256 chainlinkPrice_ETH_USD = _readSpotPriceByChainlink(Chainlink_ETH_USD_Spot);
+    uint256 chainlinkPrice_wstETH_ETH = _readSpotPriceByChainlink(Chainlink_wstETH_ETH_Spot);
+    chainlinkPrice = (chainlinkPrice_ETH_USD * chainlinkPrice_wstETH_ETH) / PRECISION;
+
+    // consider wstETH/USD
+    uint256[] memory prices = _getSpotPriceByEncoding(onchainSpotEncodings_wstETH_USD);
     minPrice = maxPrice = chainlinkPrice;
     for (uint256 i = 0; i < prices.length; i++) {
       if (prices[i] > maxPrice) maxPrice = prices[i];
       if (prices[i] < minPrice) minPrice = prices[i];
     }
-  }
 
-  /// @dev Internal function to return the min/max LSD/USD prices.
-  /// @param anchorPrice The LSD/USD anchor price, multiplied by 1e18.
-  /// @return minPrice The minimum price among all available sources (including twap), multiplied by 1e18.
-  /// @return maxPrice The maximum price among all available sources (including twap), multiplied by 1e18.
-  function _getLSDMinMaxPrice(uint256 anchorPrice) internal view returns (uint256 minPrice, uint256 maxPrice) {
-    minPrice = maxPrice = anchorPrice;
-    (, uint256 minETHUSDPrice, uint256 maxETHUSDPrice) = _getETHUSDSpotPrice();
-    uint256[] memory LSD_ETH_prices = getLSDETHSpotPrices();
-    uint256[] memory LSD_USD_prices = getLSDUSDSpotPrices();
-
-    uint256 length = LSD_ETH_prices.length;
-    uint256 LSD_ETH_minPrice = type(uint256).max;
-    uint256 LSD_ETH_maxPrice;
-    unchecked {
-      for (uint256 i = 0; i < length; i++) {
-        uint256 price = LSD_ETH_prices[i];
-        if (price > LSD_ETH_maxPrice) LSD_ETH_maxPrice = price;
-        if (price < LSD_ETH_minPrice) LSD_ETH_minPrice = price;
-      }
-      if (LSD_ETH_maxPrice != 0) {
-        minPrice = Math.min(minPrice, (LSD_ETH_minPrice * minETHUSDPrice) / PRECISION);
-        maxPrice = Math.max(maxPrice, (LSD_ETH_maxPrice * maxETHUSDPrice) / PRECISION);
-      }
-
-      length = LSD_USD_prices.length;
-      for (uint256 i = 0; i < length; i++) {
-        uint256 price = LSD_USD_prices[i];
-        if (price > maxPrice) maxPrice = price;
-        if (price < minPrice) minPrice = price;
-      }
+    // consider wstETH/ETH * ETH/USD
+    uint256 minETHPrice = chainlinkPrice_ETH_USD;
+    uint256 maxETHPrice = chainlinkPrice_ETH_USD;
+    prices = _getSpotPriceByEncoding(onchainSpotEncodings_ETH_USD);
+    for (uint256 i = 0; i < prices.length; i++) {
+      if (prices[i] > maxETHPrice) maxETHPrice = prices[i];
+      if (prices[i] < minETHPrice) minETHPrice = prices[i];
+    }
+    prices = _getSpotPriceByEncoding(onchainSpotEncodings_wstETH_ETH);
+    for (uint256 i = 0; i < prices.length; i++) {
+      uint256 maxPrice_wstETH_USD = maxETHPrice * prices[i];
+      uint256 minPrice_wstETH_USD = minETHPrice * prices[i];
+      if (maxPrice_wstETH_USD > maxPrice) maxPrice = maxPrice_wstETH_USD;
+      if (minPrice_wstETH_USD < minPrice) minPrice = minPrice_wstETH_USD;
     }
   }
-
-  /// @dev Internal function to return the LSD/USD anchor price.
-  /// @return price The anchor price of LSD/USD, multiplied by 1e18.
-  function _getLSDUSDAnchorPrice() internal view virtual returns (uint256 price);
 }
