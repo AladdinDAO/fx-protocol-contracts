@@ -368,7 +368,7 @@ contract FxUSDBasePool is
   function instantRedeem(
     address receiver,
     uint256 amountSharesToRedeem
-  ) external returns (uint256 amountYieldOut, uint256 amountStableOut) {
+  ) external nonReentrant sync returns (uint256 amountYieldOut, uint256 amountStableOut) {
     if (amountSharesToRedeem == 0) revert ErrRedeemZeroShares();
 
     address caller = _msgSender();
@@ -412,7 +412,7 @@ contract FxUSDBasePool is
     address tokenIn,
     uint256 maxAmount,
     uint256 minCollOut
-  ) external onlyValidToken(tokenIn) nonReentrant returns (uint256 tokenUsed, uint256 colls) {
+  ) external onlyValidToken(tokenIn) nonReentrant sync returns (uint256 tokenUsed, uint256 colls) {
     RebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(tokenIn, maxAmount);
     (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = IPoolManager(poolManager).rebalance(
       pool,
