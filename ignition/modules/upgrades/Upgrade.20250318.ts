@@ -1,18 +1,8 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-import { Interface, ZeroAddress } from "ethers";
 
-import { MorphoFlashLoanCallbackFacet__factory, PositionOperateFlashLoanFacetV2__factory } from "@/types/index";
 import { ChainlinkPriceFeed, encodeChainlinkPriceFeed, EthereumTokens } from "@/utils/index";
 
-const getAllSignatures = (e: Interface): string[] => {
-  const sigs: string[] = [];
-  e.forEachFunction((func, _) => {
-    sigs.push(func.selector);
-  });
-  return sigs;
-};
-
-export default buildModule("Upgrade202502xx", (m) => {
+export default buildModule("Upgrade20250318", (m) => {
   // deploy PoolManager implementation
   const PoolManagerImplementation = m.contract(
     "PoolManager",
@@ -57,31 +47,20 @@ export default buildModule("Upgrade202502xx", (m) => {
     "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
   ]);
 
-  // upgrade facets
-  const diamondCutFacet = m.contractAt("DiamondCutFacet", m.getParameter("Router"));
-  /*m.call(diamondCutFacet, "diamondCut", [
-    [
-      {
-        facetAddress: PositionOperateFlashLoanFacetV2,
-        action: 0,
-        functionSelectors: getAllSignatures(PositionOperateFlashLoanFacetV2__factory.createInterface()),
-      },
-      {
-        facetAddress: MorphoFlashLoanCallbackFacet,
-        action: 0,
-        functionSelectors: getAllSignatures(MorphoFlashLoanCallbackFacet__factory.createInterface()),
-      },
-    ],
-    ZeroAddress,
-    "0x",
-  ]);
-  */
+  // deploy FxUSDBasePoolV2Facet
+  const FxUSDBasePoolV2Facet = m.contract("FxUSDBasePoolV2Facet", [m.getParameter("FxUSDBasePoolProxy")]);
 
   return {
     PositionOperateFlashLoanFacetV2,
     MorphoFlashLoanCallbackFacet,
+    FxUSDBasePoolV2Facet,
     PoolManagerImplementation,
     AaveFundingPoolImplementation,
     FxUSDBasePoolImplementation,
+
+    Router: m.contractAt("Diamond", m.getParameter("Router")),
+    FxUSDProxy: m.contractAt("FxUSDRegeneracy", m.getParameter("FxUSDProxy")),
+    FxUSDBasePoolProxy: m.contractAt("FxUSDBasePool", m.getParameter("FxUSDBasePoolProxy")),
+    PoolManagerProxy: m.contractAt("PoolManager", m.getParameter("PoolManagerProxy")),
   };
 });

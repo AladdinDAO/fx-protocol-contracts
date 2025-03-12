@@ -21,7 +21,6 @@ export default buildModule("PriceOracle", (m) => {
   });
 
   return {
-    StETHPriceOracle,
-    WBTCPriceOracle,
+    StETHPriceOracle
   };
 });
