@@ -219,7 +219,11 @@ abstract contract TickLogic is PoolStorage {
       (newTick, parentNode) = _addPositionToTick(tickCollAfter, tickDebtAfter, false);
       metadata = metadata.insertUint(parentNode, PARENT_OFFSET, 48);
     }
-    emit TickMovement(tick, int16(newTick), tickCollAfter, tickDebtAfter, price);
+    if (newTick == type(int256).min) {
+      emit TickMovement(tick, type(int16).min, tickCollAfter, tickDebtAfter, price);
+    } else {
+      emit TickMovement(tick, int16(newTick), tickCollAfter, tickDebtAfter, price);
+    }
 
     // top tick liquidated, update it to new one
     int16 topTick = _getTopTick();
