@@ -1,6 +1,13 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
-import { ChainlinkPriceFeed, encodeChainlinkPriceFeed, EthereumTokens } from "@/utils/index";
+import {
+  Addresses,
+  ChainlinkPriceFeed,
+  encodeChainlinkPriceFeed,
+  EthereumTokens,
+  SpotPriceEncodings,
+} from "@/utils/index";
+import { ethers } from "ethers";
 
 export default buildModule("Upgrade20250318", (m) => {
   // deploy PoolManager implementation
@@ -50,6 +57,72 @@ export default buildModule("Upgrade20250318", (m) => {
   // deploy FxUSDBasePoolV2Facet
   const FxUSDBasePoolV2Facet = m.contract("FxUSDBasePoolV2Facet", [m.getParameter("FxUSDBasePoolProxy")]);
 
+  // deploy RevenuePool
+  const CloseRevenuePool = m.contract(
+    "RevenuePool",
+    [m.getParameter("Treasury"), m.getParameter("Treasury"), "0x11E91BB6d1334585AA37D8F4fde3932C7960B938"],
+    {
+      id: "CloseRevenuePool",
+    }
+  );
+  const MiscRevenuePool = m.contract(
+    "RevenuePool",
+    [m.getParameter("Treasury"), m.getParameter("Treasury"), "0x11E91BB6d1334585AA37D8F4fde3932C7960B938"],
+    {
+      id: "MiscRevenuePool",
+    }
+  );
+
+  // add reward token to MiscRevenuePool and CloseRevenuePool
+  m.call(
+    CloseRevenuePool,
+    "addRewardToken",
+    [
+      EthereumTokens.wstETH.address,
+      m.getParameter("GaugeRewarder"),
+      0n,
+      ethers.parseUnits("0.3", 9),
+      ethers.parseUnits("0.7", 9),
+    ],
+    { id: "CloseRevenuePool_addRewardToken_wstETH" }
+  );
+  m.call(
+    CloseRevenuePool,
+    "addRewardToken",
+    [
+      EthereumTokens.WBTC.address,
+      m.getParameter("GaugeRewarder"),
+      0n,
+      ethers.parseUnits("0.5", 9),
+      ethers.parseUnits("0.5", 9),
+    ],
+    { id: "CloseRevenuePool_addRewardToken_WBTC" }
+  );
+  m.call(
+    MiscRevenuePool,
+    "addRewardToken",
+    [
+      EthereumTokens.wstETH.address,
+      m.getParameter("GaugeRewarder"),
+      0n,
+      ethers.parseUnits("0.3", 9),
+      ethers.parseUnits("0.7", 9),
+    ],
+    { id: "MiscRevenuePool_addRewardToken_wstETH" }
+  );
+  m.call(
+    MiscRevenuePool,
+    "addRewardToken",
+    [
+      EthereumTokens.WBTC.address,
+      m.getParameter("GaugeRewarder"),
+      0n,
+      ethers.parseUnits("0.5", 9),
+      ethers.parseUnits("0.5", 9),
+    ],
+    { id: "MiscRevenuePool_addRewardToken_WBTC" }
+  );
+
   return {
     PositionOperateFlashLoanFacetV2,
     MorphoFlashLoanCallbackFacet,
@@ -58,9 +131,13 @@ export default buildModule("Upgrade20250318", (m) => {
     AaveFundingPoolImplementation,
     FxUSDBasePoolImplementation,
 
+    CloseRevenuePool,
+    MiscRevenuePool,
+
     Router: m.contractAt("Diamond", m.getParameter("Router")),
     FxUSDProxy: m.contractAt("FxUSDRegeneracy", m.getParameter("FxUSDProxy")),
     FxUSDBasePoolProxy: m.contractAt("FxUSDBasePool", m.getParameter("FxUSDBasePoolProxy")),
     PoolManagerProxy: m.contractAt("PoolManager", m.getParameter("PoolManagerProxy")),
+    GaugeRewarder: m.contractAt("GaugeRewarder", m.getParameter("GaugeRewarder")),
   };
 });
