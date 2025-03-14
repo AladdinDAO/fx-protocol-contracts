@@ -1,7 +1,7 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 import { id, Interface, ZeroAddress } from "ethers";
 
-import { ChainlinkPriceFeed, encodeChainlinkPriceFeed, EthereumTokens, SpotPriceEncodings } from "@/utils/index";
+import { Addresses, ChainlinkPriceFeed, encodeChainlinkPriceFeed, EthereumTokens, SpotPriceEncodings } from "@/utils/index";
 
 import EmptyContractModule from "./EmptyContract";
 import ProxyAdminModule from "./ProxyAdmin";
@@ -197,6 +197,23 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
     id: "Router_updateWhitelist_new_gauge",
   });
 
+  // deploy StETHPriceOracle
+  const StETHPriceOracle = m.contract("StETHPriceOracle", [
+    m.getParameter("SpotPriceOracle"),
+    encodeChainlinkPriceFeed(
+      ChainlinkPriceFeed.ethereum["ETH-USD"].feed,
+      ChainlinkPriceFeed.ethereum["ETH-USD"].scale,
+      ChainlinkPriceFeed.ethereum["ETH-USD"].heartbeat
+    ),
+    Addresses["CRV_SP_ETH/stETH_303"],
+  ]);
+  m.call(StETHPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["WETH/USDC"], 0], {
+    id: "StETH_onchainSpotEncodings_ETHUSD",
+  });
+  m.call(StETHPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["stETH/WETH"], 1], {
+    id: "StETH_onchainSpotEncodings_LSDETH",
+  });
+
   return {
     RewardHarvester,
     FxUSDBasePoolGaugeProxyV2,
@@ -204,6 +221,8 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
     SavingFxUSDFacet,
     AaveV3StrategyUSDC,
     AaveV3StrategyWstETH,
+
+    StETHPriceOracle,
 
     WBTCPool,
     WBTCPriceOracle,

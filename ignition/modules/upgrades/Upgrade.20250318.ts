@@ -1,6 +1,6 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
-import { ChainlinkPriceFeed, encodeChainlinkPriceFeed, EthereumTokens } from "@/utils/index";
+import { Addresses, ChainlinkPriceFeed, encodeChainlinkPriceFeed, EthereumTokens, SpotPriceEncodings } from "@/utils/index";
 
 export default buildModule("Upgrade20250318", (m) => {
   // deploy PoolManager implementation

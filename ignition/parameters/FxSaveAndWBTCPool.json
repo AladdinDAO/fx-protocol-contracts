@@ -6,6 +6,9 @@
   "EmptyContract": {
     "deployed": "0x387568e1ea4Ff4D003B8147739dB69D87325E206"
   },
+  "PriceOracle": {
+    "SpotPriceOracle": "0xc2312CaF0De62eC9b4ADC785C79851Cb989C9abc"
+  },
   "Upgrade20250318": {
     "Router": "0x33636D49FbefBE798e15e7F356E8DBef543CC708",
     "FxUSDProxy": "0x085780639CC2cACd35E474e71f4d000e2405d8f6",
