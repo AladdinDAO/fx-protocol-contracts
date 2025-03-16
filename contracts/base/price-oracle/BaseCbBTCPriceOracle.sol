@@ -9,7 +9,7 @@ import { SpotPriceOracleBase } from "../../price-oracle/SpotPriceOracleBase.sol"
 import { IPriceOracle } from "../../price-oracle/interfaces/IPriceOracle.sol";
 import { ITwapOracle } from "../../price-oracle/interfaces/ITwapOracle.sol";
 
-contract cbBTCPriceOracle is SpotPriceOracleBase, IPriceOracle {
+contract BaseCbBTCPriceOracle is SpotPriceOracleBase, IPriceOracle {
   /*************
    * Constants *
    *************/
