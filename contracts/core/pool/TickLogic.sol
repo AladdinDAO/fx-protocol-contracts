@@ -167,13 +167,14 @@ abstract contract TickLogic is PoolStorage {
     if (position.nodeId == 0) return;
 
     bytes32 value = tickTreeData[position.nodeId].value;
+    uint256 oldDebts = value.decodeUint(DEBT_SHARE_OFFSET, 128);
     uint256 newColls = value.decodeUint(COLL_SHARE_OFFSET, 128) - position.colls;
-    uint256 newDebts = value.decodeUint(DEBT_SHARE_OFFSET, 128) - position.debts;
+    uint256 newDebts = oldDebts - position.debts;
     value = value.insertUint(newColls, COLL_SHARE_OFFSET, 128);
     value = value.insertUint(newDebts, DEBT_SHARE_OFFSET, 128);
     tickTreeData[position.nodeId].value = value;
 
-    if (newDebts == 0) {
+    if (newDebts == 0 && oldDebts > 0) {
       int16 tick = int16(tickTreeData[position.nodeId].metadata.decodeInt(TICK_OFFSET, 16));
       tickBitmap.flipTick(tick);
 
@@ -218,7 +219,11 @@ abstract contract TickLogic is PoolStorage {
       (newTick, parentNode) = _addPositionToTick(tickCollAfter, tickDebtAfter, false);
       metadata = metadata.insertUint(parentNode, PARENT_OFFSET, 48);
     }
-    emit TickMovement(tick, int16(newTick), tickCollAfter, tickDebtAfter, price);
+    if (newTick == type(int256).min) {
+      emit TickMovement(tick, type(int16).min, tickCollAfter, tickDebtAfter, price);
+    } else {
+      emit TickMovement(tick, int16(newTick), tickCollAfter, tickDebtAfter, price);
+    }
 
     // top tick liquidated, update it to new one
     int16 topTick = _getTopTick();

@@ -13,7 +13,6 @@ export default buildModule("PriceOracle", (m) => {
     ),
     Addresses["CRV_SP_ETH/stETH_303"],
   ]);
-
   m.call(StETHPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["WETH/USDC"], 0], {
     id: "StETH_onchainSpotEncodings_ETHUSD",
   });
@@ -22,6 +21,6 @@ export default buildModule("PriceOracle", (m) => {
   });
 
   return {
-    StETHPriceOracle,
+    StETHPriceOracle
   };
 });

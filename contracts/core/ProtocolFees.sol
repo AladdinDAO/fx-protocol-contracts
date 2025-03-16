@@ -6,13 +6,14 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 import { IPool } from "../interfaces/IPool.sol";
 import { IProtocolFees } from "../interfaces/IProtocolFees.sol";
 
 import { WordCodec } from "../common/codec/WordCodec.sol";
 
-abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
+abstract contract ProtocolFees is AccessControlUpgradeable, PausableUpgradeable, IProtocolFees {
   using SafeERC20 for IERC20;
   using WordCodec for bytes32;
 
@@ -97,14 +98,28 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
   address public treasury;
 
   /// @inheritdoc IProtocolFees
-  /// @dev Hold fees including open, close, redeem, liquidation and rebalance.
-  address public revenuePool;
+  /// @dev Hold fees including open.
+  address public openRevenuePool;
 
   /// @inheritdoc IProtocolFees
   address public reservePool;
 
   /// @inheritdoc IProtocolFees
-  mapping(address => uint256) public accumulatedPoolFees;
+  mapping(address => uint256) public accumulatedPoolOpenFees;
+
+  /// @inheritdoc IProtocolFees
+  /// @dev Hold fees including close
+  address public closeRevenuePool;
+
+  /// @inheritdoc IProtocolFees
+  mapping(address => uint256) public accumulatedPoolCloseFees;
+
+  /// @inheritdoc IProtocolFees
+  /// @dev Hold fees including redeem, liquidation and rebalance.
+  address public miscRevenuePool;
+
+  /// @inheritdoc IProtocolFees
+  mapping(address => uint256) public accumulatedPoolMiscFees;
 
   /***************
    * Constructor *
@@ -124,7 +139,9 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
     _updateHarvesterRatio(_harvesterRatio);
     _updateFlashLoanFeeRatio(_flashLoanFeeRatio);
     _updateTreasury(_treasury);
-    _updateRevenuePool(_revenuePool);
+    _updateOpenRevenuePool(_revenuePool);
+    _updateCloseRevenuePool(_revenuePool);
+    _updateMiscRevenuePool(_revenuePool);
     _updateReservePool(_reservePool);
   }
 
@@ -199,10 +216,22 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
     _updateTreasury(_newTreasury);
   }
 
-  /// @notice Change address of revenue pool contract.
+  /// @notice Change address of open revenue pool contract.
   /// @param _newPool The new address of revenue pool contract.
-  function updateRevenuePool(address _newPool) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    _updateRevenuePool(_newPool);
+  function updateOpenRevenuePool(address _newPool) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateOpenRevenuePool(_newPool);
+  }
+
+  /// @notice Change address of close revenue pool contract.
+  /// @param _newPool The new address of revenue pool contract.
+  function updateCloseRevenuePool(address _newPool) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateCloseRevenuePool(_newPool);
+  }
+
+  /// @notice Change address of misc revenue pool contract.
+  /// @param _newPool The new address of revenue pool contract.
+  function updateMiscRevenuePool(address _newPool) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateMiscRevenuePool(_newPool);
   }
 
   /// @notice Update the fee ratio distributed to treasury.
@@ -254,13 +283,35 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
 
   /// @dev Internal function to change address of revenue pool contract.
   /// @param _newPool The new address of revenue pool contract.
-  function _updateRevenuePool(address _newPool) private {
+  function _updateOpenRevenuePool(address _newPool) private {
     if (_newPool == address(0)) revert ErrorZeroAddress();
 
-    address _oldPool = revenuePool;
-    revenuePool = _newPool;
+    address _oldPool = openRevenuePool;
+    openRevenuePool = _newPool;
 
-    emit UpdateRevenuePool(_oldPool, _newPool);
+    emit UpdateOpenRevenuePool(_oldPool, _newPool);
+  }
+
+  /// @dev Internal function to change address of revenue pool contract.
+  /// @param _newPool The new address of revenue pool contract.
+  function _updateCloseRevenuePool(address _newPool) private {
+    if (_newPool == address(0)) revert ErrorZeroAddress();
+
+    address _oldPool = closeRevenuePool;
+    closeRevenuePool = _newPool;
+
+    emit UpdateCloseRevenuePool(_oldPool, _newPool);
+  }
+
+  /// @dev Internal function to change address of revenue pool contract.
+  /// @param _newPool The new address of revenue pool contract.
+  function _updateMiscRevenuePool(address _newPool) private {
+    if (_newPool == address(0)) revert ErrorZeroAddress();
+
+    address _oldPool = miscRevenuePool;
+    miscRevenuePool = _newPool;
+
+    emit UpdateMiscRevenuePool(_oldPool, _newPool);
   }
 
   /// @dev Internal function to change the address of reserve pool contract.
@@ -361,21 +412,48 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
   /// @dev Internal function to accumulate protocol fee for the given pool.
   /// @param pool The address of pool.
   /// @param amount The amount of protocol fee.
-  function _accumulatePoolFee(address pool, uint256 amount) internal {
+  function _accumulatePoolOpenFee(address pool, uint256 amount) internal {
     if (amount > 0) {
-      accumulatedPoolFees[pool] += amount;
+      accumulatedPoolOpenFees[pool] += amount;
+    }
+  }
+
+  /// @dev Internal function to accumulate protocol fee for the given pool.
+  /// @param pool The address of pool.
+  /// @param amount The amount of protocol fee.
+  function _accumulatePoolCloseFee(address pool, uint256 amount) internal {
+    if (amount > 0) {
+      accumulatedPoolCloseFees[pool] += amount;
+    }
+  }
+
+  /// @dev Internal function to accumulate protocol fee for the given pool.
+  /// @param pool The address of pool.
+  /// @param amount The amount of protocol fee.
+  function _accumulatePoolMiscFee(address pool, uint256 amount) internal {
+    if (amount > 0) {
+      accumulatedPoolMiscFees[pool] += amount;
     }
   }
 
   /// @dev Internal function to withdraw accumulated protocol fee for the given pool.
   /// @param pool The address of pool.
   function _takeAccumulatedPoolFee(address pool) internal returns (uint256 fees) {
-    fees = accumulatedPoolFees[pool];
+    address collateralToken = IPool(pool).collateralToken();
+    fees = accumulatedPoolOpenFees[pool];
     if (fees > 0) {
-      address collateralToken = IPool(pool).collateralToken();
-      IERC20(collateralToken).safeTransfer(revenuePool, fees);
-
-      accumulatedPoolFees[pool] = 0;
+      IERC20(collateralToken).safeTransfer(openRevenuePool, fees);
+      accumulatedPoolOpenFees[pool] = 0;
+    }
+    fees = accumulatedPoolCloseFees[pool];
+    if (fees > 0) {
+      IERC20(collateralToken).safeTransfer(closeRevenuePool, fees);
+      accumulatedPoolCloseFees[pool] = 0;
+    }
+    fees = accumulatedPoolMiscFees[pool];
+    if (fees > 0) {
+      IERC20(collateralToken).safeTransfer(miscRevenuePool, fees);
+      accumulatedPoolMiscFees[pool] = 0;
     }
   }
 
@@ -383,5 +461,5 @@ abstract contract ProtocolFees is AccessControlUpgradeable, IProtocolFees {
    * @dev This empty reserved space is put in place to allow future versions to add new
    * variables without shifting down storage in the inheritance chain.
    */
-  uint256[45] private __gap;
+  uint256[41] private __gap;
 }

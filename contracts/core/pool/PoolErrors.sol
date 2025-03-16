@@ -49,9 +49,6 @@ abstract contract PoolErrors {
   /// @dev Thrown when the current debt ratio <= rebalance debt ratio.
   error ErrorRebalanceDebtRatioNotReached();
 
-  /// @dev Thrown when the current debt ratio <= liquidate debt ratio.
-  error ErrorLiquidateDebtRatioNotReached();
-
   /// @dev Thrown when the current debt ratio > liquidate debt ratio.
   error ErrorPositionInLiquidationMode();
 

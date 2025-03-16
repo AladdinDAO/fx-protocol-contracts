@@ -62,21 +62,19 @@ interface IPoolManager {
   /// @param stableDebts The amount of stable token (a.k.a USDC) rebalanced.
   event RebalanceTick(address indexed pool, int16 indexed tick, uint256 colls, uint256 fxUSDDebts, uint256 stableDebts);
 
-  /// @notice Emitted when rebalance for a position happened.
+  /// @notice Emitted when rebalance happened.
   /// @param pool The address of pool rebalanced.
-  /// @param position The index of position rebalanced.
   /// @param colls The amount of collateral tokens rebalanced.
   /// @param fxUSDDebts The amount of fxUSD rebalanced.
   /// @param stableDebts The amount of stable token (a.k.a USDC) rebalanced.
-  event RebalancePosition(address indexed pool, uint256 indexed position, uint256 colls, uint256 fxUSDDebts, uint256 stableDebts);
+  event Rebalance(address indexed pool, uint256 colls, uint256 fxUSDDebts, uint256 stableDebts);
 
-  /// @notice Emitted when liquidate for a position happened.
+  /// @notice Emitted when liquidate happened.
   /// @param pool The address of pool liquidated.
-  /// @param position The index of position liquidated.
   /// @param colls The amount of collateral tokens liquidated.
   /// @param fxUSDDebts The amount of fxUSD liquidated.
   /// @param stableDebts The amount of stable token (a.k.a USDC) liquidated.
-  event LiquidatePosition(address indexed pool, uint256 indexed position, uint256 colls, uint256 fxUSDDebts, uint256 stableDebts);
+  event Liquidate(address indexed pool, uint256 colls, uint256 fxUSDDebts, uint256 stableDebts);
 
   /// @notice Emitted when someone harvest pending rewards.
   /// @param caller The address of caller.
@@ -150,10 +148,9 @@ interface IPoolManager {
     uint256 maxStable
   ) external returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed);
 
-  /// @notice Rebalance a given position.
+  /// @notice Rebalance all positions in the given tick.
   /// @param pool The address of pool to rebalance.
   /// @param receiver The address of recipient for rebalanced tokens.
-  /// @param positionId The id of position to rebalance.
   /// @param maxFxUSD The maximum amount of fxUSD to rebalance.
   /// @param maxStable The maximum amount of stable token (a.k.a USDC) to rebalance.
   /// @return colls The amount of collateral tokens rebalanced.
@@ -162,7 +159,6 @@ interface IPoolManager {
   function rebalance(
     address pool,
     address receiver,
-    uint32 positionId,
     uint256 maxFxUSD,
     uint256 maxStable
   ) external returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed);
@@ -170,7 +166,6 @@ interface IPoolManager {
   /// @notice Liquidate a given position.
   /// @param pool The address of pool to liquidate.
   /// @param receiver The address of recipient for liquidated tokens.
-  /// @param positionId The id of position to liquidate.
   /// @param maxFxUSD The maximum amount of fxUSD to liquidate.
   /// @param maxStable The maximum amount of stable token (a.k.a USDC) to liquidate.
   /// @return colls The amount of collateral tokens liquidated.
@@ -179,7 +174,6 @@ interface IPoolManager {
   function liquidate(
     address pool,
     address receiver,
-    uint32 positionId,
     uint256 maxFxUSD,
     uint256 maxStable
   ) external returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed);
