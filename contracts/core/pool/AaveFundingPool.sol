@@ -252,6 +252,9 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
     // absolute rate change is (new - prev) / prev
     // annual interest rate is (new - prev) / prev / duration * 365 days
     uint256 duration = block.timestamp - snapshot.timestamp;
+    // @note Users can trigger this every `MIN_SNAPSHOT_DELAY` seconds and make the interest rate never change.
+    // We allow users to do so, since the risk is not very high. And if we remove this if, the computed interest
+    // rate may not correct due to small `duration`.
     if (duration < MIN_SNAPSHOT_DELAY) {
       rate = snapshot.lastInterestRate;
     } else {
@@ -263,9 +266,6 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
   /// @dev Internal function to update interest rate snapshot.
   function _updateInterestRate(uint256 newBorrowIndex, uint256 lastInterestRate) internal {
     BorrowRateSnapshot memory snapshot = borrowRateSnapshot;
-    // don't update snapshot when the duration is too small.
-    if (snapshot.timestamp > 0 && block.timestamp - snapshot.timestamp < MIN_SNAPSHOT_DELAY) return;
-
     snapshot.borrowIndex = uint128(newBorrowIndex);
     snapshot.lastInterestRate = uint80(lastInterestRate);
     snapshot.timestamp = uint48(block.timestamp);

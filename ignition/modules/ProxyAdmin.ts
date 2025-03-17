@@ -6,6 +6,9 @@ export default buildModule("ProxyAdmin", (m) => {
   if (fxAdmin.address === ZeroAddress) {
     fxAdmin = m.contract("ProxyAdmin", [], { id: "FxProxyAdmin" });
   }
-  const customAdmin = m.contract("ProxyAdmin", [], { id: "CustomProxyAdmin" });
+  let customAdmin: any = m.contractAt("ProxyAdmin", m.getParameter("Custom", ZeroAddress), { id: "CustomProxyAdmin" });
+  if (customAdmin.address === ZeroAddress) {
+    customAdmin = m.contract("ProxyAdmin", [], { id: "CustomProxyAdmin" });
+  }
   return { fx: fxAdmin, custom: customAdmin };
 });

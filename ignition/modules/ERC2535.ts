@@ -27,10 +27,10 @@ export default buildModule("ERC2535", (m) => {
     MultiPathConverter,
   ]);
 
-  // deploy PositionOperateFlashLoanFacet
+  // deploy MigrateFacet
   const MigrateFacet = m.contract("MigrateFacet", [BalancerVault, PoolManagerProxy, MultiPathConverter]);
 
-  // deploy PositionOperateFlashLoanFacet
+  // deploy FxUSDBasePoolFacet
   const FxUSDBasePoolFacet = m.contract("FxUSDBasePoolFacet", [
     PoolManagerProxy,
     FxUSDBasePoolProxy,
