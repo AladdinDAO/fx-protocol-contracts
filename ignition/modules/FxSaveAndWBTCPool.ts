@@ -177,6 +177,31 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
   m.call(WBTCPool, "updateCloseFeeRatio", [m.getParameter("CloseFeeRatio")]);
   m.call(WBTCPool, "updateFundingRatio", [m.getParameter("FundingRatio")]);
 
+  // deploy StETHPriceOracle
+  const StETHPriceOracle = m.contract("StETHPriceOracle", [
+    m.getParameter("SpotPriceOracle"),
+    encodeChainlinkPriceFeed(
+      ChainlinkPriceFeed.ethereum["ETH-USD"].feed,
+      ChainlinkPriceFeed.ethereum["ETH-USD"].scale,
+      ChainlinkPriceFeed.ethereum["ETH-USD"].heartbeat
+    ),
+    Addresses["CRV_SP_ETH/stETH_303"],
+  ]);
+  m.call(StETHPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["WETH/USDC"], 0], {
+    id: "StETH_onchainSpotEncodings_ETHUSD",
+  });
+  m.call(StETHPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["stETH/WETH"], 1], {
+    id: "StETH_onchainSpotEncodings_LSDETH",
+  });
+
+  const PlatformSplitterV2 = m.contract(
+    "RevenuePool",
+    [m.getParameter("Treasury"), m.getParameter("Treasury"), "0x11E91BB6d1334585AA37D8F4fde3932C7960B938"],
+    {
+      id: "PlatformSplitterV2",
+    }
+  );
+
   // upgrade facets
   const DiamondCutFacet = m.contractAt("DiamondCutFacet", Router);
   m.call(DiamondCutFacet, "diamondCut", [
@@ -213,23 +238,6 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
     id: "Router_updateWhitelist_new_gauge",
   });
 
-  // deploy StETHPriceOracle
-  const StETHPriceOracle = m.contract("StETHPriceOracle", [
-    m.getParameter("SpotPriceOracle"),
-    encodeChainlinkPriceFeed(
-      ChainlinkPriceFeed.ethereum["ETH-USD"].feed,
-      ChainlinkPriceFeed.ethereum["ETH-USD"].scale,
-      ChainlinkPriceFeed.ethereum["ETH-USD"].heartbeat
-    ),
-    Addresses["CRV_SP_ETH/stETH_303"],
-  ]);
-  m.call(StETHPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["WETH/USDC"], 0], {
-    id: "StETH_onchainSpotEncodings_ETHUSD",
-  });
-  m.call(StETHPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["stETH/WETH"], 1], {
-    id: "StETH_onchainSpotEncodings_LSDETH",
-  });
-
   return {
     RewardHarvester,
     FxUSDBasePoolGaugeProxyV2,
@@ -239,6 +247,7 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
     AaveV3StrategyWstETH,
 
     StETHPriceOracle,
+    PlatformSplitterV2,
 
     WBTCPool,
     WBTCPriceOracle,

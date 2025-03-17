@@ -1,12 +1,6 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
-import {
-  Addresses,
-  ChainlinkPriceFeed,
-  encodeChainlinkPriceFeed,
-  EthereumTokens,
-  SpotPriceEncodings,
-} from "@/utils/index";
+import { ChainlinkPriceFeed, encodeChainlinkPriceFeed, EthereumTokens } from "@/utils/index";
 import { ethers } from "ethers";
 
 export default buildModule("Upgrade20250318", (m) => {
@@ -93,8 +87,8 @@ export default buildModule("Upgrade20250318", (m) => {
       EthereumTokens.WBTC.address,
       m.getParameter("GaugeRewarder"),
       0n,
-      ethers.parseUnits("0.5", 9),
-      ethers.parseUnits("0.5", 9),
+      ethers.parseUnits("0.3", 9),
+      ethers.parseUnits("0.7", 9),
     ],
     { id: "CloseRevenuePool_addRewardToken_WBTC" }
   );
@@ -117,8 +111,8 @@ export default buildModule("Upgrade20250318", (m) => {
       EthereumTokens.WBTC.address,
       m.getParameter("GaugeRewarder"),
       0n,
-      ethers.parseUnits("0.5", 9),
-      ethers.parseUnits("0.5", 9),
+      ethers.parseUnits("0.3", 9),
+      ethers.parseUnits("0.7", 9),
     ],
     { id: "MiscRevenuePool_addRewardToken_WBTC" }
   );
