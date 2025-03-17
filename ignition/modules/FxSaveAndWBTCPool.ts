@@ -1,7 +1,13 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 import { id, Interface, ZeroAddress } from "ethers";
 
-import { Addresses, ChainlinkPriceFeed, encodeChainlinkPriceFeed, EthereumTokens, SpotPriceEncodings } from "@/utils/index";
+import {
+  Addresses,
+  ChainlinkPriceFeed,
+  encodeChainlinkPriceFeed,
+  EthereumTokens,
+  SpotPriceEncodings,
+} from "@/utils/index";
 
 import EmptyContractModule from "./EmptyContract";
 import ProxyAdminModule from "./ProxyAdmin";
@@ -32,6 +38,7 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
     FxUSDBasePoolV2Facet,
     PositionOperateFlashLoanFacetV2,
     MorphoFlashLoanCallbackFacet,
+    GaugeRewarder,
   } = m.useModule(Upgrade20250318Module);
   const { EmptyContract } = m.useModule(EmptyContractModule);
 
@@ -47,6 +54,15 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
       id: "FxUSDBasePoolGaugeProxyV2",
     }
   );
+  const LinearMultipleRewardDistributor = m.contractAt("LinearMultipleRewardDistributor", FxUSDBasePoolGaugeProxyV2);
+  const FxUSDBasePoolGaugeGrantRoleCall = m.call(LinearMultipleRewardDistributor, "grantRole", [
+    id("REWARD_MANAGER_ROLE"),
+    admin,
+  ]);
+  m.call(LinearMultipleRewardDistributor, "registerRewardToken", [EthereumTokens.FXN.address, GaugeRewarder], {
+    id: "FxUSDBasePoolGaugeV2_registerRewardToken_FXN",
+    after: [FxUSDBasePoolGaugeGrantRoleCall],
+  });
   // deploy SavingFxUSDProxy
   const SavingFxUSDProxy = m.contract("TransparentUpgradeableProxy", [EmptyContract, CustomProxyAdmin, "0x"], {
     id: "SavingFxUSDProxy",
