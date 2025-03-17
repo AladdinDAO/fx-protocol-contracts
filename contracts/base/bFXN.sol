@@ -7,7 +7,15 @@ import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC2
 import { IGovernanceToken } from "./interfaces/IGovernanceToken.sol";
 
 contract bFXN is ERC20Upgradeable, IGovernanceToken {
+  /***********************
+   * Immutable Variables *
+   ***********************/
+
   address public immutable minter;
+
+  /***************
+   * Constructor *
+   ***************/
 
   constructor(address _minter) {
     minter = _minter;
@@ -18,6 +26,11 @@ contract bFXN is ERC20Upgradeable, IGovernanceToken {
     __ERC20_init(_name, _symbol); // from ERC20Upgradeable
   }
 
+  /****************************
+   * Public Mutated Functions *
+   ****************************/
+
+  /// @inheritdoc IGovernanceToken
   function mint(address to, uint256 amount) external {
     if (minter != _msgSender()) revert();
 

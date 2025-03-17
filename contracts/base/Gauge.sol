@@ -8,8 +8,8 @@ import { ERC20PermitUpgradeable } from "@openzeppelin/contracts-upgradeable/toke
 import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
 import { IGauge } from "./interfaces/IGauge.sol";
+import { IStakedToken } from "./interfaces/IStakedToken.sol";
 
-import { IMultipleRewardAccumulator } from "../common/rewards/accumulator/IMultipleRewardAccumulator.sol";
 import { MultipleRewardAccumulator } from "../common/rewards/accumulator/MultipleRewardAccumulator.sol";
 import { LinearMultipleRewardDistributor } from "../common/rewards/distributor/LinearMultipleRewardDistributor.sol";
 
@@ -102,25 +102,41 @@ contract Gauge is ERC20PermitUpgradeable, MultipleRewardAccumulator, IGauge {
    ****************************/
 
   /// @inheritdoc IGauge
-  function deposit(uint256 _amount) external {
+  function deposit(uint256 _amount) external nonReentrant {
     address _sender = _msgSender();
     _deposit(_sender, _amount, _sender);
   }
 
   /// @inheritdoc IGauge
-  function deposit(uint256 _amount, address _receiver) external {
+  function deposit(uint256 _amount, address _receiver) external nonReentrant {
     _deposit(_msgSender(), _amount, _receiver);
   }
 
   /// @inheritdoc IGauge
-  function withdraw(uint256 _amount) external {
+  function withdraw(uint256 _amount) external nonReentrant {
     address _sender = _msgSender();
     _withdraw(_sender, _amount, _sender);
   }
 
   /// @inheritdoc IGauge
-  function withdraw(uint256 _amount, address _receiver) external {
+  function withdraw(uint256 _amount, address _receiver) external nonReentrant {
     _withdraw(_msgSender(), _amount, _receiver);
+  }
+
+  /// @inheritdoc IGauge
+  function claimAndExit(address _receiver) external nonReentrant {
+    _checkpoint(_msgSender());
+
+    address _receiverStored = rewardReceiver[_msgSender()];
+    if (_receiverStored != address(0) && _receiver == address(0)) {
+      _receiver = _receiverStored;
+    }
+    if (_receiver == address(0)) _receiver = _msgSender();
+
+    address[] memory _activeRewardTokens = getActiveRewardTokens();
+    for (uint256 i = 0; i < _activeRewardTokens.length; i++) {
+      _claimSingleWithExit(_msgSender(), _activeRewardTokens[i], _receiver, true);
+    }
   }
 
   /**********************
@@ -148,6 +164,52 @@ contract Gauge is ERC20PermitUpgradeable, MultipleRewardAccumulator, IGauge {
   /// @inheritdoc MultipleRewardAccumulator
   function _getUserPoolShare(address _account) internal view virtual override returns (uint256) {
     return balanceOf(_account);
+  }
+
+  /// @inheritdoc MultipleRewardAccumulator
+  function _claimSingle(
+    address _account,
+    address _token,
+    address _receiver
+  ) internal virtual override returns (uint256) {
+    return _claimSingleWithExit(_account, _token, _receiver, false);
+  }
+
+  /// @dev Internal function to claim single reward token with `_exit` flag.
+  /// Caller should make sure `_checkpoint` is called before this function.
+  ///
+  /// @param _account The address of user to claim.
+  /// @param _token The address of reward token.
+  /// @param _receiver The address of recipient of the reward token.
+  /// @param _exit Whether to exit from xbFXN.
+  function _claimSingleWithExit(
+    address _account,
+    address _token,
+    address _receiver,
+    bool _exit
+  ) internal virtual returns (uint256) {
+    if (_token != bFXN) {
+      return MultipleRewardAccumulator._claimSingle(_account, _token, _receiver);
+    }
+
+    ClaimData memory _rewards = userRewardSnapshot[_account][_token].rewards;
+    uint256 _amount = _rewards.pending;
+    if (_amount > 0) {
+      _rewards.claimed += _rewards.pending;
+      _rewards.pending = 0;
+      userRewardSnapshot[_account][_token].rewards = _rewards;
+
+      IERC20(bFXN).forceApprove(xbFXN, _amount);
+      if (_exit) {
+        IStakedToken(xbFXN).stake(_amount, address(this));
+        _amount = IStakedToken(xbFXN).exit(_amount, _receiver);
+        emit Claim(_account, bFXN, _receiver, _amount);
+      } else {
+        IStakedToken(xbFXN).stake(_amount, _receiver);
+        emit Claim(_account, xbFXN, _receiver, _amount);
+      }
+    }
+    return _amount;
   }
 
   /// @dev Internal function to deposit staking token.

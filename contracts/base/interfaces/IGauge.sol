@@ -2,7 +2,10 @@
 
 pragma solidity ^0.8.0;
 
-interface IGauge {
+import { IMultipleRewardAccumulator } from "../../common/rewards/accumulator/IMultipleRewardAccumulator.sol";
+import { IMultipleRewardDistributor } from "../../common/rewards/distributor/IMultipleRewardDistributor.sol";
+
+interface IGauge is IMultipleRewardDistributor, IMultipleRewardAccumulator {
   /**********
    * Events *
    **********/
@@ -59,4 +62,8 @@ interface IGauge {
   /// @param amount The amount of staking token to withdraw.
   /// @param receiver The address of the staking token recipient.
   function withdraw(uint256 amount, address receiver) external;
+  
+  /// @notice Claim pending rewards and exit xbFXN.
+  /// @param receiver The address of the rewards recipient.
+  function claimAndExit(address receiver) external;
 }

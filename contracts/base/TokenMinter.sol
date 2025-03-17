@@ -8,21 +8,50 @@ import { IGovernanceToken } from "./interfaces/IGovernanceToken.sol";
 import { ITokenMinter } from "./interfaces/ITokenMinter.sol";
 
 contract TokenMinter is AccessControlUpgradeable, ITokenMinter {
-  bytes32 constant MINTER_ROLE = keccak256("MINTER_ROLE");
+  /**********
+   * Errors *
+   **********/
 
+  error ErrorMintExceedsAvailableSupply();
+
+  error ErrorEpochNotFinished();
+
+  error ErrorInvalidTimeframe();
+
+  error ErrorTooFarInFuture();
+
+  /*************
+   * Constants *
+   *************/
+
+  /// @notice The role for token minter.
+  bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+
+  /// @dev The parameters for token inflation.
   uint256 private constant RATE_REDUCTION_TIME = 365 days;
   uint256 private constant RATE_REDUCTION_COEFFICIENT = 1189207115002721024; // 2 ** (1/4) * 1e18
   uint256 private constant RATE_DENOMINATOR = 1e18;
 
+  /***********************
+   * Immutable Variables *
+   ***********************/
+
+  /// @inheritdoc ITokenMinter
   address public immutable token;
 
-  event MiningParametersUpdated(uint256 rate, uint256 supply);
+  /*********************
+   * Storage Variables *
+   *********************/
 
   // Supply Variables
   uint256 private _miningEpoch;
   uint256 private _startEpochTime;
   uint256 private _startEpochSupply;
   uint256 private _rate;
+
+  /***************
+   * Constructor *
+   ***************/
 
   constructor(address _token) {
     token = _token;
@@ -40,84 +69,92 @@ contract TokenMinter is AccessControlUpgradeable, ITokenMinter {
     emit MiningParametersUpdated(_initRate, _initSupply);
   }
 
-  /// @notice Returns the current epoch number.
+  /*************************
+   * Public View Functions *
+   *************************/
+
+  /// @inheritdoc ITokenMinter
   function getMiningEpoch() external view returns (uint256) {
     return _miningEpoch;
   }
 
-  /// @notice Returns the start timestamp of the current epoch.
+  /// @inheritdoc ITokenMinter
   function getStartEpochTime() external view returns (uint256) {
     return _startEpochTime;
   }
 
-  /// @notice Returns the start timestamp of the next epoch.
+  /// @inheritdoc ITokenMinter
   function getFutureEpochTime() external view returns (uint256) {
     return _startEpochTime + RATE_REDUCTION_TIME;
   }
 
-  /// @notice Returns the available supply at the beginning of the current epoch.
+  /// @inheritdoc ITokenMinter
   function getStartEpochSupply() external view returns (uint256) {
     return _startEpochSupply;
   }
 
-  /// @notice Returns the current inflation rate of BAL per second
+  /// @inheritdoc ITokenMinter
   function getInflationRate() external view returns (uint256) {
     return _rate;
   }
 
-  /// @notice Maximum allowable number of tokens in existence (claimed or unclaimed)
+  /// @inheritdoc ITokenMinter
   function getAvailableSupply() external view returns (uint256) {
     return _availableSupply();
   }
 
+  /// @inheritdoc ITokenMinter
+  function mintableInTimeframe(uint256 start, uint256 end) external view returns (uint256) {
+    return _mintableInTimeframe(start, end);
+  }
+
+  /****************************
+   * Public Mutated Functions *
+   ****************************/
+
+  /// @inheritdoc ITokenMinter
   function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
     // Check if we've passed into a new epoch such that we should calculate available supply with a smaller rate.
     if (block.timestamp >= _startEpochTime + RATE_REDUCTION_TIME) {
       _updateMiningParameters();
     }
 
-    if (IGovernanceToken(token).totalSupply() + amount > _availableSupply()) revert();
+    if (IGovernanceToken(token).totalSupply() + amount > _availableSupply()) {
+      revert ErrorMintExceedsAvailableSupply();
+    }
 
     IGovernanceToken(token).mint(to, amount);
   }
 
-  /// @notice Get timestamp of the current mining epoch start while simultaneously updating mining parameters
-  /// @return Timestamp of the current epoch
+  /// @inheritdoc ITokenMinter
   function startEpochTimeWrite() external returns (uint256) {
     return _startEpochTimeWrite();
   }
 
-  /// @notice Get timestamp of the next mining epoch start while simultaneously updating mining parameters
-  /// @return Timestamp of the next epoch
+  /// @inheritdoc ITokenMinter
   function futureEpochTimeWrite() external returns (uint256) {
     return _startEpochTimeWrite() + RATE_REDUCTION_TIME;
   }
 
-  /// @notice Update mining rate and supply at the start of the epoch
-  /// @dev Callable by any address, but only once per epoch
-  /// Total supply becomes slightly larger if this function is called late
+  /// @inheritdoc ITokenMinter
   function updateMiningParameters() external {
-    if (block.timestamp < _startEpochTime + RATE_DENOMINATOR) revert();
+    if (block.timestamp < _startEpochTime + RATE_DENOMINATOR) {
+      revert ErrorEpochNotFinished();
+    }
     _updateMiningParameters();
   }
 
-  /// @notice How much supply is mintable from start timestamp till end timestamp
-  /// @param start Start of the time interval (timestamp)
-  /// @param end End of the time interval (timestamp)
-  /// @return Tokens mintable from `start` till `end`
-  function mintableInTimeframe(uint256 start, uint256 end) external view returns (uint256) {
-    return _mintableInTimeframe(start, end);
-  }
+  /**********************
+   * Internal Functions *
+   **********************/
 
-  // Internal functions
-
-  /// @dev Maximum allowable number of tokens in existence (claimed or unclaimed)
+  /// @dev Internal function to compute the maximum allowable number of tokens in existence (claimed or unclaimed)
   function _availableSupply() internal view returns (uint256) {
     uint256 newSupplyFromCurrentEpoch = (block.timestamp - _startEpochTime) * _rate;
     return _startEpochSupply + newSupplyFromCurrentEpoch;
   }
 
-  /// @dev Get timestamp of the current mining epoch start while simultaneously updating mining parameters
+  /// @dev Internal function to get timestamp of the current mining epoch start while simultaneously updating mining parameters
   /// @return Timestamp of the current epoch
   function _startEpochTimeWrite() internal returns (uint256) {
     uint256 startEpochTime = _startEpochTime;
@@ -128,6 +165,7 @@ contract TokenMinter is AccessControlUpgradeable, ITokenMinter {
     return startEpochTime;
   }
 
+  /// @dev Internal function to update mining parameters.
   function _updateMiningParameters() internal {
     uint256 inflationRate = _rate;
     uint256 startEpochSupply = _startEpochSupply + inflationRate * RATE_REDUCTION_TIME;
@@ -141,12 +179,14 @@ contract TokenMinter is AccessControlUpgradeable, ITokenMinter {
     emit MiningParametersUpdated(inflationRate, startEpochSupply);
   }
 
-  /// @notice How much supply is mintable from start timestamp till end timestamp
+  /// @dev Internal function to compute supply is mintable from start timestamp till end timestamp
   /// @param start Start of the time interval (timestamp)
   /// @param end End of the time interval (timestamp)
   /// @return Tokens mintable from `start` till `end`
   function _mintableInTimeframe(uint256 start, uint256 end) internal view returns (uint256) {
-    if (start > end) revert();
+    if (start > end) {
+      revert ErrorInvalidTimeframe();
+    }
 
     uint256 currentEpochTime = _startEpochTime;
     uint256 currentRate = _rate;
@@ -159,7 +199,9 @@ contract TokenMinter is AccessControlUpgradeable, ITokenMinter {
       currentRate = (currentRate * RATE_DENOMINATOR) / RATE_REDUCTION_COEFFICIENT;
     }
 
-    if (end > currentEpochTime + RATE_REDUCTION_TIME) revert();
+    if (end > currentEpochTime + RATE_REDUCTION_TIME) {
+      revert ErrorTooFarInFuture();
+    }
 
     uint256 toMint = 0;
     for (uint256 epoch = 0; epoch < 999; ++epoch) {

@@ -15,21 +15,53 @@ contract TokenSchedule is AccessControlUpgradeable, ITokenSchedule {
   using SafeERC20 for IERC20;
   using EnumerableSet for EnumerableSet.AddressSet;
 
+  /**********
+   * Errors *
+   **********/
+
+  error ErrorNoTokenToDistribute();
+
+  error ErrorGaugeWeightNotChanged();
+
+  /*************
+   * Constants *
+   *************/
+
+  /// @notice The role for token distributor.
   bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
 
+  /// @dev The precision for normalized gauge weight.
   uint256 private constant PRECISION = 1e18;
 
+  /***********************
+   * Immutable Variables *
+   ***********************/
+
+  /// @notice The address of token minter.
   address public immutable minter;
 
+  /// @notice The address of token.
   address public immutable token;
 
+  /*********************
+   * Storage Variables *
+   *********************/
+
+  /// @dev The list of non-zero weight gauges.
   EnumerableSet.AddressSet private gauges;
 
+  /// @dev Mapping from gauge address to gauge weight.
   mapping(address => uint256) private weight;
 
+  /// @inheritdoc ITokenSchedule
   uint256 public totalWeight;
 
-  uint256 public lastTime;
+  /// @notice The timestamp for last `distribute()` function call.
+  uint256 public lastDistributeTime;
+
+  /***************
+   * Constructor *
+   ***************/
 
   constructor(address _minter) {
     minter = _minter;
@@ -41,9 +73,14 @@ contract TokenSchedule is AccessControlUpgradeable, ITokenSchedule {
     __ERC165_init(); // from ERC165Upgradeable
     __AccessControl_init(); // from AccessControlUpgradeable
 
-    lastTime = ITokenMinter(minter).getStartEpochTime();
+    lastDistributeTime = ITokenMinter(minter).getStartEpochTime();
   }
 
+  /*************************
+   * Public View Functions *
+   *************************/
+
+  /// @inheritdoc ITokenSchedule
   function getGauges() external view returns (address[] memory res) {
     uint256 length = gauges.length();
     res = new address[](length);
@@ -52,20 +89,27 @@ contract TokenSchedule is AccessControlUpgradeable, ITokenSchedule {
     }
   }
 
+  /// @inheritdoc ITokenSchedule
   function getWeight(address gauge) external view returns (uint256) {
     return weight[gauge];
   }
 
+  /// @inheritdoc ITokenSchedule
   function getNormalizedWeight(address gauge) external view returns (uint256) {
     if (totalWeight == 0) return 0;
     return (weight[gauge] * PRECISION) / totalWeight;
   }
 
+  /****************************
+   * Public Mutated Functions *
+   ****************************/
+
+  /// @inheritdoc ITokenSchedule
   function distribute() external onlyRole(DISTRIBUTOR_ROLE) {
-    uint256 minted = ITokenMinter(minter).mintableInTimeframe(lastTime, block.timestamp);
-    if (minted == 0) revert();
+    uint256 minted = ITokenMinter(minter).mintableInTimeframe(lastDistributeTime, block.timestamp);
+    if (minted == 0) revert ErrorNoTokenToDistribute();
     ITokenMinter(minter).mint(address(this), minted);
-    lastTime = block.timestamp;
+    lastDistributeTime = block.timestamp;
 
     uint256 length = gauges.length();
     uint256 cachedTotalWeight = totalWeight;
@@ -74,16 +118,27 @@ contract TokenSchedule is AccessControlUpgradeable, ITokenSchedule {
       uint256 amount = (weight[gauge] * minted) / cachedTotalWeight;
       IERC20(token).forceApprove(gauge, amount);
       IMultipleRewardDistributor(gauge).depositReward(token, amount);
+
+      emit DistributeRewards(gauge, amount);
     }
   }
 
+  /************************
+   * Restricted Functions *
+   ************************/
+
+  /// @notice Update the gauge weight.
+  /// @param gauge The address of gauge to update.
+  /// @param newWeight The new gauge weight.
   function updateGaugeWeight(address gauge, uint256 newWeight) external onlyRole(DEFAULT_ADMIN_ROLE) {
     uint256 oldWeight = weight[gauge];
-    if (oldWeight == newWeight) revert();
+    if (oldWeight == newWeight) revert ErrorGaugeWeightNotChanged();
 
     if (oldWeight == 0) gauges.add(gauge);
     if (newWeight == 0) gauges.remove(gauge);
     weight[gauge] = newWeight;
     totalWeight = totalWeight - oldWeight + newWeight;
+
+    emit UpdateGaugeWeight(gauge, oldWeight, newWeight);
   }
 }

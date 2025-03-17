@@ -6,18 +6,27 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ERC4626Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
 
-import { IMultipleRewardAccumulator } from "../common/rewards/accumulator/IMultipleRewardAccumulator.sol";
 import { IGauge } from "./interfaces/IGauge.sol";
 
 contract abFXN is ERC4626Upgradeable {
   using SafeERC20 for IERC20;
 
+  /***********************
+   * Immutable Variables *
+   ***********************/
+
+  /// @notice The address of xbFXN token.
   address public immutable xbFXN;
 
+  /// @notice The address of gauge for xbFXN.
   address public immutable gauge;
 
-  constructor(address _xbFXN, address _gauge) {
-    xbFXN = _xbFXN;
+  /***************
+   * Constructor *
+   ***************/
+
+  constructor(address _gauge) {
+    xbFXN = IGauge(_gauge).stakingToken();
     gauge = _gauge;
   }
 
@@ -30,23 +39,38 @@ contract abFXN is ERC4626Upgradeable {
     IERC20(xbFXN).forceApprove(gauge, type(uint256).max);
   }
 
+  /*************************
+   * Public View Functions *
+   *************************/
+
   /// @inheritdoc ERC4626Upgradeable
   function totalAssets() public view virtual override returns (uint256) {
     return IERC20(gauge).balanceOf(address(this));
   }
 
+  /****************************
+   * Public Mutated Functions *
+   ****************************/
+
+  /// @notice Harvest pending rewards.
   function harvest() external {
-    IMultipleRewardAccumulator(gauge).claim();
+    IGauge(gauge).claim();
     uint256 balance = IERC20(xbFXN).balanceOf(address(this));
     IGauge(gauge).deposit(balance);
   }
 
+  /**********************
+   * Internal Functions *
+   **********************/
+
+  /// @inheritdoc ERC4626Upgradeable
   function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal virtual override {
     super._deposit(caller, receiver, assets, shares);
 
     IGauge(gauge).deposit(assets);
   }
 
+  /// @inheritdoc ERC4626Upgradeable
   function _withdraw(
     address caller,
     address receiver,
