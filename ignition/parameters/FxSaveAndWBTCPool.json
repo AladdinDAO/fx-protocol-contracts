@@ -17,7 +17,8 @@
     "PoolManagerProxy": "0x250893CA4Ba5d05626C785e8da758026928FCD24",
     "LendingPool": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
     "BaseAsset": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-    "GaugeRewarder": "0x5Ac1A882E6CeDc58511b7e42b02BAB42E2c02956"
+    "GaugeRewarder": "0x5Ac1A882E6CeDc58511b7e42b02BAB42E2c02956",
+    "Treasury": "0x0084C2e1B1823564e597Ff4848a88D61ac63D703"
   },
   "FxSaveAndWBTCPool": {
     "FxUSDBasePoolGaugeProxyV1": "0xEd92dDe3214c24Ae04F5f96927E3bE8f8DbC3289",
@@ -37,7 +38,7 @@
     "RebalanceBonusRatio": "25000000",
     "LiquidateDebtRatio": "950000000000000000",
     "LiquidateBonusRatio": "40000000",
-    "OpenRatio": "5000000",
+    "OpenRatio": "3000000",
     "OpenRatioStep": "300000000000000000",
     "CloseFeeRatio": "1000000",
     "FundingRatio": "1000000000"
