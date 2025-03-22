@@ -7,10 +7,18 @@ import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC2
 import { IGovernanceToken } from "./interfaces/IGovernanceToken.sol";
 
 contract bFXN is ERC20Upgradeable, IGovernanceToken {
+  /**********
+   * Errors *
+   **********/
+
+  /// @dev Thrown when caller is not the minter.
+  error ErrorNotMinter();
+
   /***********************
    * Immutable Variables *
    ***********************/
-
+  
+  /// @notice The address of minter.
   address public immutable minter;
 
   /***************
@@ -32,7 +40,7 @@ contract bFXN is ERC20Upgradeable, IGovernanceToken {
 
   /// @inheritdoc IGovernanceToken
   function mint(address to, uint256 amount) external {
-    if (minter != _msgSender()) revert();
+    if (minter != _msgSender()) revert ErrorNotMinter();
 
     _mint(to, amount);
   }

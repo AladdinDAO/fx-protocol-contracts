@@ -194,8 +194,8 @@ contract BaseStETHPriceOracle is SpotPriceOracleBase, IPriceOracle {
     }
     prices = _getSpotPriceByEncoding(onchainSpotEncodings_wstETH_ETH);
     for (uint256 i = 0; i < prices.length; i++) {
-      uint256 maxPrice_wstETH_USD = maxETHPrice * prices[i];
-      uint256 minPrice_wstETH_USD = minETHPrice * prices[i];
+      uint256 maxPrice_wstETH_USD = (maxETHPrice * prices[i]) / PRECISION;
+      uint256 minPrice_wstETH_USD = (minETHPrice * prices[i]) / PRECISION;
       if (maxPrice_wstETH_USD > maxPrice) maxPrice = maxPrice_wstETH_USD;
       if (minPrice_wstETH_USD < minPrice) minPrice = minPrice_wstETH_USD;
     }

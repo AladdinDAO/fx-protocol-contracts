@@ -46,8 +46,18 @@ interface ISpotPriceOracle {
   /// + pool_type = 11: BalancerV2CachedRate
   ///   customized = |   3 bits   | ... |
   ///                | base_index | ... |
+  /// + pool_type = 12: Aerodrome CL
+  ///   customized = |   1  bit   |   8 bits   |   8  bits   | ... |
+  ///                | base_index | base_scale | quote_scale | ... |
   ///
   /// @param encoding The encoding of the price source.
   /// @return spotPrice The spot price with 18 decimal places.
   function getSpotPrice(uint256 encoding) external view returns (uint256 spotPrice);
+}
+
+interface ISpotPriceOracleOwnable is ISpotPriceOracle {
+  /// @notice Update the reader for a specific pool type.
+  /// @param poolType The pool type.
+  /// @param reader The reader address.
+  function updateReader(uint256 poolType, address reader) external;
 }

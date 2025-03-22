@@ -29,7 +29,6 @@ contract TokenMinter is AccessControlUpgradeable, ITokenMinter {
 
   /// @dev The parameters for token inflation.
   uint256 private constant RATE_REDUCTION_TIME = 365 days;
-  uint256 private constant RATE_REDUCTION_COEFFICIENT = 1189207115002721024; // 2 ** (1/4) * 1e18
   uint256 private constant RATE_DENOMINATOR = 1e18;
 
   /***********************
@@ -44,6 +43,7 @@ contract TokenMinter is AccessControlUpgradeable, ITokenMinter {
    *********************/
 
   // Supply Variables
+  uint256 public rateReductionCoefficient;
   uint256 private _miningEpoch;
   uint256 private _startEpochTime;
   uint256 private _startEpochSupply;
@@ -57,7 +57,7 @@ contract TokenMinter is AccessControlUpgradeable, ITokenMinter {
     token = _token;
   }
 
-  function initialize(uint256 _initSupply, uint256 _initRate) external initializer {
+  function initialize(uint256 _initSupply, uint256 _initRate, uint256 _rateReductionCoefficient) external initializer {
     __Context_init(); // from ContextUpgradeable
     __ERC165_init(); // from ERC165Upgradeable
     __AccessControl_init(); // from AccessControlUpgradeable
@@ -65,8 +65,12 @@ contract TokenMinter is AccessControlUpgradeable, ITokenMinter {
     _startEpochSupply = _initSupply;
     _startEpochTime = block.timestamp;
     _rate = _initRate;
+    rateReductionCoefficient = _rateReductionCoefficient;
 
     emit MiningParametersUpdated(_initRate, _initSupply);
+
+    IGovernanceToken(token).mint(_msgSender(), _initSupply);
+    _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
   }
 
   /*************************
@@ -138,7 +142,7 @@ contract TokenMinter is AccessControlUpgradeable, ITokenMinter {
 
   /// @inheritdoc ITokenMinter
   function updateMiningParameters() external {
-    if (block.timestamp < _startEpochTime + RATE_DENOMINATOR) {
+    if (block.timestamp < _startEpochTime + RATE_REDUCTION_TIME) {
       revert ErrorEpochNotFinished();
     }
     _updateMiningParameters();
@@ -169,7 +173,7 @@ contract TokenMinter is AccessControlUpgradeable, ITokenMinter {
   function _updateMiningParameters() internal {
     uint256 inflationRate = _rate;
     uint256 startEpochSupply = _startEpochSupply + inflationRate * RATE_REDUCTION_TIME;
-    inflationRate = (inflationRate * RATE_DENOMINATOR) / RATE_REDUCTION_COEFFICIENT;
+    inflationRate = (inflationRate * RATE_DENOMINATOR) / rateReductionCoefficient;
 
     _miningEpoch += 1;
     _startEpochTime += RATE_REDUCTION_TIME;
@@ -196,7 +200,7 @@ contract TokenMinter is AccessControlUpgradeable, ITokenMinter {
     // Special case if end is in future (not yet minted) epoch
     if (end > currentEpochTime + RATE_REDUCTION_TIME) {
       currentEpochTime = currentEpochTime + RATE_REDUCTION_TIME;
-      currentRate = (currentRate * RATE_DENOMINATOR) / RATE_REDUCTION_COEFFICIENT;
+      currentRate = (currentRate * RATE_DENOMINATOR) / rateReductionCoefficient;
     }
 
     if (end > currentEpochTime + RATE_REDUCTION_TIME) {
@@ -228,7 +232,7 @@ contract TokenMinter is AccessControlUpgradeable, ITokenMinter {
 
       currentEpochTime = currentEpochTime - RATE_REDUCTION_TIME;
       // double-division with rounding made rate a bit less => good
-      currentRate = (currentRate * RATE_REDUCTION_COEFFICIENT) / RATE_DENOMINATOR;
+      currentRate = (currentRate * rateReductionCoefficient) / RATE_DENOMINATOR;
     }
 
     return toMint;

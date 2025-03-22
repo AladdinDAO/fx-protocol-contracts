@@ -17,6 +17,20 @@ contract xbFXN is AccessControlUpgradeable, ERC20Upgradeable, IStakedToken {
    * Errors *
    **********/
 
+  error ErrorZeroAmount();
+
+  error ErrorInvalidVestingDuration();
+
+  error ErrorInvalidVestingId();
+
+  error ErrorVestingCannotBeCancelled();
+
+  error ErrorVestingAlreadyCancelled();
+
+  error ErrorVestingNotFinished();
+
+  error ErrorVestingAlreadyClaimed();
+
   /*************
    * Constants *
    *************/
@@ -84,6 +98,17 @@ contract xbFXN is AccessControlUpgradeable, ERC20Upgradeable, IStakedToken {
   /// @notice The next active day timestamp.
   uint256 public nextActiveDay;
 
+  /*************
+   * Modifiers *
+   *************/
+
+  modifier nonZeroAmount(uint256 amount) {
+    if (amount == 0) {
+      revert ErrorZeroAmount();
+    }
+    _;
+  }
+
   /***************
    * Constructor *
    ***************/
@@ -124,7 +149,7 @@ contract xbFXN is AccessControlUpgradeable, ERC20Upgradeable, IStakedToken {
    ****************************/
 
   /// @inheritdoc IStakedToken
-  function stake(uint256 amount, address receiver) external {
+  function stake(uint256 amount, address receiver) external nonZeroAmount(amount) {
     IERC20(bFXN).safeTransferFrom(_msgSender(), address(this), amount);
 
     _mint(receiver, amount);
@@ -133,7 +158,7 @@ contract xbFXN is AccessControlUpgradeable, ERC20Upgradeable, IStakedToken {
   }
 
   /// @inheritdoc IStakedToken
-  function exit(uint256 amount, address receiver) external returns (uint256) {
+  function exit(uint256 amount, address receiver) external nonZeroAmount(amount) returns (uint256) {
     _burn(_msgSender(), amount);
 
     uint256 penalty = (amount * SLASHING_RATIO) / PRECISION;
@@ -149,8 +174,10 @@ contract xbFXN is AccessControlUpgradeable, ERC20Upgradeable, IStakedToken {
   }
 
   /// @inheritdoc IStakedToken
-  function createVest(uint112 amount, uint256 duration) external returns (uint256 id) {
-    if (duration < MIN_VEST_DURATION || duration > MAX_VEST_DURATION) revert();
+  function createVest(uint112 amount, uint256 duration) external nonZeroAmount(amount) returns (uint256 id) {
+    if (duration < MIN_VEST_DURATION || duration > MAX_VEST_DURATION) {
+      revert ErrorInvalidVestingDuration();
+    }
 
     address sender = _msgSender();
     _burn(sender, amount);
@@ -175,11 +202,17 @@ contract xbFXN is AccessControlUpgradeable, ERC20Upgradeable, IStakedToken {
   /// @inheritdoc IStakedToken
   function cancelVest(uint256 id) external {
     address sender = _msgSender();
-    if (id >= vestings[sender].length) revert();
+    if (id >= vestings[sender].length) {
+      revert ErrorInvalidVestingId();
+    }
 
     Vesting memory cached = vestings[sender][id];
-    if (cached.startTimestamp + MAX_CANCEL_DURATION <= block.timestamp) revert();
-    if (cached.cancelled) revert();
+    if (cached.startTimestamp + MAX_CANCEL_DURATION <= block.timestamp) {
+      revert ErrorVestingCannotBeCancelled();
+    }
+    if (cached.cancelled) {
+      revert ErrorVestingAlreadyCancelled();
+    }
 
     _mint(_msgSender(), cached.amount);
 
@@ -194,12 +227,20 @@ contract xbFXN is AccessControlUpgradeable, ERC20Upgradeable, IStakedToken {
   /// @inheritdoc IStakedToken
   function claimVest(uint256 id) public {
     address sender = _msgSender();
-    if (id >= vestings[sender].length) revert();
+    if (id >= vestings[sender].length) {
+      revert ErrorInvalidVestingId();
+    }
 
     Vesting memory cached = vestings[sender][id];
-    if (cached.finishTimestamp > block.timestamp) revert();
-    if (cached.cancelled) revert();
-    if (cached.claimed) revert();
+    if (cached.finishTimestamp > block.timestamp) {
+      revert ErrorVestingNotFinished();
+    }
+    if (cached.cancelled) {
+      revert ErrorVestingAlreadyCancelled();
+    }
+    if (cached.claimed) {
+      revert ErrorVestingAlreadyClaimed();
+    }
 
     uint256 penalty = _getPenalty(cached.amount, cached.finishTimestamp - cached.startTimestamp);
     vestings[sender][id].claimed = true;
@@ -223,9 +264,11 @@ contract xbFXN is AccessControlUpgradeable, ERC20Upgradeable, IStakedToken {
     uint256 penalty;
     while (day <= nowDay) {
       uint256 dayPenalty = exitPenalty[day];
-      penalty += dayPenalty;
-      emit DistributeExitPenalty(day, dayPenalty);
+      if (dayPenalty > 0) {
+        emit DistributeExitPenalty(day, dayPenalty);
+      }
 
+      penalty += dayPenalty;
       day += DAY_SECONDS;
     }
     nextActiveDay = day;

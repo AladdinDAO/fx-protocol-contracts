@@ -74,6 +74,8 @@ contract TokenSchedule is AccessControlUpgradeable, ITokenSchedule {
     __AccessControl_init(); // from AccessControlUpgradeable
 
     lastDistributeTime = ITokenMinter(minter).getStartEpochTime();
+
+    _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
   }
 
   /*************************

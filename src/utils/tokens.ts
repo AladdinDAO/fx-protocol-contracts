@@ -211,3 +211,9 @@ EthereumTokens["CRV_3C_DOLA/DBR/INV_18"] = { decimals: 18, address: "0xC7DE47b9C
 EthereumTokens["CRV_3C_ETH+/eUSD/RSR_21"] = { decimals: 18, address: "0xDB6925eA42897ca786a045B252D95aA7370f44b4" };
 }
 /* eslint-enable prettier/prettier */
+
+export const BaseTokens: { [symbol: string]: { address: string; decimals: number } } = {
+  USDC: { decimals: 6, address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
+  WETH: { decimals: 18, address: "0x4200000000000000000000000000000000000006" },
+  cbBTC: { decimals: 8, address: "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf" },
+}

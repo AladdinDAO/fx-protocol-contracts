@@ -24,13 +24,18 @@ const config: HardhatUserConfig = {
   },
   networks: {
     mainnet: {
-      url: process.env.MAINNET_RPC_URL || "https://rpc.ankr.com/eth",
+      url: process.env.MAINNET_RPC_URL || "https://eth.llamarpc.com",
       chainId: 1,
       accounts: [process.env.PRIVATE_KEY_MAINNET!],
       ignition: {
         maxPriorityFeePerGas: ethers.parseUnits("0.01", "gwei"),
         maxFeePerGasLimit: ethers.parseUnits("100", "gwei"),
       },
+    },
+    base: {
+      url: process.env.BASE_RPC_URL || "https://base.llamarpc.com",
+      chainId: 8453,
+      accounts: [process.env.PRIVATE_KEY_BASE!],
     },
     hermez: {
       url: process.env.HERMEZ_RPC_URL || "https://zkevm-rpc.com",
@@ -74,6 +79,7 @@ const config: HardhatUserConfig = {
     apiKey: {
       mainnet: process.env.ETHERSCAN_API_KEY || "",
       hermez: process.env.POLYGON_SCAN_API_KEY || "",
+      base: process.env.BASE_SCAN_API_KEY || "",
       phalcon: process.env.PHALCON_FORK_ACCESS_KEY || "",
       tenderly: process.env.TENDERLY_ACCESS_TOKEN || "",
     },

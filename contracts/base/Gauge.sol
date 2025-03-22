@@ -54,13 +54,8 @@ contract Gauge is ERC20PermitUpgradeable, MultipleRewardAccumulator, IGauge {
   /// @inheritdoc IGauge
   address public stakingToken;
 
-  /// @notice Mapping from user address to the user governance token reward snapshot.
-  ///
-  /// @dev The integral is the value of `snapshot.integral` when the snapshot is taken.
-  mapping(address => UserRewardSnapshot) public userSnapshot;
-
   /// @dev reserved slots.
-  uint256[48] private __gap;
+  uint256[49] private __gap;
 
   /***************
    * Constructor *
@@ -216,7 +211,7 @@ contract Gauge is ERC20PermitUpgradeable, MultipleRewardAccumulator, IGauge {
   /// @param _owner The address of staking token owner.
   /// @param _amount The amount of staking token to deposit.
   /// @param _receiver The address of pool share recipient.
-  function _deposit(address _owner, uint256 _amount, address _receiver) internal nonReentrant {
+  function _deposit(address _owner, uint256 _amount, address _receiver) internal {
     // transfer token
     _amount = _transferStakingTokenIn(_owner, _amount);
 
@@ -234,7 +229,7 @@ contract Gauge is ERC20PermitUpgradeable, MultipleRewardAccumulator, IGauge {
   /// @param _owner The address of pool share owner.
   /// @param _amount The amount of staking token to withdraw.
   /// @param _receiver The address of staking token recipient.
-  function _withdraw(address _owner, uint256 _amount, address _receiver) internal nonReentrant {
+  function _withdraw(address _owner, uint256 _amount, address _receiver) internal {
     // do checkpoint
     _checkpoint(_owner);
 
