@@ -39,6 +39,11 @@ export const ChainlinkPriceFeed: {
     },
   },
   base: {
+    "USDC-USD": {
+      feed: "0x7e860098F58bBFC8648a4311b374B1D669a2bc6B",
+      scale: 10n ** (18n - 8n),
+      heartbeat: (86400 * 3) / 2 * 10000, // 1.5 multiple
+    },
     "BTC-USD": {
       feed: "0x64c911996D3c6aC71f9b455B1E8E7266BcbD848F",
       scale: 10n ** (18n - 8n),

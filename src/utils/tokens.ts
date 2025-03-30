@@ -216,4 +216,5 @@ export const BaseTokens: { [symbol: string]: { address: string; decimals: number
   USDC: { decimals: 6, address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
   WETH: { decimals: 18, address: "0x4200000000000000000000000000000000000006" },
   cbBTC: { decimals: 8, address: "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf" },
+  wstETH: { decimals: 18, address: "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452" },
 }
