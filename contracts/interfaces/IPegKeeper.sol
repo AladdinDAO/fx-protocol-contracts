@@ -29,6 +29,9 @@ interface IPegKeeper {
   /// @notice Return whether borrow for fxUSD is allowed.
   function isBorrowAllowed() external view returns (bool);
 
+  /// @notice Return whether redeem fxUSD is allowed.
+  function isRedeemAllowed() external view returns (bool);
+
   /// @notice Return whether funding costs is enabled.
   function isFundingEnabled() external view returns (bool);
   
