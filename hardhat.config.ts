@@ -23,6 +23,13 @@ const config: HardhatUserConfig = {
     ],
   },
   networks: {
+    hardhat: {
+      forking: {
+        url: "https://binance.llamarpc.com",
+      },
+      accounts: [{privateKey: process.env.PRIVATE_KEY_BSC!, balance: "100000000000000000000"}],
+      chainId: 56123,
+    },
     mainnet: {
       url: process.env.MAINNET_RPC_URL || "https://eth.llamarpc.com",
       chainId: 1,

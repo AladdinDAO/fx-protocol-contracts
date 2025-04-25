@@ -218,3 +218,8 @@ export const BaseTokens: { [symbol: string]: { address: string; decimals: number
   cbBTC: { decimals: 8, address: "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf" },
   wstETH: { decimals: 18, address: "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452" },
 }
+
+export const BSCTokens: { [symbol: string]: { address: string; decimals: number } } = {
+  USDT: { decimals: 18, address: "0x55d398326f99059fF775485246999027B3197955" },
+  WBNB: { decimals: 18, address: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c" },
+}

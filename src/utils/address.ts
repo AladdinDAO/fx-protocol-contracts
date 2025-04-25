@@ -102,3 +102,8 @@ export const BaseAddresses: { [name: string]: string } = {
   // Uniswap V3
   "UniV3_WETH/USDC_500": "0xd0b53D9277642d899DF5C87A3966A349A798F224",
 }
+
+export const BSCAddresses: { [name: string]: string } = {
+  // Uniswap V3
+  "UniV3_USDT/BNB_100": "0x47a90A2d92A8367A91EfA1906bFc8c1E05bf10c4",
+}
