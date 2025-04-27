@@ -166,7 +166,7 @@ contract BaseStETHPriceOracle is SpotPriceOracleBase, IPriceOracle {
     emit UpdateMaxPriceDeviation(oldMaxPriceDeviation, newMaxPriceDeviation);
   }
 
-  /// @dev Internal function to calculate the cbBTC/USD spot price.
+  /// @dev Internal function to calculate the wstETH/USD spot price.
   /// @return chainlinkPrice The spot price from Chainlink price feed, multiplied by 1e18.
   /// @return minPrice The minimum spot price among all available sources, multiplied by 1e18.
   /// @return maxPrice The maximum spot price among all available sources, multiplied by 1e18.

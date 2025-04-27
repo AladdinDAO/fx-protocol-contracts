@@ -14,9 +14,9 @@ contract BaseCbBTCPriceOracle is SpotPriceOracleBase, IPriceOracle {
    * Constants *
    *************/
 
-  /// @notice The Chainlink BTC/USD price feed.
+  /// @notice The Chainlink cbBTC/USD price feed.
   /// @dev See comments of `_readSpotPriceByChainlink` for more details.
-  bytes32 public immutable Chainlink_BTC_USD_Spot;
+  bytes32 public immutable Chainlink_cbBTC_USD_Spot;
 
   /*************
    * Variables *
@@ -32,8 +32,8 @@ contract BaseCbBTCPriceOracle is SpotPriceOracleBase, IPriceOracle {
    * Constructor *
    ***************/
 
-  constructor(address _spotPriceOracle, bytes32 _Chainlink_BTC_USD_Spot) SpotPriceOracleBase(_spotPriceOracle) {
-    Chainlink_BTC_USD_Spot = _Chainlink_BTC_USD_Spot;
+  constructor(address _spotPriceOracle, bytes32 _Chainlink_cbBTC_USD_Spot) SpotPriceOracleBase(_spotPriceOracle) {
+    Chainlink_cbBTC_USD_Spot = _Chainlink_cbBTC_USD_Spot;
 
     _updateMaxPriceDeviation(1e16); // 1%
   }
@@ -131,7 +131,7 @@ contract BaseCbBTCPriceOracle is SpotPriceOracleBase, IPriceOracle {
   /// @return minPrice The minimum spot price among all available sources, multiplied by 1e18.
   /// @return maxPrice The maximum spot price among all available sources, multiplied by 1e18.
   function _getBTCUSDSpotPrice() internal view returns (uint256 chainlinkPrice, uint256 minPrice, uint256 maxPrice) {
-    chainlinkPrice = _readSpotPriceByChainlink(Chainlink_BTC_USD_Spot);
+    chainlinkPrice = _readSpotPriceByChainlink(Chainlink_cbBTC_USD_Spot);
     uint256[] memory prices = _getSpotPriceByEncoding(onchainSpotEncodings_cbBTCUSD);
     minPrice = maxPrice = chainlinkPrice;
     for (uint256 i = 0; i < prices.length; i++) {

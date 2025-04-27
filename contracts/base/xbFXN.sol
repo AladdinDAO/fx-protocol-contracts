@@ -139,6 +139,11 @@ contract xbFXN is AccessControlUpgradeable, ERC20Upgradeable, IStakedToken {
     return vestings[user].length;
   }
 
+  /// @notice Return the vesting of given user by index.
+  function getUserVestingByIndex(address user, uint256 index) external view returns (Vesting memory) {
+    return vestings[user][index];
+  }
+
   /// @notice Return the list of vesting of given user.
   function getUserVestings(address user) external view returns (Vesting[] memory) {
     return vestings[user];
