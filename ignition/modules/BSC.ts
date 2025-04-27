@@ -167,6 +167,11 @@ export default buildModule("BSC", (m) => {
     { id: "AaveFundingPoolImplementation", after: [PoolManagerInitialize] }
   );
 
+  const L2PositionOperateFlashLoanFacet = m.contract("L2PositionOperateFlashLoanFacet", [
+    m.getParameter("PancakeFlashLoanPool"), PoolManagerProxy, FxUSDProxy],
+    { id: "L2PositionOperateFlashLoanFacet", after: [PoolManagerInitialize] }
+    );
+
   // deploy and configure WBNB pool
   const BNB_USD_PRICE_FEED = encodeChainlinkPriceFeed( //bnb-usd
     ChainlinkPriceFeed.bsc["BNB-USD"].feed,
@@ -212,6 +217,8 @@ export default buildModule("BSC", (m) => {
     FxUSD,
     FxUSDBSCPool,
     FxUSDBSCPoolGauge,
+    
+    L2PositionOperateFlashLoanFacet,
 
     WBNBPool,
     BNBPriceOracle,
