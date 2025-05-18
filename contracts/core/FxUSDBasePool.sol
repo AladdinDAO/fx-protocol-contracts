@@ -163,13 +163,7 @@ contract FxUSDBasePool is
   }
 
   modifier sync() {
-    {
-      // we only manage stable token
-      Allocation memory b = allocations[stableToken];
-      if (b.strategy != address(0)) {
-        totalStableToken = IStrategy(b.strategy).totalSupply() + IERC20(stableToken).balanceOf(address(this));
-      }
-    }
+    totalStableToken = _getTotalStableTokenInPool();
     _;
   }
 
@@ -237,7 +231,7 @@ contract FxUSDBasePool is
     if (_totalSupply == 0) {
       amountSharesOut = amountUSD;
     } else {
-      uint256 totalUSD = totalYieldToken + (totalStableToken * price) / PRECISION;
+      uint256 totalUSD = totalYieldToken + (_getTotalStableTokenInPool() * price) / PRECISION;
       amountSharesOut = (amountUSD * _totalSupply) / totalUSD;
     }
   }
@@ -247,7 +241,7 @@ contract FxUSDBasePool is
     uint256 amountSharesToRedeem
   ) external view returns (uint256 amountYieldOut, uint256 amountStableOut) {
     uint256 cachedTotalYieldToken = totalYieldToken;
-    uint256 cachedTotalStableToken = totalStableToken;
+    uint256 cachedTotalStableToken = _getTotalStableTokenInPool();
     uint256 cachedTotalSupply = totalSupply();
     amountYieldOut = (amountSharesToRedeem * cachedTotalYieldToken) / cachedTotalSupply;
     amountStableOut = (amountSharesToRedeem * cachedTotalStableToken) / cachedTotalSupply;
@@ -261,7 +255,7 @@ contract FxUSDBasePool is
     } else {
       uint256 stablePrice = getStableTokenPriceWithScale();
       uint256 yieldPrice = IPegKeeper(pegKeeper).getFxUSDPrice();
-      return (totalYieldToken * yieldPrice + totalStableToken * stablePrice) / _totalSupply;
+      return (totalYieldToken * yieldPrice + _getTotalStableTokenInPool() * stablePrice) / _totalSupply;
     }
   }
 
@@ -681,5 +675,15 @@ contract FxUSDBasePool is
     IERC20(tokenIn).safeTransferFrom(_msgSender(), address(this), tokenUsed);
 
     emit Rebalance(_msgSender(), tokenIn, tokenUsed, op.colls, op.yieldTokenUsed, op.stableTokenUsed);
+  }
+
+  function _getTotalStableTokenInPool() internal view returns (uint256) {
+    // we only manage stable token
+    Allocation memory b = allocations[stableToken];
+    if (b.strategy != address(0)) {
+      return IStrategy(b.strategy).totalSupply() + IERC20(stableToken).balanceOf(address(this));
+    } else {
+      return IERC20(stableToken).balanceOf(address(this));
+    }
   }
 }
