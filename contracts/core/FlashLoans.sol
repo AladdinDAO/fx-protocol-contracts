@@ -70,12 +70,14 @@ contract FlashLoans is ProtocolFees, ReentrancyGuardUpgradeable, IERC3156FlashLe
     uint256 amount,
     bytes calldata data
   ) external nonReentrant whenNotPaused returns (bool) {
-    // save the current balance
-    uint256 prevBalance = IERC20(token).balanceOf(address(this));
+    // compute flashloan fee
     uint256 fee = flashFee(token, amount);
 
     // transfer token to receiver
     IERC20(token).safeTransfer(address(receiver), amount);
+
+    // save the current balance
+    uint256 prevBalance = IERC20(token).balanceOf(address(this));
 
     // invoke the recipient's callback
     if (receiver.onFlashLoan(_msgSender(), token, amount, fee, data) != CALLBACK_SUCCESS) {
