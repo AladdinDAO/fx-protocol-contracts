@@ -34,6 +34,22 @@ abstract contract TickLogic is PoolStorage {
     _updateTopTick(type(int16).min);
   }
 
+  /************************
+   * Restricted Functions *
+   ************************/
+
+  /// @notice Get the root node and compress the path.
+  /// @dev This function is only callable by the default admin, in case someone create a long chain of nodes.
+  /// @param node The id of the given tree node.
+  /// @return root The root node id.
+  /// @return collRatio The actual collateral ratio of the given node, multiplied by 2^60.
+  /// @return debtRatio The actual debt ratio of the given node, multiplied by 2^60.
+  function getRootNodeAndCompress(
+    uint256 node
+  ) external onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256 root, uint256 collRatio, uint256 debtRatio) {
+    (root, collRatio, debtRatio) = _getRootNodeAndCompress(node);
+  }
+
   /**********************
    * Internal Functions *
    **********************/
@@ -63,24 +79,43 @@ abstract contract TickLogic is PoolStorage {
   /// @return collRatio The actual collateral ratio of the given node, multiplied by 2^60.
   /// @return debtRatio The actual debt ratio of the given node, multiplied by 2^60.
   function _getRootNodeAndCompress(uint256 node) internal returns (uint256 root, uint256 collRatio, uint256 debtRatio) {
-    // @note We can change it to non-recursive version to avoid stack overflow. Normally, the depth should be `log(n)`,
-    // where `n` is the total number of tree nodes. So we don't need to worry much about this.
-    bytes32 metadata = tickTreeData[node].metadata;
-    uint256 parent = metadata.decodeUint(PARENT_OFFSET, 48);
+    // @note On average, the expected length of the chain should be `log(n)`, where `n` is the total number of tree nodes.
+    // So we don't need to worry much about the gas usage.
+    // In normal cases, the length is bounded by `max(min(adjacent tick gap))`. And in worse case, someone try to create
+    // a long chain of nodes. We have `ErrorTickNotMoved` check in `_liquidateTick`, the maximum length of the chain is `65536`.
+    // And if someone did create a long chain, we have a public admin function to compress the chain manually and externally.
+    uint256 depth;
+    bytes32 metadata;
+    root = node;
+    while (true) {
+      // @dev no need to clean the transient storage, it will be overwritten.
+      assembly {
+        tstore(depth, root)
+        depth := add(depth, 1)
+      }
+      metadata = tickTreeData[root].metadata;
+      uint256 parent = metadata.decodeUint(PARENT_OFFSET, 48);
+      if (parent == 0) break;
+      root = parent;
+    }
+    // depth - 1
+    metadata = tickTreeData[root].metadata;
     collRatio = metadata.decodeUint(COLL_RATIO_OFFSET, 64);
     debtRatio = metadata.decodeUint(DEBT_RATIO_OFFSET, 64);
-    if (parent == 0) {
-      root = node;
-    } else {
-      uint256 collRatioCompressed;
-      uint256 debtRatioCompressed;
-      (root, collRatioCompressed, debtRatioCompressed) = _getRootNodeAndCompress(parent);
-      collRatio = (collRatio * collRatioCompressed) >> 60;
-      debtRatio = (debtRatio * debtRatioCompressed) >> 60;
-      metadata = metadata.insertUint(root, PARENT_OFFSET, 48);
-      metadata = metadata.insertUint(collRatio, COLL_RATIO_OFFSET, 64);
-      metadata = metadata.insertUint(debtRatio, DEBT_RATIO_OFFSET, 64);
-      tickTreeData[node].metadata = metadata;
+    if (depth > 1) {
+      for (uint256 i = depth - 2; ; --i) {
+        assembly {
+          node := tload(i)
+        }
+        metadata = tickTreeData[node].metadata;
+        collRatio = (collRatio * metadata.decodeUint(COLL_RATIO_OFFSET, 64)) >> 60;
+        debtRatio = (debtRatio * metadata.decodeUint(DEBT_RATIO_OFFSET, 64)) >> 60;
+        metadata = metadata.insertUint(root, PARENT_OFFSET, 48);
+        metadata = metadata.insertUint(collRatio, COLL_RATIO_OFFSET, 64);
+        metadata = metadata.insertUint(debtRatio, DEBT_RATIO_OFFSET, 64);
+        tickTreeData[node].metadata = metadata;
+        if (i == 0) break;
+      }
     }
   }
 
