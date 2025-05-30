@@ -8,6 +8,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import { IFxUSDRegeneracy } from "../interfaces/IFxUSDRegeneracy.sol";
+import { IPegKeeper } from "../interfaces/IPegKeeper.sol";
 import { IPool } from "../interfaces/IPool.sol";
 import { IPoolManager } from "../interfaces/IPoolManager.sol";
 import { IReservePool } from "../interfaces/IReservePool.sol";
@@ -42,6 +43,8 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   error ErrorRedeemExceedBalance();
 
   error ErrorInsufficientRedeemedCollateral();
+
+  error ErrorRedeemNotAllowed();
 
   /*************
    * Constants *
@@ -311,6 +314,9 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   ) external onlyRegisteredPool(pool) nonReentrant whenNotPaused returns (uint256 colls) {
     if (debts > IERC20(fxUSD).balanceOf(_msgSender())) {
       revert ErrorRedeemExceedBalance();
+    }
+    if (!IPegKeeper(pegKeeper).isRedeemAllowed()) {
+      revert ErrorRedeemNotAllowed();
     }
 
     uint256 rawColls = IPool(pool).redeem(debts);
