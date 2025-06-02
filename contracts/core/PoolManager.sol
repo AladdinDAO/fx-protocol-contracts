@@ -44,6 +44,8 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
 
   error ErrorInsufficientRedeemedCollateral();
 
+  error ErrorRedeemDebtsTooSmall();
+
   error ErrorRedeemNotAllowed();
 
   /*************
@@ -71,6 +73,8 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   uint256 private constant DEBT_CAPACITY_OFFSET = 0;
   uint256 private constant DEBT_BALANCE_OFFSET = 96;
   uint256 private constant DEBT_DATA_BITS = 96;
+
+  uint256 private constant MIN_REDEEM_DEBTS = 1 ether;
 
   /***********************
    * Immutable Variables *
@@ -314,6 +318,9 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   ) external onlyRegisteredPool(pool) nonReentrant whenNotPaused returns (uint256 colls) {
     if (debts > IERC20(fxUSD).balanceOf(_msgSender())) {
       revert ErrorRedeemExceedBalance();
+    }
+    if (debts < MIN_REDEEM_DEBTS) {
+        revert ErrorRedeemDebtsTooSmall();
     }
     if (!IPegKeeper(pegKeeper).isRedeemAllowed()) {
       revert ErrorRedeemNotAllowed();
