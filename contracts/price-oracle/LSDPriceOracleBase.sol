@@ -88,7 +88,7 @@ abstract contract LSDPriceOracleBase is SpotPriceOracleBase, IPriceOracle {
 
     uint256 cachedMaxPriceDeviation = maxPriceDeviation; // gas saving
     // use anchor price when the price deviation between anchor price and min price exceed threshold
-    if ((anchorPrice - minPrice) * PRECISION > cachedMaxPriceDeviation * minPrice) {
+    if ((anchorPrice - minPrice) * PRECISION > cachedMaxPriceDeviation * anchorPrice) {
       minPrice = anchorPrice;
     }
 

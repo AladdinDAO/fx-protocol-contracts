@@ -122,6 +122,11 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   }
 
   /// @inheritdoc IPegKeeper
+  function isRedeemAllowed() external view returns (bool) {
+    return _getFxUSDEmaPrice() < priceThreshold;
+  }
+
+  /// @inheritdoc IPegKeeper
   function getFxUSDPrice() external view returns (uint256) {
     return _getFxUSDEmaPrice();
   }
