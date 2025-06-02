@@ -227,7 +227,13 @@ abstract contract TickLogic is PoolStorage {
   /// @param tick The id of tick to liquidate.
   /// @param liquidatedColl The amount of collateral shares liquidated.
   /// @param liquidatedDebt The amount of debt shares liquidated.
-  function _liquidateTick(int16 tick, uint256 liquidatedColl, uint256 liquidatedDebt, uint256 price) internal {
+  function _liquidateTick(
+    int16 tick,
+    uint256 liquidatedColl,
+    uint256 liquidatedDebt,
+    uint256 price,
+    bool isRedeem
+  ) internal {
     uint48 node = tickData[tick];
     // create new tree node for this tick
     _newTickTreeNode(tick);
@@ -240,12 +246,14 @@ abstract contract TickLogic is PoolStorage {
     uint256 tickDebt = value.decodeUint(DEBT_SHARE_OFFSET, 128);
     uint256 tickCollAfter = tickColl - liquidatedColl;
     uint256 tickDebtAfter = tickDebt - liquidatedDebt;
-    uint256 collRatio = (tickCollAfter * E60) / tickColl;
-    uint256 debtRatio = (tickDebtAfter * E60) / tickDebt;
 
-    // update metadata
-    metadata = metadata.insertUint(collRatio, COLL_RATIO_OFFSET, 64);
-    metadata = metadata.insertUint(debtRatio, DEBT_RATIO_OFFSET, 64);
+    // update metadata, scope to avoid stack too deep
+    {
+      uint256 collRatio = (tickCollAfter * E60) / tickColl;
+      uint256 debtRatio = (tickDebtAfter * E60) / tickDebt;
+      metadata = metadata.insertUint(collRatio, COLL_RATIO_OFFSET, 64);
+      metadata = metadata.insertUint(debtRatio, DEBT_RATIO_OFFSET, 64);
+    }
 
     int256 newTick = type(int256).min;
     if (tickDebtAfter > 0) {
@@ -254,7 +262,12 @@ abstract contract TickLogic is PoolStorage {
       (newTick, parentNode) = _addPositionToTick(tickCollAfter, tickDebtAfter, false);
       metadata = metadata.insertUint(parentNode, PARENT_OFFSET, 48);
 
-      if (newTick == tick) {
+      // @note When it is redeem, we want the tick must be moved. since the attackers can use redeem to create a long
+      // chain. As for rebalance and liquidate, we don't check this. The attacker cannot control the price, it is hard
+      // to create a long chain in normal cases. And in normal reblance and liquidate, move to the same tick happens
+      // frequently and it is expected. And when attacker try to create a long chain during rebalance and liquidate,
+      // we still have admin function `getRootNodeAndCompress` to fix the issue.
+      if (newTick == tick && isRedeem) {
         revert ErrorTickNotMoved();
       }
     }
