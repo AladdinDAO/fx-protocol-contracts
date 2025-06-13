@@ -44,7 +44,13 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
 
   error ErrorInsufficientRedeemedCollateral();
 
+  error ErrorRedeemDebtsTooSmall();
+
+  error ErrorRebalanceDebtsTooSmall();
+
   error ErrorRedeemNotAllowed();
+
+  error ErrorLiquidateDebtsTooSmall();
 
   /*************
    * Constants *
@@ -71,6 +77,12 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   uint256 private constant DEBT_CAPACITY_OFFSET = 0;
   uint256 private constant DEBT_BALANCE_OFFSET = 96;
   uint256 private constant DEBT_DATA_BITS = 96;
+
+  uint256 private constant MIN_REDEEM_DEBTS = 1 ether;
+
+  uint256 private constant MIN_REBALANCE_DEBTS = 1 ether;
+
+  uint256 private constant MIN_LIQUIDATE_DEBTS = 1 ether;
 
   /***********************
    * Immutable Variables *
@@ -315,6 +327,9 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     if (debts > IERC20(fxUSD).balanceOf(_msgSender())) {
       revert ErrorRedeemExceedBalance();
     }
+    if (debts < MIN_REDEEM_DEBTS) {
+        revert ErrorRedeemDebtsTooSmall();
+    }
     if (!IPegKeeper(pegKeeper).isRedeemAllowed()) {
       revert ErrorRedeemNotAllowed();
     }
@@ -355,7 +370,11 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
   {
     LiquidateOrRebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(pool);
-    IPool.RebalanceResult memory result = IPool(pool).rebalance(tick, maxFxUSD + _scaleUp(maxStable, op.stablePrice));
+    uint256 maxRawDebts = maxFxUSD + _scaleUp(maxStable, op.stablePrice);
+    if (maxRawDebts < MIN_REBALANCE_DEBTS) {
+      revert ErrorRebalanceDebtsTooSmall();
+    }
+    IPool.RebalanceResult memory result = IPool(pool).rebalance(tick, maxRawDebts);
     op.rawColls = result.rawColls + result.bonusRawColls;
     op.bonusRawColls = result.bonusRawColls;
     op.rawDebts = result.rawDebts;
@@ -379,7 +398,11 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
   {
     LiquidateOrRebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(pool);
-    IPool.RebalanceResult memory result = IPool(pool).rebalance(maxFxUSD + _scaleUp(maxStable, op.stablePrice));
+    uint256 maxRawDebts = maxFxUSD + _scaleUp(maxStable, op.stablePrice);
+    if (maxRawDebts < MIN_REBALANCE_DEBTS) {
+      revert ErrorRebalanceDebtsTooSmall();
+    }
+    IPool.RebalanceResult memory result = IPool(pool).rebalance(maxRawDebts);
     op.rawColls = result.rawColls + result.bonusRawColls;
     op.bonusRawColls = result.bonusRawColls;
     op.rawDebts = result.rawDebts;
@@ -403,11 +426,15 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
   {
     LiquidateOrRebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(pool);
+    uint256 maxRawDebts = maxFxUSD + _scaleUp(maxStable, op.stablePrice);
+    if (maxRawDebts < MIN_LIQUIDATE_DEBTS) {
+      revert ErrorLiquidateDebtsTooSmall();
+    }
     {
       IPool.LiquidateResult memory result;
       uint256 reservedRawColls = IReservePool(reservePool).getBalance(op.collateralToken);
       reservedRawColls = _scaleUp(reservedRawColls, op.scalingFactor);
-      result = IPool(pool).liquidate(maxFxUSD + _scaleUp(maxStable, op.stablePrice), reservedRawColls);
+      result = IPool(pool).liquidate(maxRawDebts, reservedRawColls);
       op.rawColls = result.rawColls + result.bonusRawColls;
       op.bonusRawColls = result.bonusRawColls;
       op.rawDebts = result.rawDebts;

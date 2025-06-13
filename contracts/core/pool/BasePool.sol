@@ -230,7 +230,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
         uint256 rawCollRedeemed = (_convertToRawDebt(debtShareToRedeem, cachedDebtIndex, Math.Rounding.Down) *
           PRECISION) / price;
         uint256 collShareRedeemed = _convertToCollShares(rawCollRedeemed, cachedCollIndex, Math.Rounding.Down);
-        _liquidateTick(tick, collShareRedeemed, debtShareToRedeem, price);
+        _liquidateTick(tick, collShareRedeemed, debtShareToRedeem, price, true);
         debtShare -= debtShareToRedeem;
         rawColls += rawCollRedeemed;
 
@@ -286,7 +286,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
       Math.Rounding.Down
     );
 
-    _liquidateTick(tick, collShareToRebalance, debtShareToRebalance, price);
+    _liquidateTick(tick, collShareToRebalance, debtShareToRebalance, price, false);
     unchecked {
       (uint256 totalDebts, uint256 totalColls) = _getDebtAndCollateralShares();
       _updateDebtAndCollateralShares(totalDebts - debtShareToRebalance, totalColls - collShareToRebalance);
@@ -540,7 +540,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
     }
     uint256 collShares = _convertToCollShares(rawColls + bonusRawColls, vars.collIndex, Math.Rounding.Down);
 
-    _liquidateTick(tick, collShares, debtShares, vars.price);
+    _liquidateTick(tick, collShares, debtShares, vars.price, false);
     vars.totalCollShares -= collShares;
     vars.totalDebtShares -= debtShares;
     vars.maxRawDebts -= rawDebts;
@@ -599,7 +599,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
       vars.totalDebtShares -= debtShares;
     }
     vars.maxRawDebts -= rawDebts;
-    _liquidateTick(tick, collShares, debtShares, vars.price);
+    _liquidateTick(tick, collShares, debtShares, vars.price, false);
   }
 
   /// @dev Internal function to update collateral and debt index.
