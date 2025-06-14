@@ -31,7 +31,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
    *************/
 
   /// @dev The precision used to compute nav.
-  uint256 private constant PRECISION = 1e18;
+  uint256 internal constant PRECISION = 1e18;
 
   /// @notice The role for buyback.
   bytes32 public constant BUYBACK_ROLE = keccak256("BUYBACK_ROLE");
@@ -196,8 +196,6 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   /// @dev Internal function to update the address of converter.
   /// @param newConverter The address of converter.
   function _updateConverter(address newConverter) internal {
-    if (newConverter == address(0)) revert ErrorZeroAddress();
-
     address oldConverter = converter;
     converter = newConverter;
 
@@ -207,8 +205,6 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   /// @dev Internal function to update the address of curve pool.
   /// @param newPool The address of curve pool.
   function _updateCurvePool(address newPool) internal {
-    if (newPool == address(0)) revert ErrorZeroAddress();
-
     address oldPool = curvePool;
     curvePool = newPool;
 
@@ -229,7 +225,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   /// @param amountIn The amount of token to use.
   /// @param data The callback data.
   /// @return amountOut The amount of token swapped.
-  function _doSwap(address srcToken, uint256 amountIn, bytes calldata data) internal returns (uint256 amountOut) {
+  function _doSwap(address srcToken, uint256 amountIn, bytes calldata data) internal virtual returns (uint256 amountOut) {
     IERC20(srcToken).forceApprove(converter, amountIn);
 
     (uint256 minOut, uint256 encoding, uint256[] memory routes) = abi.decode(data, (uint256, uint256, uint256[]));
@@ -239,7 +235,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
 
   /// @dev Internal function to get curve ema price for fxUSD.
   /// @return price The value of ema price, multiplied by 1e18.
-  function _getFxUSDEmaPrice() internal view returns (uint256 price) {
+  function _getFxUSDEmaPrice() internal view virtual returns (uint256 price) {
     address cachedCurvePool = curvePool; // gas saving
     address firstCoin = ICurveStableSwapNG(cachedCurvePool).coins(0);
     price = ICurveStableSwapNG(cachedCurvePool).price_oracle(0);
@@ -247,4 +243,10 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
       price = (PRECISION * PRECISION) / price;
     }
   }
+
+  /**
+   * @dev This empty reserved space is put in place to allow future versions to add new
+   * variables without shifting down storage in the inheritance chain.
+   */
+  uint256[47] private __gap;
 }

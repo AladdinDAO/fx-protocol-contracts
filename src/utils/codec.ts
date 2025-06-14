@@ -194,6 +194,7 @@ export enum SpotPricePoolType {
   ERC4626,
   ETHLSD,
   BalancerV2CachedRate,
+  AerodromeCL,
 }
 
 export function encodeSpotPricePool(
@@ -217,6 +218,7 @@ export function encodeSpotPricePool(
   switch (poolType) {
     case SpotPricePoolType.UniswapV2:
     case SpotPricePoolType.UniswapV3:
+    case SpotPricePoolType.AerodromeCL:
       assert(options.base_index !== undefined, "no base_index");
       assert(options.base_scale !== undefined, "no base_scale");
       assert(options.quote_scale !== undefined, "no quote_scale");
@@ -308,6 +310,7 @@ export function decodeSpotPricePool(encoding: bigint): string {
   switch (poolType) {
     case SpotPricePoolType.UniswapV2:
     case SpotPricePoolType.UniswapV3:
+    case SpotPricePoolType.AerodromeCL:
       baseIndex = encoding & 1n;
       extra = `baseIndex[${baseIndex}] quoteIndex[${baseIndex ^ 1n}]`;
       break;
