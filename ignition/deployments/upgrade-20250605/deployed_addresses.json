@@ -1,0 +1,7 @@
+{
+  "Upgrade20250605#AaveFundingPoolImplementation": "0x4ae83Cb5b677459BE02359f29A0d6aB27aF1dC24",
+  "Upgrade20250605#AaveV3CompoundStrategy": "0xd023Aac0e2D46c93d4c6e8e2A449bF2d4687804f",
+  "Upgrade20250605#FxUSDBasePoolImplementation": "0x9579c311B54B4Bb3460A5461CC6108EE162933c4",
+  "Upgrade20250605#PegKeeperImplementation": "0x17e2e8ca0B35aA750771e000D1E926417b97f29d",
+  "Upgrade20250605#PoolManagerImplementation": "0x3cDBF28214e4D703C5c599aBb5a765BEf9bF8815"
+}

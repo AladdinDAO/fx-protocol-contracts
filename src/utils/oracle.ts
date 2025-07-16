@@ -63,7 +63,6 @@ export const SpotPriceEncodings: { [pair: string]: string } = {
     [SpotPricePool["WBTC/USDC-V3Uni3000"]],
   ]),
   "WETH/USDC": encodeSpotPriceSources([
-    [SpotPricePool["WETH/USDC-UniV2"]],
     [SpotPricePool["WETH/USDC-V3Uni500"]],
     [SpotPricePool["WETH/USDC-V3Uni3000"]],
   ]),

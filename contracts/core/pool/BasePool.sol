@@ -51,7 +51,7 @@ abstract contract BasePool is TickLogic, PositionLogic {
    ***************/
 
   constructor(address _poolManager) {
-    _checkAddressNotZero(_poolManager);
+    // _checkAddressNotZero(_poolManager);
 
     poolManager = _poolManager;
     fxUSD = IPoolManager(_poolManager).fxUSD();
