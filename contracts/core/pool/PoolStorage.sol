@@ -164,7 +164,7 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
    ***************/
 
   function __PoolStorage_init(address _collateralToken, address _priceOracle) internal onlyInitializing {
-    _checkAddressNotZero(_collateralToken);
+    // _checkAddressNotZero(_collateralToken);
 
     collateralToken = _collateralToken;
     _updatePriceOracle(_priceOracle);
@@ -243,7 +243,7 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   /// @dev Internal function to update price oracle.
   /// @param newOracle The address of new price oracle;
   function _updatePriceOracle(address newOracle) internal {
-    _checkAddressNotZero(newOracle);
+    // _checkAddressNotZero(newOracle);
 
     address oldOracle = priceOracle;
     priceOracle = newOracle;
@@ -325,8 +325,8 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   /// @param minDebtRatio The minimum allowed debt ratio to update, multiplied by 1e18.
   /// @param maxDebtRatio The maximum allowed debt ratio to update, multiplied by 1e18.
   function _updateDebtRatioRange(uint256 minDebtRatio, uint256 maxDebtRatio) internal {
-    _checkValueTooLarge(minDebtRatio, maxDebtRatio);
-    _checkValueTooLarge(maxDebtRatio, PRECISION);
+    // _checkValueTooLarge(minDebtRatio, maxDebtRatio);
+    // _checkValueTooLarge(maxDebtRatio, PRECISION);
 
     bytes32 data = miscData;
     data = data.insertUint(minDebtRatio, MIN_DEBT_RATIO_OFFSET, 60);
@@ -343,7 +343,7 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   /// @dev Internal function to update maximum redeem ratio per tick.
   /// @param ratio The ratio to update, multiplied by 1e9.
   function _updateMaxRedeemRatioPerTick(uint256 ratio) internal {
-    _checkValueTooLarge(ratio, FEE_PRECISION);
+    // _checkValueTooLarge(ratio, FEE_PRECISION);
 
     miscData = miscData.insertUint(ratio, MAX_REDEEM_RATIO_OFFSET, 30);
 
@@ -367,8 +367,8 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   /// @param debtRatio The minimum debt ratio to start rebalance, multiplied by 1e18.
   /// @param bonusRatio The bonus ratio during rebalance, multiplied by 1e9.
   function _updateRebalanceRatios(uint256 debtRatio, uint256 bonusRatio) internal {
-    _checkValueTooLarge(debtRatio, PRECISION);
-    _checkValueTooLarge(bonusRatio, FEE_PRECISION);
+    // _checkValueTooLarge(debtRatio, PRECISION);
+    // _checkValueTooLarge(bonusRatio, FEE_PRECISION);
 
     bytes32 data = rebalanceRatioData;
     data = data.insertUint(debtRatio, REBALANCE_DEBT_RATIO_OFFSET, 60);
@@ -390,8 +390,8 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   /// @param debtRatio The minimum debt ratio to start liquidate, multiplied by 1e18.
   /// @param bonusRatio The bonus ratio during liquidate, multiplied by 1e9.
   function _updateLiquidateRatios(uint256 debtRatio, uint256 bonusRatio) internal {
-    _checkValueTooLarge(debtRatio, PRECISION);
-    _checkValueTooLarge(bonusRatio, FEE_PRECISION);
+    // _checkValueTooLarge(debtRatio, PRECISION);
+    // _checkValueTooLarge(bonusRatio, FEE_PRECISION);
 
     bytes32 data = rebalanceRatioData;
     data = data.insertUint(debtRatio, LIQUIDATE_DEBT_RATIO_OFFSET, 60);

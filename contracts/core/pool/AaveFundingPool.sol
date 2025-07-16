@@ -91,8 +91,8 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
    ***************/
 
   constructor(address _poolManager, address _lendingPool, address _baseAsset) BasePool(_poolManager) {
-    _checkAddressNotZero(_lendingPool);
-    _checkAddressNotZero(_baseAsset);
+    // _checkAddressNotZero(_lendingPool);
+    // _checkAddressNotZero(_baseAsset);
 
     lendingPool = _lendingPool;
     baseAsset = _baseAsset;
@@ -105,10 +105,10 @@ contract AaveFundingPool is BasePool, IAaveFundingPool {
     address _collateralToken,
     address _priceOracle
   ) external initializer {
-    __Context_init();
-    __ERC165_init();
+    // __Context_init();
+    // __ERC165_init();
     __ERC721_init(name_, symbol_);
-    __AccessControl_init();
+    // __AccessControl_init();
 
     __PoolStorage_init(_collateralToken, _priceOracle);
     __TickLogic_init();

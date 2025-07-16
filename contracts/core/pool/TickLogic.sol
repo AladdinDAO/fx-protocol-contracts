@@ -142,11 +142,16 @@ abstract contract TickLogic is PoolStorage {
   /// @return tick The value of found first tick.
   function _getTick(uint256 colls, uint256 debts) internal pure returns (int256 tick) {
     uint256 ratio = (debts * TickMath.ZERO_TICK_SCALED_RATIO) / colls;
-    uint256 ratioAtTick;
-    (tick, ratioAtTick) = TickMath.getTickAtRatio(ratio);
-    if (ratio != ratioAtTick) {
-      tick++;
-      ratio = (ratioAtTick * 10015) / 10000;
+    (tick, ) = TickMath.getTickAtRatio(ratio);
+    if (tick < TickMath.MIN_TICK) {
+      tick = TickMath.MIN_TICK;
+    }
+    uint256 ratioAtTick = TickMath.getRatioAtTick(tick);
+    unchecked {
+      if (ratioAtTick < ratio) tick++;
+    }
+    if (tick > TickMath.MAX_TICK) {
+      tick = TickMath.MAX_TICK;
     }
   }
 

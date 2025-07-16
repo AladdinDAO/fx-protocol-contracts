@@ -48,8 +48,8 @@ const config: HardhatUserConfig = {
       accounts: testAccounts,
     },
     tenderly: {
-      url: `https://virtual.mainnet.rpc.tenderly.co/${process.env.TENDERLY_RPC_ID || ""}`,
-      chainId: parseInt(process.env.TENDERLY_CHAIN_ID || "1"),
+      url: `https://virtual.mainnet.rpc.tenderly.co/${process.env.TENDERLY_ETHEREUM_RPC_ID || ""}`,
+      chainId: parseInt(process.env.TENDERLY_ETHEREUM_CHAIN_ID || "1"),
       accounts: testAccounts,
       ignition: {
         maxPriorityFeePerGas: ethers.parseUnits("0.01", "gwei"),
@@ -96,10 +96,10 @@ const config: HardhatUserConfig = {
       },
       {
         network: "tenderly",
-        chainId: parseInt(process.env.TENDERLY_CHAIN_ID || "1"),
+        chainId: parseInt(process.env.TENDERLY_ETHEREUM_CHAIN_ID || "1"),
         urls: {
-          apiURL: `https://virtual.mainnet.rpc.tenderly.co/${process.env.TENDERLY_RPC_ID || ""}/verify/etherscan`,
-          browserURL: `https://dashboard.tenderly.co/${process.env.TENDERLY_USERNAME}/${process.env.TENDERLY_PROJECT}/testnet/${process.env.TENDERLY_TESTNET_ID}/contract/virtual/`,
+          apiURL: `https://virtual.mainnet.rpc.tenderly.co/${process.env.TENDERLY_ETHEREUM_RPC_ID || ""}/verify/etherscan`,
+          browserURL: `https://dashboard.tenderly.co/${process.env.TENDERLY_USERNAME}/${process.env.TENDERLY_PROJECT}/testnet/${process.env.TENDERLY_ETHEREUM_TESTNET_ID}/contract/virtual/`,
         },
       },
     ],
