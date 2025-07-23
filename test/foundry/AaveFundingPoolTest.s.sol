@@ -8,6 +8,4 @@ contract AaveFundingPoolTest is PoolTestBase {
   function setUp() external {
     __PoolTestBase_setUp(1.23 ether, 18);
   }
-
-  function testFuzzing() external {}
 }

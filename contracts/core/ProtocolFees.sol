@@ -24,17 +24,8 @@ abstract contract ProtocolFees is AccessControlUpgradeable, PausableUpgradeable,
   /// @dev Thrown when the given address is zero.
   error ErrorZeroAddress();
 
-  /// @dev Thrown when the expense ratio exceeds `MAX_EXPENSE_RATIO`.
-  error ErrorExpenseRatioTooLarge();
-
-  /// @dev Thrown when the harvester ratio exceeds `MAX_HARVESTER_RATIO`.
-  error ErrorHarvesterRatioTooLarge();
-
-  /// @dev Thrown when the flash loan fee ratio exceeds `MAX_FLASH_LOAN_FEE_RATIO`.
-  error ErrorFlashLoanFeeRatioTooLarge();
-
-  /// @dev Thrown when the redeem fee ratio exceeds `MAX_REDEEM_FEE_RATIO`.
-  error ErrorRedeemFeeRatioTooLarge();
+  /// @dev Thrown when the given value exceeds maximum value.
+  error ErrorValueTooLarge();
 
   /*************
    * Constants *
@@ -169,15 +160,21 @@ abstract contract ProtocolFees is AccessControlUpgradeable, PausableUpgradeable,
     return _miscData.decodeUint(HARVESTER_RATIO_OFFSET, 30);
   }
 
+  /* @dev removed to reduce codesize, since it is not used.
   /// @inheritdoc IProtocolFees
   function getFundingFxSaveRatio() external view returns (uint256) {
     return FEE_PRECISION - getFundingExpenseRatio() - getHarvesterRatio();
   }
+  */
 
+  /* @dev removed to reduce codesize, since it is not used.
   /// @inheritdoc IProtocolFees
   function getRewardsFxSaveRatio() external view returns (uint256) {
-    return FEE_PRECISION - getRewardsExpenseRatio() - getHarvesterRatio();
+    unchecked {
+      return FEE_PRECISION - getRewardsExpenseRatio() - getHarvesterRatio();
+    }
   }
+  */
 
   /// @inheritdoc IProtocolFees
   function getFlashLoanFeeRatio() public view returns (uint256) {
@@ -273,7 +270,7 @@ abstract contract ProtocolFees is AccessControlUpgradeable, PausableUpgradeable,
   /// @dev Internal function to change address of treasury contract.
   /// @param _newTreasury The new address of treasury contract.
   function _updateTreasury(address _newTreasury) private {
-    if (_newTreasury == address(0)) revert ErrorZeroAddress();
+    _checkAddressNotZero(_newTreasury);
 
     address _oldTreasury = treasury;
     treasury = _newTreasury;
@@ -284,7 +281,7 @@ abstract contract ProtocolFees is AccessControlUpgradeable, PausableUpgradeable,
   /// @dev Internal function to change address of revenue pool contract.
   /// @param _newPool The new address of revenue pool contract.
   function _updateOpenRevenuePool(address _newPool) private {
-    if (_newPool == address(0)) revert ErrorZeroAddress();
+    _checkAddressNotZero(_newPool);
 
     address _oldPool = openRevenuePool;
     openRevenuePool = _newPool;
@@ -295,7 +292,7 @@ abstract contract ProtocolFees is AccessControlUpgradeable, PausableUpgradeable,
   /// @dev Internal function to change address of revenue pool contract.
   /// @param _newPool The new address of revenue pool contract.
   function _updateCloseRevenuePool(address _newPool) private {
-    if (_newPool == address(0)) revert ErrorZeroAddress();
+    _checkAddressNotZero(_newPool);
 
     address _oldPool = closeRevenuePool;
     closeRevenuePool = _newPool;
@@ -306,7 +303,7 @@ abstract contract ProtocolFees is AccessControlUpgradeable, PausableUpgradeable,
   /// @dev Internal function to change address of revenue pool contract.
   /// @param _newPool The new address of revenue pool contract.
   function _updateMiscRevenuePool(address _newPool) private {
-    if (_newPool == address(0)) revert ErrorZeroAddress();
+    _checkAddressNotZero(_newPool);
 
     address _oldPool = miscRevenuePool;
     miscRevenuePool = _newPool;
@@ -317,7 +314,7 @@ abstract contract ProtocolFees is AccessControlUpgradeable, PausableUpgradeable,
   /// @dev Internal function to change the address of reserve pool contract.
   /// @param newReservePool The new address of reserve pool contract.
   function _updateReservePool(address newReservePool) private {
-    if (newReservePool == address(0)) revert ErrorZeroAddress();
+    _checkAddressNotZero(newReservePool);
 
     address oldReservePool = reservePool;
     reservePool = newReservePool;
@@ -325,95 +322,72 @@ abstract contract ProtocolFees is AccessControlUpgradeable, PausableUpgradeable,
     emit UpdateReservePool(oldReservePool, newReservePool);
   }
 
+  /// @dev Internal function to update the misc data.
+  /// @param newValue The new value to update.
+  /// @param offset The offset of the value to update.
+  /// @param length The length of the value to update.
+  /// @return oldValue The old value.
+  function _updateMiscData(uint256 newValue, uint256 offset, uint256 length) private returns (uint256 oldValue) {
+    bytes32 _data = _miscData;
+    oldValue = _miscData.decodeUint(offset, length);
+    _miscData = _data.insertUint(newValue, offset, length);
+
+    return oldValue;
+  }
+
   /// @dev Internal function to update the fee ratio distributed to treasury.
   /// @param newRatio The new ratio to update, multiplied by 1e9.
   function _updateRewardsExpenseRatio(uint256 newRatio) private {
-    if (uint256(newRatio) > MAX_EXPENSE_RATIO) {
-      revert ErrorExpenseRatioTooLarge();
-    }
-
-    bytes32 _data = _miscData;
-    uint256 _oldRatio = _miscData.decodeUint(REWARDS_EXPENSE_RATIO_OFFSET, 30);
-    _miscData = _data.insertUint(newRatio, REWARDS_EXPENSE_RATIO_OFFSET, 30);
-
-    emit UpdateRewardsExpenseRatio(_oldRatio, newRatio);
+    _checkValueTooLarge(newRatio, MAX_EXPENSE_RATIO);
+    uint256 oldRatio = _updateMiscData(newRatio, REWARDS_EXPENSE_RATIO_OFFSET, 30);
+    emit UpdateRewardsExpenseRatio(oldRatio, newRatio);
   }
 
   /// @dev Internal function to update the fee ratio distributed to treasury.
   /// @param newRatio The new ratio to update, multiplied by 1e9.
   function _updateLiquidationExpenseRatio(uint256 newRatio) private {
-    if (uint256(newRatio) > MAX_EXPENSE_RATIO) {
-      revert ErrorExpenseRatioTooLarge();
-    }
-
-    bytes32 _data = _miscData;
-    uint256 _oldRatio = _miscData.decodeUint(LIQUIDATION_EXPENSE_RATIO_OFFSET, 30);
-    _miscData = _data.insertUint(newRatio, LIQUIDATION_EXPENSE_RATIO_OFFSET, 30);
-
-    emit UpdateLiquidationExpenseRatio(_oldRatio, newRatio);
+    _checkValueTooLarge(newRatio, MAX_EXPENSE_RATIO);
+    uint256 oldRatio = _updateMiscData(newRatio, LIQUIDATION_EXPENSE_RATIO_OFFSET, 30);
+    emit UpdateLiquidationExpenseRatio(oldRatio, newRatio);
   }
 
   /// @dev Internal function to update the fee ratio distributed to treasury.
   /// @param newRatio The new ratio to update, multiplied by 1e9.
   function _updateFundingExpenseRatio(uint256 newRatio) private {
-    if (uint256(newRatio) > MAX_EXPENSE_RATIO) {
-      revert ErrorExpenseRatioTooLarge();
-    }
-
-    bytes32 _data = _miscData;
-    uint256 _oldRatio = _miscData.decodeUint(FUNDING_EXPENSE_RATIO_OFFSET, 30);
-    _miscData = _data.insertUint(newRatio, FUNDING_EXPENSE_RATIO_OFFSET, 30);
-
-    emit UpdateFundingExpenseRatio(_oldRatio, newRatio);
+    _checkValueTooLarge(newRatio, MAX_EXPENSE_RATIO);
+    uint256 oldRatio = _updateMiscData(newRatio, FUNDING_EXPENSE_RATIO_OFFSET, 30);
+    emit UpdateFundingExpenseRatio(oldRatio, newRatio);
   }
 
   /// @dev Internal function to update the fee ratio distributed to harvester.
   /// @param newRatio The new ratio to update, multiplied by 1e9.
   function _updateHarvesterRatio(uint256 newRatio) private {
-    if (uint256(newRatio) > MAX_HARVESTER_RATIO) {
-      revert ErrorHarvesterRatioTooLarge();
-    }
-
-    bytes32 _data = _miscData;
-    uint256 _oldRatio = _miscData.decodeUint(HARVESTER_RATIO_OFFSET, 30);
-    _miscData = _data.insertUint(newRatio, HARVESTER_RATIO_OFFSET, 30);
-
-    emit UpdateHarvesterRatio(_oldRatio, newRatio);
+    _checkValueTooLarge(newRatio, MAX_HARVESTER_RATIO);
+    uint256 oldRatio = _updateMiscData(newRatio, HARVESTER_RATIO_OFFSET, 30);
+    emit UpdateHarvesterRatio(oldRatio, newRatio);
   }
 
   /// @dev Internal function to update the flash loan fee ratio.
   /// @param newRatio The new ratio to update, multiplied by 1e9.
   function _updateFlashLoanFeeRatio(uint256 newRatio) private {
-    if (uint256(newRatio) > MAX_FLASH_LOAN_FEE_RATIO) {
-      revert ErrorFlashLoanFeeRatioTooLarge();
-    }
-
-    bytes32 _data = _miscData;
-    uint256 _oldRatio = _miscData.decodeUint(FLASH_LOAN_RATIO_OFFSET, 30);
-    _miscData = _data.insertUint(newRatio, FLASH_LOAN_RATIO_OFFSET, 30);
-
-    emit UpdateFlashLoanFeeRatio(_oldRatio, newRatio);
+    _checkValueTooLarge(newRatio, MAX_FLASH_LOAN_FEE_RATIO);
+    uint256 oldRatio = _updateMiscData(newRatio, FLASH_LOAN_RATIO_OFFSET, 30);
+    emit UpdateFlashLoanFeeRatio(oldRatio, newRatio);
   }
 
   /// @dev Internal function to update the redeem fee ratio.
   /// @param newRatio The new ratio to update, multiplied by 1e9.
   function _updateRedeemFeeRatio(uint256 newRatio) private {
-    if (uint256(newRatio) > MAX_REDEEM_FEE_RATIO) {
-      revert ErrorRedeemFeeRatioTooLarge();
-    }
-
-    bytes32 _data = _miscData;
-    uint256 _oldRatio = _miscData.decodeUint(REDEEM_FEE_RATIO_OFFSET, 30);
-    _miscData = _data.insertUint(newRatio, REDEEM_FEE_RATIO_OFFSET, 30);
-
-    emit UpdateRedeemFeeRatio(_oldRatio, newRatio);
+    _checkValueTooLarge(newRatio, MAX_REDEEM_FEE_RATIO);
+    uint256 oldRatio = _updateMiscData(newRatio, REDEEM_FEE_RATIO_OFFSET, 30);
+    emit UpdateRedeemFeeRatio(oldRatio, newRatio);
   }
 
   /// @dev Internal function to accumulate protocol fee for the given pool.
   /// @param pool The address of pool.
   /// @param amount The amount of protocol fee.
   function _accumulatePoolOpenFee(address pool, uint256 amount) internal {
-    if (amount > 0) {
+    unchecked {
       accumulatedPoolOpenFees[pool] += amount;
     }
   }
@@ -422,7 +396,7 @@ abstract contract ProtocolFees is AccessControlUpgradeable, PausableUpgradeable,
   /// @param pool The address of pool.
   /// @param amount The amount of protocol fee.
   function _accumulatePoolCloseFee(address pool, uint256 amount) internal {
-    if (amount > 0) {
+    unchecked {
       accumulatedPoolCloseFees[pool] += amount;
     }
   }
@@ -431,16 +405,16 @@ abstract contract ProtocolFees is AccessControlUpgradeable, PausableUpgradeable,
   /// @param pool The address of pool.
   /// @param amount The amount of protocol fee.
   function _accumulatePoolMiscFee(address pool, uint256 amount) internal {
-    if (amount > 0) {
+    unchecked {
       accumulatedPoolMiscFees[pool] += amount;
     }
   }
 
   /// @dev Internal function to withdraw accumulated protocol fee for the given pool.
   /// @param pool The address of pool.
-  function _takeAccumulatedPoolFee(address pool) internal returns (uint256 fees) {
+  function _takeAccumulatedPoolFee(address pool) internal virtual {
     address collateralToken = IPool(pool).collateralToken();
-    fees = accumulatedPoolOpenFees[pool];
+    uint256 fees = accumulatedPoolOpenFees[pool];
     if (fees > 0) {
       IERC20(collateralToken).safeTransfer(openRevenuePool, fees);
       accumulatedPoolOpenFees[pool] = 0;
@@ -455,6 +429,18 @@ abstract contract ProtocolFees is AccessControlUpgradeable, PausableUpgradeable,
       IERC20(collateralToken).safeTransfer(miscRevenuePool, fees);
       accumulatedPoolMiscFees[pool] = 0;
     }
+  }
+
+  /// @dev Internal function to check value not too large.
+  /// @param value The value to check.
+  /// @param upperBound The upper bound for the given value.
+  function _checkValueTooLarge(uint256 value, uint256 upperBound) internal pure {
+    if (value > upperBound) revert ErrorValueTooLarge();
+  }
+
+  /// @dev Internal function to check address is nonzero
+  function _checkAddressNotZero(address value) internal pure {
+    if (value == address(0)) revert ErrorZeroAddress();
   }
 
   /**

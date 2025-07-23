@@ -5,7 +5,7 @@ pragma solidity ^0.8.26;
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 import { AggregatorV3Interface } from "../interfaces/Chainlink/AggregatorV3Interface.sol";
-import { IPoolManager } from "../interfaces/IPoolManager.sol";
+import { ILongPoolManager } from "../interfaces/ILongPoolManager.sol";
 
 contract MockFxUSDSave {
   /// @notice The address of `PoolManager` contract.
@@ -84,7 +84,7 @@ contract MockFxUSDSave {
   ) external returns (uint256 colls, uint256 yieldTokenUsed, uint256 stableTokenUsed) {
     IERC20Metadata(yieldToken).approve(poolManager, type(uint256).max);
     IERC20Metadata(stableToken).approve(poolManager, type(uint256).max);
-    (colls, yieldTokenUsed, stableTokenUsed) = IPoolManager(poolManager).rebalance(
+    (colls, yieldTokenUsed, stableTokenUsed) = ILongPoolManager(poolManager).rebalance(
       pool,
       msg.sender,
       tickId,
@@ -100,7 +100,7 @@ contract MockFxUSDSave {
   ) external returns (uint256 colls, uint256 yieldTokenUsed, uint256 stableTokenUsed) {
     IERC20Metadata(yieldToken).approve(poolManager, type(uint256).max);
     IERC20Metadata(stableToken).approve(poolManager, type(uint256).max);
-    (colls, yieldTokenUsed, stableTokenUsed) = IPoolManager(poolManager).rebalance(
+    (colls, yieldTokenUsed, stableTokenUsed) = ILongPoolManager(poolManager).rebalance(
       pool,
       msg.sender,
       maxFxUSD,
@@ -115,7 +115,7 @@ contract MockFxUSDSave {
   ) external returns (uint256 colls, uint256 yieldTokenUsed, uint256 stableTokenUsed) {
     IERC20Metadata(yieldToken).approve(poolManager, type(uint256).max);
     IERC20Metadata(stableToken).approve(poolManager, type(uint256).max);
-    (colls, yieldTokenUsed, stableTokenUsed) = IPoolManager(poolManager).liquidate(
+    (colls, yieldTokenUsed, stableTokenUsed) = ILongPoolManager(poolManager).liquidate(
       pool,
       msg.sender,
       maxFxUSD,

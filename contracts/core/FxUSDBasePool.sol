@@ -15,7 +15,7 @@ import { IStrategy } from "../fund/IStrategy.sol";
 import { AggregatorV3Interface } from "../interfaces/Chainlink/AggregatorV3Interface.sol";
 import { IPegKeeper } from "../interfaces/IPegKeeper.sol";
 import { IPool } from "../interfaces/IPool.sol";
-import { IPoolManager } from "../interfaces/IPoolManager.sol";
+import { ILongPoolManager } from "../interfaces/ILongPoolManager.sol";
 import { IFxUSDBasePool } from "../interfaces/IFxUSDBasePool.sol";
 
 import { AssetManagement } from "../fund/AssetManagement.sol";
@@ -408,7 +408,7 @@ contract FxUSDBasePool is
     uint256 minCollOut
   ) external onlyValidToken(tokenIn) nonReentrant sync returns (uint256 tokenUsed, uint256 colls) {
     RebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(tokenIn, maxAmount);
-    (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = IPoolManager(poolManager).rebalance(
+    (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = ILongPoolManager(poolManager).rebalance(
       pool,
       _msgSender(),
       tickId,
@@ -427,7 +427,7 @@ contract FxUSDBasePool is
     uint256 minCollOut
   ) external onlyValidToken(tokenIn) nonReentrant sync returns (uint256 tokenUsed, uint256 colls) {
     RebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(tokenIn, maxAmount);
-    (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = IPoolManager(poolManager).rebalance(
+    (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = ILongPoolManager(poolManager).rebalance(
       pool,
       _msgSender(),
       op.yieldTokenToUse,
@@ -445,7 +445,7 @@ contract FxUSDBasePool is
     uint256 minCollOut
   ) external onlyValidToken(tokenIn) nonReentrant sync returns (uint256 tokenUsed, uint256 colls) {
     RebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(tokenIn, maxAmount);
-    (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = IPoolManager(poolManager).liquidate(
+    (op.colls, op.yieldTokenUsed, op.stableTokenUsed) = ILongPoolManager(poolManager).liquidate(
       pool,
       _msgSender(),
       op.yieldTokenToUse,

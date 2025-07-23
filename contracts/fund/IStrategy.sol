@@ -3,6 +3,8 @@
 pragma solidity ^0.8.0;
 
 interface IStrategy {
+  function principal() external view returns (uint256);
+
   function totalSupply() external view returns (uint256);
 
   function deposit(uint256 amount) external;

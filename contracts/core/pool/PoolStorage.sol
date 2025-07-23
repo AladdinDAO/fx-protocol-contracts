@@ -159,6 +159,9 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
   /// @dev Mapping from tree node id to tree node data.
   mapping(uint256 => TickTreeNode) public tickTreeData;
 
+  /// @notice The address of counterparty pool.
+  address public counterparty;
+
   /***************
    * Constructor *
    ***************/
@@ -463,9 +466,24 @@ abstract contract PoolStorage is ERC721Upgradeable, AccessControlUpgradeable, Po
     sharesData = sharesData.insertUint(shares, COLLATERAL_SHARES_OFFSET, 128);
   }
 
+  /*****************************************
+   * Internal Functions For `counterparty` *
+   *****************************************/
+
+  /// @dev Internal function to update counterparty.
+  /// @param newCounterparty The new counterparty to update.
+  function _updateCounterparty(address newCounterparty) internal {
+    _checkAddressNotZero(newCounterparty);
+
+    address oldCounterparty = counterparty;
+    counterparty = newCounterparty;
+
+    emit UpdateCounterparty(oldCounterparty, newCounterparty);
+  }
+
   /**
    * @dev This empty reserved space is put in place to allow future versions to add new
    * variables without shifting down storage in the inheritance chain.
    */
-  uint256[40] private __gap;
+  uint256[39] private __gap;
 }

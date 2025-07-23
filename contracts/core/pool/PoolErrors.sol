@@ -60,6 +60,8 @@ abstract contract PoolErrors {
 
   error ErrorOverflow();
 
+  error ErrorReduceTooMuchDebt();
+
   error ErrorTickNotMoved();
 
   /**********************
