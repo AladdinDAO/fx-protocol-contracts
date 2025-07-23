@@ -22,7 +22,7 @@ contract FlashLoanTest is Test, IERC3156FlashBorrower {
   function setUp() public {
     treasury = address(uint160(address(this)) - 1);
     token = new MockERC20("x", "y", 18);
-    poolManager = new PoolManager(address(0), address(0), address(0));
+    poolManager = new PoolManager(address(0), address(0), address(0), address(0));
     poolManager.initialize(address(this), 0, 0, 10000, treasury, address(this), address(this));
   }
 

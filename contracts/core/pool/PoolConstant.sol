@@ -42,5 +42,5 @@ abstract contract PoolConstant is IPool {
   address public immutable poolManager;
 
   /// @inheritdoc IPool
-  address public immutable pegKeeper;
+  address public immutable configuration;
 }

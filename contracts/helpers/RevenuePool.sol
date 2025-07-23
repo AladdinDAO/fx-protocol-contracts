@@ -6,8 +6,10 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import { IRewardSplitter } from "../interfaces/IRewardSplitter.sol";
+
 // copy from: https://github.com/AladdinDAO/aladdin-v3-contracts/blob/main/contracts/helpers/PlatformFeeSpliter.sol
-contract RevenuePool is Ownable {
+contract RevenuePool is Ownable, IRewardSplitter {
   using SafeERC20 for IERC20;
 
   /**********
@@ -118,6 +120,16 @@ contract RevenuePool is Ownable {
   /****************************
    * Public Mutated Functions *
    ****************************/
+
+  /// @inheritdoc IRewardSplitter
+  function split(address token) external override {
+    // do nothing
+  }
+
+  /// @inheritdoc IRewardSplitter
+  function depositReward(address token, uint256 amount) external override {
+    IERC20(token).safeTransferFrom(_msgSender(), address(this), amount);
+  }
 
   /// @notice Claim and distribute pending rewards to staker/treasury/locker/ecosystem contract.
   /// @dev The function can only be called by staker contract.

@@ -2,6 +2,7 @@ import * as dotenv from "dotenv";
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import { ethers } from "ethers";
+import "./tasks/mock-owner";
 
 dotenv.config();
 
@@ -21,6 +22,18 @@ const config: HardhatUserConfig = {
         },
       },
     ],
+    overrides: {
+      "contracts/core/PoolManager.sol": {
+        version: "0.8.26",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1,
+          },
+          evmVersion: "cancun",
+        },
+      },
+    },
   },
   networks: {
     mainnet: {

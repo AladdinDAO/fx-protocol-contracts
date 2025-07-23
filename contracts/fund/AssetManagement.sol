@@ -56,11 +56,22 @@ abstract contract AssetManagement is AccessControlUpgradeable {
     if (balance >= amount) {
       IERC20(asset).safeTransfer(receiver, amount);
     } else {
-      IERC20(asset).safeTransfer(receiver, balance);
-      uint256 diff = amount - balance;
-      Allocation memory curAlloc = allocations[asset];
-      if (curAlloc.strategy == address(0)) revert();
-      IStrategy(curAlloc.strategy).withdraw(diff, receiver);
+      if (balance > 0) {
+        IERC20(asset).safeTransfer(receiver, balance);
+      }
+      unchecked {
+        uint256 diff = amount - balance;
+        Allocation memory curAlloc = allocations[asset];
+        if (curAlloc.strategy == address(0)) revert();
+        IStrategy(curAlloc.strategy).withdraw(diff, receiver);
+      }
     }
+  }
+
+  function _balanceOf(address asset) internal view returns (uint256) {
+    uint256 balance = IERC20(asset).balanceOf(address(this));
+    address strategy = allocations[asset].strategy;
+    if (strategy == address(0)) return balance;
+    return balance + IStrategy(strategy).principal();
   }
 }
