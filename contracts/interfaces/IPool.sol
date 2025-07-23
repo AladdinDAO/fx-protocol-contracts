@@ -61,6 +61,11 @@ interface IPool {
   /// @notice Emitted when collateral index increase.
   event CollateralIndexSnapshot(uint256 index);
 
+  /// @notice Emitted when counterparty is updated.
+  /// @param oldCounterparty The previous address of counterparty.
+  /// @param newCounterparty The new address of counterparty.
+  event UpdateCounterparty(address oldCounterparty, address newCounterparty);
+
   /***********
    * Structs *
    ***********/
@@ -91,14 +96,17 @@ interface IPool {
    * Public View Functions *
    *************************/
 
+  /// @notice The address of counterparty.
+  function counterparty() external view returns (address);
+
   /// @notice The address of fxUSD.
   function fxUSD() external view returns (address);
 
   /// @notice The address of `PoolManager` contract.
   function poolManager() external view returns (address);
 
-  /// @notice The address of `PegKeeper` contract.
-  function pegKeeper() external view returns (address);
+  /// @notice The address of `PoolConfiguration` contract.
+  function configuration() external view returns (address);
 
   /// @notice The address of collateral token.
   function collateralToken() external view returns (address);
@@ -187,8 +195,9 @@ interface IPool {
 
   /// @notice Redeem debt tokens to get collateral tokens.
   /// @param rawDebts The amount of debt tokens to redeem.
+  /// @return actualRawDebts The actual amount of debt tokens used.
   /// @return rawColls The amount of collateral tokens to redeemed.
-  function redeem(uint256 rawDebts) external returns (uint256 rawColls);
+  function redeem(uint256 rawDebts) external returns (uint256 actualRawDebts, uint256 rawColls);
 
   /// @notice Rebalance all positions in the given tick.
   /// @param tick The id of tick to rebalance.
@@ -206,4 +215,8 @@ interface IPool {
   /// @param reservedRawColls The amount of collateral tokens in reserve pool.
   /// @return result The result of liquidate.
   function liquidate(uint256 maxRawDebts, uint256 reservedRawColls) external returns (LiquidateResult memory result);
+
+  /// @notice Reduce debt.
+  /// @param rawAmount The amount of debt tokens to reduce.
+  function reduceDebt(uint256 rawAmount) external;
 }

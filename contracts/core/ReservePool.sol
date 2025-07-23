@@ -35,8 +35,8 @@ contract ReservePool is AccessControl, IReservePool {
    * Constants *
    *************/
 
-  /// @dev The address of `PoolManager` contract.
-  address public immutable poolManager;
+  /// @notice The role of `PoolManager`.
+  bytes32 public constant POOL_MANAGER_ROLE = keccak256("POOL_MANAGER_ROLE");
 
   /*************
    * Variables *
@@ -47,8 +47,7 @@ contract ReservePool is AccessControl, IReservePool {
    ***************/
 
   constructor(address admin, address _poolManager) {
-    poolManager = _poolManager;
-
+    _grantRole(POOL_MANAGER_ROLE, _poolManager);
     _grantRole(DEFAULT_ADMIN_ROLE, admin);
   }
 
@@ -69,9 +68,7 @@ contract ReservePool is AccessControl, IReservePool {
   receive() external payable {}
 
   /// @inheritdoc IReservePool
-  function requestBonus(address _token, address _recipient, uint256 _bonus) external {
-    if (_msgSender() != poolManager) revert ErrorCallerNotPoolManager();
-
+  function requestBonus(address _token, address _recipient, uint256 _bonus) external onlyRole(POOL_MANAGER_ROLE) {
     uint256 _balance = _getBalance(_token);
 
     if (_bonus > _balance) {

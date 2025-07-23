@@ -75,11 +75,15 @@ interface IProtocolFees {
   /// @notice Return the fee ratio distributed as protocol revenue in liquidation/rebalance, multiplied by 1e9.
   function getLiquidationExpenseRatio() external view returns (uint256);
 
+  /* @dev removed to reduce codesize, since it is not used.
   /// @notice Return the fee ratio distributed to fxBASE in funding costs, multiplied by 1e9.
   function getFundingFxSaveRatio() external view returns (uint256);
+  */
 
+  /* @dev removed to reduce codesize, since it is not used.
   /// @notice Return the fee ratio distributed to fxBASE in general rewards, multiplied by 1e9.
   function getRewardsFxSaveRatio() external view returns (uint256);
+  */
 
   /// @notice Return the fee ratio distributed ad harvester bounty, multiplied by 1e9.
   function getHarvesterRatio() external view returns (uint256);

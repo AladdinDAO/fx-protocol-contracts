@@ -226,6 +226,24 @@ abstract contract TickLogic is PoolStorage {
     }
   }
 
+  /// @dev Internal function to check if the tick will move after liquidation.
+  /// @param tick The tick to check.
+  /// @param liquidatedColl The amount of collateral shares liquidated.
+  /// @param liquidatedDebt The amount of debt shares liquidated.
+  /// @return Whether the tick will move.
+  function _tickWillMove(int16 tick, uint256 liquidatedColl, uint256 liquidatedDebt) internal view returns (bool) {
+    uint48 node = tickData[tick];
+    bytes32 value = tickTreeData[node].value;
+    uint256 tickColl = value.decodeUint(COLL_SHARE_OFFSET, 128);
+    uint256 tickDebt = value.decodeUint(DEBT_SHARE_OFFSET, 128);
+    uint256 tickCollAfter = tickColl - liquidatedColl;
+    uint256 tickDebtAfter = tickDebt - liquidatedDebt;
+    if (tickDebtAfter == 0) return true;
+
+    int256 newTick = _getTick(tickCollAfter, tickDebtAfter);
+    return newTick != int256(tick);
+  }
+
   /// @dev Internal function to liquidate a tick.
   ///      The caller make sure `max(liquidatedColl, liquidatedDebt) > 0`.
   ///
@@ -236,8 +254,7 @@ abstract contract TickLogic is PoolStorage {
     int16 tick,
     uint256 liquidatedColl,
     uint256 liquidatedDebt,
-    uint256 price,
-    bool isRedeem
+    uint256 price
   ) internal {
     uint48 node = tickData[tick];
     // create new tree node for this tick
@@ -272,9 +289,11 @@ abstract contract TickLogic is PoolStorage {
       // to create a long chain in normal cases. And in normal reblance and liquidate, move to the same tick happens
       // frequently and it is expected. And when attacker try to create a long chain during rebalance and liquidate,
       // we still have admin function `getRootNodeAndCompress` to fix the issue.
-      if (newTick == tick && isRedeem) {
-        revert ErrorTickNotMoved();
-      }
+      // 
+      // @note for redeem, we have `_tickWillMove` to check whether the tick will move. So this check is not needed.
+      // if (newTick == tick) {
+      //  revert ErrorTickNotMoved();
+      //}
     }
     if (newTick == type(int256).min) {
       emit TickMovement(tick, type(int16).min, tickCollAfter, tickDebtAfter, price);

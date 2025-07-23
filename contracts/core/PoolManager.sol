@@ -7,21 +7,22 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
+import { ICreditNote } from "../interfaces/ICreditNote.sol";
 import { IFxUSDRegeneracy } from "../interfaces/IFxUSDRegeneracy.sol";
-import { IPegKeeper } from "../interfaces/IPegKeeper.sol";
-import { IPool } from "../interfaces/IPool.sol";
+import { ILongPoolManager } from "../interfaces/ILongPoolManager.sol";
+import { ILongPool } from "../interfaces/ILongPool.sol";
+import { IPoolConfiguration } from "../interfaces/IPoolConfiguration.sol";
 import { IPoolManager } from "../interfaces/IPoolManager.sol";
+import { IShortPool } from "../interfaces/IShortPool.sol";
 import { IReservePool } from "../interfaces/IReservePool.sol";
-import { IRewardSplitter } from "../interfaces/IRewardSplitter.sol";
 import { IFxUSDBasePool } from "../interfaces/IFxUSDBasePool.sol";
 import { IRateProvider } from "../rate-provider/interfaces/IRateProvider.sol";
-
 import { WordCodec } from "../common/codec/WordCodec.sol";
 import { AssetManagement } from "../fund/AssetManagement.sol";
 import { FlashLoans } from "./FlashLoans.sol";
 import { ProtocolFees } from "./ProtocolFees.sol";
 
-contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager {
+contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolManager {
   using EnumerableSet for EnumerableSet.AddressSet;
   using SafeERC20 for IERC20;
   using WordCodec for bytes32;
@@ -44,6 +45,16 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
 
   error ErrorInsufficientRedeemedCollateral();
 
+  error ErrorBorrowExceedCapacity();
+
+  error ErrorCallerNotCounterparty();
+
+  error ErrorInvalidLongShortPair();
+
+  error ErrorStableRepayNotAllowed();
+
+  error ErrorInvalidOperation();
+
   error ErrorRedeemDebtsTooSmall();
 
   error ErrorRebalanceDebtsTooSmall();
@@ -59,8 +70,17 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   /// @dev The role for emergency operations.
   bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
 
+  /// @dev The role for debt reducer.
+  bytes32 public constant DEBT_REDUCER_ROLE = keccak256("DEBT_REDUCER_ROLE");
+
   /// @dev The role for harvester
   bytes32 public constant HARVESTER_ROLE = keccak256("HARVESTER_ROLE");
+
+  /// @dev The key for pool rewards treasury.
+  bytes32 private constant POOL_REWARDS_TREASURY_KEY = keccak256("PoolRewardsTreasury");
+
+  /// @dev The key for pool funding treasury.
+  bytes32 private constant POOL_FUNDING_TREASURY_KEY = keccak256("PoolFundingTreasury");
 
   /// @dev The precision for token rate.
   uint256 internal constant PRECISION = 1e18;
@@ -78,7 +98,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   uint256 private constant DEBT_BALANCE_OFFSET = 96;
   uint256 private constant DEBT_DATA_BITS = 96;
 
-  uint256 private constant MIN_REDEEM_DEBTS = 1 ether;
+  uint256 private constant MIN_REDEEM_DEBTS = 100 ether;
 
   uint256 private constant MIN_REBALANCE_DEBTS = 1 ether;
 
@@ -92,10 +112,13 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   address public immutable fxUSD;
 
   /// @inheritdoc IPoolManager
-  address public immutable fxBASE;
+  address public immutable counterparty;
 
   /// @inheritdoc IPoolManager
-  address public immutable pegKeeper;
+  address public immutable configuration;
+
+  /// @inheritdoc ILongPoolManager
+  address public immutable fxBASE;
 
   /***********
    * Structs *
@@ -145,6 +168,19 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     uint256 rawDebts;
   }
 
+  struct OperationMemoryVar {
+    uint256 stablePrice;
+    uint256 poolSupplyFeeRatio;
+    uint256 poolWithdrawFeeRatio;
+    uint256 poolBorrowFeeRatio;
+    uint256 poolRepayFeeRatio;
+    address referral;
+    uint256 referralSupplyFeeRatio;
+    uint256 referralWithdrawFeeRatio;
+    uint256 referralBorrowFeeRatio;
+    uint256 referralRepayFeeRatio;
+  }
+
   /*********************
    * Storage Variables *
    *********************/
@@ -156,6 +192,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   mapping(address => PoolStruct) private poolInfo;
 
   /// @notice Mapping from pool address to rewards splitter.
+  /// @custom:deprecated This field is no longer used.
   mapping(address => address) public rewardSplitter;
 
   /// @notice Mapping from token address to token rate struct.
@@ -163,6 +200,9 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
 
   /// @notice The threshold for permissioned liquidate or rebalance.
   uint256 public permissionedLiquidationThreshold;
+
+  /// @notice Mapping from pool address to corresponding short allocation.
+  mapping(address => uint256) public shortBorrowCapacityRatio;
 
   /*************
    * Modifiers *
@@ -176,12 +216,17 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
   modifier onlyFxUSDSave() {
     if (_msgSender() != fxBASE) {
       // allow permissonless rebalance or liquidate when insufficient fxUSD/USDC in fxBASE.
-      uint256 totalYieldToken = IFxUSDBasePool(fxBASE).totalYieldToken();
-      uint256 totalStableToken = IFxUSDBasePool(fxBASE).totalStableToken();
-      uint256 price = IFxUSDBasePool(fxBASE).getStableTokenPriceWithScale();
-      if (totalYieldToken + (totalStableToken * price) / PRECISION >= permissionedLiquidationThreshold) {
+      // we use total supply to estimate the amount of fxUSD/USDC in fxBASE.
+      if (IERC20(fxBASE).totalSupply() >= permissionedLiquidationThreshold) {
         revert ErrorCallerNotFxUSDSave();
       }
+    }
+    _;
+  }
+
+  modifier onlyCounterparty() {
+    if (counterparty != _msgSender()) {
+      revert ErrorCallerNotCounterparty();
     }
     _;
   }
@@ -190,10 +235,11 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
    * Constructor *
    ***************/
 
-  constructor(address _fxUSD, address _fxBASE, address _pegKeeper) {
+  constructor(address _fxUSD, address _fxBASE, address _counterparty, address _configuration) {
     fxUSD = _fxUSD;
     fxBASE = _fxBASE;
-    pegKeeper = _pegKeeper;
+    counterparty = _counterparty;
+    configuration = _configuration;
   }
 
   function initialize(
@@ -205,9 +251,10 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     address _revenuePool,
     address _reservePool
   ) external initializer {
-    __Context_init();
-    __AccessControl_init();
-    __ERC165_init();
+    // comment out to reduce code size, since these functions are no-op for now.
+    // __Context_init();
+    // __AccessControl_init();
+    // __ERC165_init();
 
     _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
@@ -215,14 +262,15 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     __FlashLoans_init();
 
     // default 10000 fxUSD
-    _updateThreshold(10000 ether);
+    // _updateThreshold(10000 ether);
   }
 
+  /*
   function initializeV2(address pool) external onlyRegisteredPool(pool) reinitializer(2) {
     // fix state of pool
-    address collateralToken = IPool(pool).collateralToken();
+    address collateralToken = ILongPool(pool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
-    uint256 rawCollaterals = IPool(pool).getTotalRawCollaterals();
+    uint256 rawCollaterals = ILongPool(pool).getTotalRawCollaterals();
     uint256 collaterals = _scaleDown(rawCollaterals, scalingFactor);
     bytes32 data = poolInfo[pool].collateralData;
     data = data.insertUint(collaterals, COLLATERAL_BALANCE_OFFSET, COLLATERAL_DATA_BITS);
@@ -232,6 +280,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
       RAW_COLLATERAL_DATA_BITS
     );
   }
+  */
 
   /*************************
    * Public View Functions *
@@ -271,49 +320,68 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
    ****************************/
 
   /// @inheritdoc IPoolManager
+  function operate(address pool, uint256 positionId, int256 newColl, int256 newDebt) external returns (uint256) {
+    return operate(pool, positionId, newColl, newDebt, false);
+  }
+
+  /// @inheritdoc ILongPoolManager
   function operate(
     address pool,
     uint256 positionId,
     int256 newColl,
-    int256 newDebt
-  ) external onlyRegisteredPool(pool) nonReentrant whenNotPaused returns (uint256) {
-    address collateralToken = IPool(pool).collateralToken();
+    int256 newDebt,
+    bool useStable
+  ) public onlyRegisteredPool(pool) nonReentrant whenNotPaused returns (uint256) {
+    OperationMemoryVar memory vars;
+
+    if (useStable) {
+      if (!IPoolConfiguration(configuration).isStableRepayAllowed()) revert ErrorStableRepayNotAllowed();
+      if (newColl > 0 || newDebt >= 0 || positionId == 0) revert ErrorInvalidOperation();
+      vars.stablePrice = IFxUSDBasePool(fxBASE).getStableTokenPriceWithScale();
+    }
+
+    address collateralToken = ILongPool(pool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
 
+    (
+      vars.poolSupplyFeeRatio,
+      vars.poolWithdrawFeeRatio,
+      vars.poolBorrowFeeRatio,
+      vars.poolRepayFeeRatio
+    ) = IPoolConfiguration(configuration).getPoolFeeRatio(pool, _msgSender());
+
+    // in case of supply, we deduct the fee here first and transfer the collateral to pool.
+    if (newColl > 0) {
+      newColl = int256(_handleSupply(pool, collateralToken, uint256(newColl), vars.poolSupplyFeeRatio));
+    }
+
     int256 newRawColl = newColl;
+    int256 newRawDebt = newDebt;
     if (newRawColl != type(int256).min) {
       newRawColl = _scaleUp(newRawColl, scalingFactor);
     }
+    if (useStable && newRawDebt != type(int256).min) {
+      newRawDebt = _scaleUp(newRawDebt, vars.stablePrice);
+    }
 
-    uint256 rawProtocolFees;
-    // the `newRawColl` is the result without `protocolFees`
-    (positionId, newRawColl, newDebt, rawProtocolFees) = IPool(pool).operate(
-      positionId,
-      newRawColl,
-      newDebt,
-      _msgSender()
-    );
+    // @dev the `protocolFees` is deprecated, it is always zero now.
+    (positionId, newRawColl, newRawDebt, ) = ILongPool(pool).operate(positionId, newRawColl, newRawDebt, _msgSender());
 
     newColl = _scaleDown(newRawColl, scalingFactor);
-    uint256 protocolFees = _scaleDown(rawProtocolFees, scalingFactor);
-    _changePoolDebts(pool, newDebt);
+    _changePoolDebts(pool, newRawDebt);
     if (newRawColl > 0) {
-      _accumulatePoolOpenFee(pool, protocolFees);
       _changePoolCollateral(pool, newColl, newRawColl);
-      IERC20(collateralToken).safeTransferFrom(_msgSender(), address(this), uint256(newColl) + protocolFees);
     } else if (newRawColl < 0) {
-      _accumulatePoolCloseFee(pool, protocolFees);
-      _changePoolCollateral(pool, newColl - int256(protocolFees), newRawColl - int256(rawProtocolFees));
-      _transferOut(collateralToken, uint256(-newColl), _msgSender());
+      _handleWithdraw(pool, collateralToken, uint256(-newColl), uint256(-newRawColl), vars.poolWithdrawFeeRatio);
     }
 
-    if (newDebt > 0) {
-      IFxUSDRegeneracy(fxUSD).mint(_msgSender(), uint256(newDebt));
-    } else if (newDebt < 0) {
-      IFxUSDRegeneracy(fxUSD).burn(_msgSender(), uint256(-newDebt));
+    if (newRawDebt > 0) {
+      _handleBorrow(uint256(newRawDebt), vars.poolBorrowFeeRatio);
+    } else if (newRawDebt < 0) {
+      _handleRepay(uint256(-newRawDebt), vars.poolRepayFeeRatio, vars.stablePrice);
     }
 
-    emit Operate(pool, positionId, newColl, newDebt, protocolFees);
+    emit Operate(pool, positionId, newColl, newRawDebt, 0);
 
     return positionId;
   }
@@ -323,38 +391,44 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     address pool,
     uint256 debts,
     uint256 minColls
-  ) external onlyRegisteredPool(pool) nonReentrant whenNotPaused returns (uint256 colls) {
+  ) external onlyRegisteredPool(pool) nonReentrant whenNotPaused returns (uint256 actualDebts, uint256 colls) {
     if (debts > IERC20(fxUSD).balanceOf(_msgSender())) {
       revert ErrorRedeemExceedBalance();
     }
     if (debts < MIN_REDEEM_DEBTS) {
-        revert ErrorRedeemDebtsTooSmall();
+      revert ErrorRedeemDebtsTooSmall();
     }
-    if (!IPegKeeper(pegKeeper).isRedeemAllowed()) {
+    if (!IPoolConfiguration(configuration).isRedeemAllowed()) {
       revert ErrorRedeemNotAllowed();
     }
 
-    uint256 rawColls = IPool(pool).redeem(debts);
+    uint256 rawColls;
+    (actualDebts, rawColls) = ILongPool(pool).redeem(debts);
+    debts = actualDebts;
 
-    address collateralToken = IPool(pool).collateralToken();
+    address collateralToken = ILongPool(pool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
     colls = _scaleDown(rawColls, scalingFactor);
 
     _changePoolCollateral(pool, -int256(colls), -int256(rawColls));
     _changePoolDebts(pool, -int256(debts));
 
-    uint256 protocolFees = (colls * getRedeemFeeRatio()) / FEE_PRECISION;
-    _accumulatePoolMiscFee(pool, protocolFees);
-    colls -= protocolFees;
+    // @dev use unchecked to reduce code size and gas
+    uint256 protocolFees;
+    unchecked {
+      protocolFees = (colls * getRedeemFeeRatio()) / FEE_PRECISION;
+      _accumulatePoolMiscFee(pool, protocolFees);
+      colls -= protocolFees;
+    }
     if (colls < minColls) revert ErrorInsufficientRedeemedCollateral();
 
-    _transferOut(collateralToken, colls, _msgSender());
+    _transferCollateralOut(pool, collateralToken, colls, _msgSender());
     IFxUSDRegeneracy(fxUSD).burn(_msgSender(), debts);
 
     emit Redeem(pool, colls, debts, protocolFees);
   }
 
-  /// @inheritdoc IPoolManager
+  /// @inheritdoc ILongPoolManager
   function rebalance(
     address pool,
     address receiver,
@@ -370,20 +444,23 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
   {
     LiquidateOrRebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(pool);
-    uint256 maxRawDebts = maxFxUSD + _scaleUp(maxStable, op.stablePrice);
-    if (maxRawDebts < MIN_REBALANCE_DEBTS) {
-      revert ErrorRebalanceDebtsTooSmall();
+    // @dev use unchecked to reduce code size and gas
+    unchecked {
+      uint256 maxRawDebts = maxFxUSD + _scaleUp(maxStable, op.stablePrice);
+      if (maxRawDebts < MIN_REBALANCE_DEBTS) {
+        revert ErrorRebalanceDebtsTooSmall();
+      }
+      ILongPool.RebalanceResult memory result = ILongPool(pool).rebalance(tick, maxRawDebts);
+      op.rawColls = result.rawColls + result.bonusRawColls;
+      op.bonusRawColls = result.bonusRawColls;
+      op.rawDebts = result.rawDebts;
     }
-    IPool.RebalanceResult memory result = IPool(pool).rebalance(tick, maxRawDebts);
-    op.rawColls = result.rawColls + result.bonusRawColls;
-    op.bonusRawColls = result.bonusRawColls;
-    op.rawDebts = result.rawDebts;
     (colls, fxUSDUsed, stableUsed) = _afterRebalanceOrLiquidate(pool, maxFxUSD, op, receiver);
 
     emit RebalanceTick(pool, tick, colls, fxUSDUsed, stableUsed);
   }
 
-  /// @inheritdoc IPoolManager
+  /// @inheritdoc ILongPoolManager
   function rebalance(
     address pool,
     address receiver,
@@ -398,20 +475,23 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
   {
     LiquidateOrRebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(pool);
-    uint256 maxRawDebts = maxFxUSD + _scaleUp(maxStable, op.stablePrice);
-    if (maxRawDebts < MIN_REBALANCE_DEBTS) {
-      revert ErrorRebalanceDebtsTooSmall();
+    // @dev use unchecked to reduce code size and gas
+    unchecked {
+      uint256 maxRawDebts = maxFxUSD + _scaleUp(maxStable, op.stablePrice);
+      if (maxRawDebts < MIN_REBALANCE_DEBTS) {
+        revert ErrorRebalanceDebtsTooSmall();
+      }
+      ILongPool.RebalanceResult memory result = ILongPool(pool).rebalance(maxRawDebts);
+      op.rawColls = result.rawColls + result.bonusRawColls;
+      op.bonusRawColls = result.bonusRawColls;
+      op.rawDebts = result.rawDebts;
     }
-    IPool.RebalanceResult memory result = IPool(pool).rebalance(maxRawDebts);
-    op.rawColls = result.rawColls + result.bonusRawColls;
-    op.bonusRawColls = result.bonusRawColls;
-    op.rawDebts = result.rawDebts;
     (colls, fxUSDUsed, stableUsed) = _afterRebalanceOrLiquidate(pool, maxFxUSD, op, receiver);
 
     emit Rebalance(pool, colls, fxUSDUsed, stableUsed);
   }
 
-  /// @inheritdoc IPoolManager
+  /// @inheritdoc ILongPoolManager
   function liquidate(
     address pool,
     address receiver,
@@ -431,19 +511,23 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
       revert ErrorLiquidateDebtsTooSmall();
     }
     {
-      IPool.LiquidateResult memory result;
+      ILongPool.LiquidateResult memory result;
       uint256 reservedRawColls = IReservePool(reservePool).getBalance(op.collateralToken);
       reservedRawColls = _scaleUp(reservedRawColls, op.scalingFactor);
-      result = IPool(pool).liquidate(maxRawDebts, reservedRawColls);
-      op.rawColls = result.rawColls + result.bonusRawColls;
-      op.bonusRawColls = result.bonusRawColls;
-      op.rawDebts = result.rawDebts;
+
+      // @dev use unchecked to reduce code size and gas
+      unchecked {
+        result = ILongPool(pool).liquidate(maxRawDebts, reservedRawColls);
+        op.rawColls = result.rawColls + result.bonusRawColls;
+        op.bonusRawColls = result.bonusRawColls;
+        op.rawDebts = result.rawDebts;
+      }
 
       // take bonus or shortfall from reserve pool
       uint256 bonusFromReserve = result.bonusFromReserve;
       if (bonusFromReserve > 0) {
         bonusFromReserve = _scaleDown(result.bonusFromReserve, op.scalingFactor);
-        IReservePool(reservePool).requestBonus(IPool(pool).collateralToken(), address(this), bonusFromReserve);
+        IReservePool(reservePool).requestBonus(ILongPool(pool).collateralToken(), address(this), bonusFromReserve);
 
         // increase pool reserve first
         _changePoolCollateral(pool, int256(bonusFromReserve), int256(result.bonusFromReserve));
@@ -465,7 +549,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     nonReentrant
     returns (uint256 amountRewards, uint256 amountFunding)
   {
-    address collateralToken = IPool(pool).collateralToken();
+    address collateralToken = ILongPool(pool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
 
     uint256 collateralRecorded;
@@ -477,9 +561,8 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     }
     uint256 performanceFee;
     uint256 harvestBounty;
-    uint256 pendingRewards;
     // compute funding
-    uint256 rawCollateral = IPool(pool).getTotalRawCollaterals();
+    uint256 rawCollateral = ILongPool(pool).getTotalRawCollaterals();
     if (rawCollateralRecorded > rawCollateral) {
       unchecked {
         amountFunding = _scaleDown(rawCollateralRecorded - rawCollateral, scalingFactor);
@@ -487,8 +570,15 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
 
         performanceFee = (getFundingExpenseRatio() * amountFunding) / FEE_PRECISION;
         harvestBounty = (getHarvesterRatio() * amountFunding) / FEE_PRECISION;
-        pendingRewards = amountFunding - harvestBounty - performanceFee;
+        amountFunding -= harvestBounty + performanceFee;
       }
+      _transferCollateralOut(
+        pool,
+        collateralToken,
+        amountFunding,
+        IPoolConfiguration(configuration).registry(POOL_FUNDING_TREASURY_KEY)
+      );
+
       // recorded data changed, update local cache
       {
         bytes32 data = poolInfo[pool].collateralData;
@@ -503,38 +593,128 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
         amountRewards = _scaleDown(rawCollateral - rawCollateralRecorded, scalingFactor);
         _changePoolCollateral(pool, -int256(amountRewards), 0);
 
-        uint256 performanceFeeRewards = (getRewardsExpenseRatio() * amountRewards) / FEE_PRECISION;
-        uint256 harvestBountyRewards = (getHarvesterRatio() * amountRewards) / FEE_PRECISION;
-        pendingRewards += amountRewards - harvestBountyRewards - performanceFeeRewards;
-        performanceFee += performanceFeeRewards;
-        harvestBounty += harvestBountyRewards;
+        {
+          uint256 performanceFeeRewards = (getRewardsExpenseRatio() * amountRewards) / FEE_PRECISION;
+          uint256 harvestBountyRewards = (getHarvesterRatio() * amountRewards) / FEE_PRECISION;
+          amountRewards -= harvestBountyRewards + performanceFeeRewards;
+          performanceFee += performanceFeeRewards;
+          harvestBounty += harvestBountyRewards;
+        }
+
+        _transferCollateralOut(
+          pool,
+          collateralToken,
+          amountRewards,
+          IPoolConfiguration(configuration).registry(POOL_REWARDS_TREASURY_KEY)
+        );
       }
     }
 
     // transfer performance fee to treasury
     if (performanceFee > 0) {
-      _transferOut(collateralToken, performanceFee, treasury);
+      _transferCollateralOut(pool, collateralToken, performanceFee, treasury);
     }
     // transfer various fees to revenue pool
     _takeAccumulatedPoolFee(pool);
     // transfer harvest bounty
     if (harvestBounty > 0) {
-      _transferOut(collateralToken, harvestBounty, _msgSender());
+      _transferCollateralOut(pool, collateralToken, harvestBounty, _msgSender());
     }
-    // transfer rewards for fxBASE
-    if (pendingRewards > 0) {
-      address splitter = rewardSplitter[pool];
-      _transferOut(collateralToken, pendingRewards, splitter);
-      IRewardSplitter(splitter).split(collateralToken);
+    emit Harvest(_msgSender(), pool, amountRewards, amountFunding, performanceFee, harvestBounty);
+  }
+
+  /// @inheritdoc ILongPoolManager
+  function borrow(
+    address longPool,
+    address shortPool,
+    uint256 amount
+  ) external onlyCounterparty onlyRegisteredPool(longPool) {
+    address creditNote = IShortPool(shortPool).creditNote();
+    address collateralToken = ILongPool(longPool).collateralToken();
+    uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
+    {
+      uint256 rawCollateral = ILongPool(longPool).getTotalRawCollaterals();
+      uint256 collateral = _scaleDown(rawCollateral, scalingFactor);
+      uint256 borrowed = IERC20(creditNote).totalSupply();
+      if ((collateral * shortBorrowCapacityRatio[longPool]) / PRECISION < borrowed + amount) {
+        revert ErrorBorrowExceedCapacity();
+      }
     }
 
-    emit Harvest(_msgSender(), pool, amountRewards, amountFunding, performanceFee, harvestBounty);
+    _transferOut(collateralToken, amount, counterparty);
+    ICreditNote(creditNote).mint(address(this), amount);
+  }
+
+  /// @inheritdoc ILongPoolManager
+  function repay(
+    address longPool,
+    address shortPool,
+    uint256 amount
+  ) external onlyCounterparty onlyRegisteredPool(longPool) {
+    address collateralToken = ILongPool(longPool).collateralToken();
+    _transferFrom(collateralToken, counterparty, address(this), amount);
+    ICreditNote(IShortPool(shortPool).creditNote()).burn(address(this), amount);
+  }
+
+  /// @inheritdoc ILongPoolManager
+  function repayByCreditNote(
+    address longPool,
+    address shortPool,
+    uint256 amount
+  ) external onlyCounterparty onlyRegisteredPool(longPool) {
+    ICreditNote(IShortPool(shortPool).creditNote()).burn(counterparty, amount);
+  }
+
+  /// @inheritdoc ILongPoolManager
+  function liquidateShortPool(
+    address longPool,
+    address shortPool,
+    uint256 amountFxUSD,
+    uint256 totalBorrowed
+  ) external onlyCounterparty onlyRegisteredPool(longPool) returns (uint256 shortfall) {
+    address collateralToken = ILongPool(longPool).collateralToken();
+    uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
+
+    (, uint256 redeemedRawColls) = ILongPool(longPool).redeem(amountFxUSD);
+    uint256 redeemedColls = _scaleDown(redeemedRawColls, scalingFactor);
+
+    shortfall = totalBorrowed - redeemedColls;
+    uint256 rawShortfall = _scaleUp(shortfall, scalingFactor);
+
+    // reduce collateral in long pool
+    ILongPool(longPool).reduceCollateral(rawShortfall);
+    _changePoolCollateral(longPool, -int256(shortfall), -int256(rawShortfall));
+
+    // burn fxUSD in short pool pool manager
+    IFxUSDRegeneracy(fxUSD).burn(counterparty, amountFxUSD);
+
+    // burn all credit note tokens in pool manager.
+    // for tokens outside of pool manager, the short pool is killed, the tokens are useless.
+    address creditNote = IShortPool(shortPool).creditNote();
+    uint256 creditNoteAmount = IERC20(creditNote).balanceOf(address(this));
+    if (creditNoteAmount > 0) {
+      ICreditNote(creditNote).burn(address(this), creditNoteAmount);
+    }
+  }
+
+  /// @inheritdoc IPoolManager
+  /// @dev This is a risky operation, only allowed by whitelisted caller.
+  function reduceDebt(
+    address pool,
+    uint256 amount
+  ) external onlyRegisteredPool(pool) onlyRole(DEBT_REDUCER_ROLE) nonReentrant {
+    IFxUSDRegeneracy(fxUSD).burn(_msgSender(), amount);
+    ILongPool(pool).reduceDebt(amount);
+
+    _changePoolDebts(pool, -int256(amount));
+
+    emit ReduceDebt(pool, amount);
   }
 
   /************************
    * Restricted Functions *
    ************************/
-  
+
   /// @notice Pause or unpause the system.
   /// @param status The pause status to update.
   function setPause(bool status) external onlyRole(EMERGENCY_ROLE) {
@@ -544,19 +724,19 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
 
   /// @notice Register a new pool with reward splitter.
   /// @param pool The address of pool.
-  /// @param splitter The address of reward splitter.
+  /// @param collateralCapacity The capacity for collateral token.
+  /// @param debtCapacity The capacity for debt token.
   function registerPool(
     address pool,
-    address splitter,
     uint96 collateralCapacity,
     uint96 debtCapacity
   ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (fxUSD != IPool(pool).fxUSD()) revert ErrorInvalidPool();
+    // @dev remove this line to reduce codesize, caller should make sure the pool is correct.
+    // if (fxUSD != ILongPool(pool).fxUSD()) revert ErrorInvalidPool();
 
     if (pools.add(pool)) {
       emit RegisterPool(pool);
 
-      _updateRewardSplitter(pool, splitter);
       _updatePoolCapacity(pool, collateralCapacity, debtCapacity);
     }
   }
@@ -569,16 +749,6 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     tokenRates[token] = TokenRate(uint96(scale), provider);
 
     emit UpdateTokenRate(token, scale, provider);
-  }
-
-  /// @notice Update the address of reward splitter for the given pool.
-  /// @param pool The address of the pool.
-  /// @param newSplitter The address of reward splitter.
-  function updateRewardSplitter(
-    address pool,
-    address newSplitter
-  ) external onlyRole(DEFAULT_ADMIN_ROLE) onlyRegisteredPool(pool) {
-    _updateRewardSplitter(pool, newSplitter);
   }
 
   /// @notice Update the pool capacity.
@@ -599,18 +769,38 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     _updateThreshold(newThreshold);
   }
 
+  /// @notice Update the short borrow capacity ratio for the given long pool.
+  /// @param longPool The address of the long pool.
+  /// @param newRatio The new short borrow capacity ratio.
+  function updateShortBorrowCapacityRatio(address longPool, uint256 newRatio) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    uint256 oldRatio = shortBorrowCapacityRatio[longPool];
+    shortBorrowCapacityRatio[longPool] = newRatio;
+
+    emit UpdateShortBorrowCapacityRatio(longPool, oldRatio, newRatio);
+  }
+
   /**********************
    * Internal Functions *
    **********************/
 
-  /// @dev Internal function to update the address of reward splitter for the given pool.
-  /// @param pool The address of the pool.
-  /// @param newSplitter The address of reward splitter.
-  function _updateRewardSplitter(address pool, address newSplitter) internal {
-    address oldSplitter = rewardSplitter[pool];
-    rewardSplitter[pool] = newSplitter;
-
-    emit UpdateRewardSplitter(pool, oldSplitter, newSplitter);
+  /// @inheritdoc ProtocolFees
+  function _takeAccumulatedPoolFee(address pool) internal virtual override {
+    address collateralToken = ILongPool(pool).collateralToken();
+    uint256 fees = accumulatedPoolOpenFees[pool];
+    if (fees > 0) {
+      _transferCollateralOut(pool, collateralToken, fees, openRevenuePool);
+      accumulatedPoolOpenFees[pool] = 0;
+    }
+    fees = accumulatedPoolCloseFees[pool];
+    if (fees > 0) {
+      _transferCollateralOut(pool, collateralToken, fees, closeRevenuePool);
+      accumulatedPoolCloseFees[pool] = 0;
+    }
+    fees = accumulatedPoolMiscFees[pool];
+    if (fees > 0) {
+      _transferCollateralOut(pool, collateralToken, fees, miscRevenuePool);
+      accumulatedPoolMiscFees[pool] = 0;
+    }
   }
 
   /// @dev Internal function to update the pool capacity.
@@ -662,11 +852,96 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     return (value * PRECISION_I256) / int256(scale);
   }
 
+  /// @dev Internal function to handle supply.
+  /// @param pool The address of pool.
+  /// @param collateralToken The address of collateral token.
+  /// @param newColl The amount of collateral token supplied.
+  /// @param poolFeeRatio The pool supply fee ratio, multiplied by 10^9.
+  /// @return newColl The amount of collateral token supplied after fees.
+  function _handleSupply(
+    address pool,
+    address collateralToken,
+    uint256 newColl,
+    uint256 poolFeeRatio
+  ) internal returns (uint256) {
+    // handle supply fee for protocol and referral, it is safe to use unchecked here
+    unchecked {
+      uint256 poolFee = (newColl * poolFeeRatio) / FEE_PRECISION;
+      _accumulatePoolOpenFee(pool, poolFee);
+      _transferFrom(collateralToken, _msgSender(), address(this), newColl);
+      return newColl - poolFee;
+    }
+  }
+
+  /// @dev Internal function to handle withdraw.
+  /// @param pool The address of pool.
+  /// @param collateralToken The address of collateral token.
+  /// @param newColl The amount of collateral token withdrawn.
+  /// @param newRawColl The amount of raw collateral token withdrawn.
+  /// @param poolFeeRatio The pool withdraw fee ratio, multiplied by 10^9.
+  function _handleWithdraw(
+    address pool,
+    address collateralToken,
+    uint256 newColl,
+    uint256 newRawColl,
+    uint256 poolFeeRatio
+  ) internal {
+    _changePoolCollateral(pool, -int256(newColl), -int256(newRawColl));
+
+    // handle withdraw fee for protocol and referral, it is safe to use unchecked here
+    unchecked {
+      uint256 poolFee = (newColl * poolFeeRatio) / FEE_PRECISION;
+      if (poolFee > 0) {
+        _accumulatePoolCloseFee(pool, poolFee);
+      }
+      _transferCollateralOut(pool, collateralToken, newColl - poolFee, _msgSender());
+    }
+  }
+
+  /// @dev Internal function to handle borrow.
+  /// @param newDebt The amount of fxUSD borrowed.
+  /// @param poolFeeRatio The pool borrow fee ratio, multiplied by 10^9.
+  function _handleBorrow(uint256 newDebt, uint256 poolFeeRatio) internal {
+    // handle borrow fee for protocol and referral, it is safe to use unchecked here
+    unchecked {
+      uint256 poolFee = (newDebt * poolFeeRatio) / FEE_PRECISION;
+      if (poolFee > 0) {
+        IFxUSDRegeneracy(fxUSD).mint(openRevenuePool, poolFee);
+      }
+      IFxUSDRegeneracy(fxUSD).mint(_msgSender(), newDebt - poolFee);
+    }
+  }
+
+  /// @dev Internal function to handle repay.
+  /// @param newRawDebt The amount of fxUSD repaid.
+  /// @param poolFeeRatio The pool repay fee ratio, multiplied by 10^9.
+  function _handleRepay(uint256 newRawDebt, uint256 poolFeeRatio, uint256 stablePrice) internal {
+    uint256 newDebt = newRawDebt;
+    if (stablePrice != 0) {
+      newDebt = _scaleDown(newRawDebt, stablePrice);
+    }
+    // handle repay fee for protocol and referral, it is safe to use unchecked here
+    unchecked {
+      uint256 poolFee = (newDebt * poolFeeRatio) / FEE_PRECISION;
+      if (stablePrice == 0) {
+        if (poolFee > 0) {
+          IFxUSDRegeneracy(fxUSD).mint(closeRevenuePool, poolFee);
+        }
+        IFxUSDRegeneracy(fxUSD).burn(_msgSender(), newDebt + poolFee);
+      } else {
+        address stableToken = IFxUSDBasePool(fxBASE).stableToken();
+        _transferFrom(stableToken, _msgSender(), closeRevenuePool, poolFee);
+        _transferFrom(stableToken, _msgSender(), fxUSD, newDebt);
+        IFxUSDRegeneracy(fxUSD).onRebalanceWithStable(newDebt, newRawDebt);
+      }
+    }
+  }
+
   /// @dev Internal function to prepare variables before rebalance or liquidate.
   /// @param pool The address of pool to liquidate or rebalance.
   function _beforeRebalanceOrLiquidate(address pool) internal view returns (LiquidateOrRebalanceMemoryVar memory op) {
     op.stablePrice = IFxUSDBasePool(fxBASE).getStableTokenPriceWithScale();
-    op.collateralToken = IPool(pool).collateralToken();
+    op.collateralToken = ILongPool(pool).collateralToken();
     op.scalingFactor = _getTokenScalingFactor(op.collateralToken);
   }
 
@@ -699,7 +974,8 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
       IFxUSDRegeneracy(fxUSD).burn(_msgSender(), fxUSDUsed);
     }
     if (stableUsed > 0) {
-      IERC20(IFxUSDBasePool(fxBASE).stableToken()).safeTransferFrom(_msgSender(), fxUSD, stableUsed);
+      if (!IPoolConfiguration(configuration).isStableRepayAllowed()) revert ErrorStableRepayNotAllowed();
+      _transferFrom(IFxUSDBasePool(fxBASE).stableToken(), _msgSender(), fxUSD, stableUsed);
       IFxUSDRegeneracy(fxUSD).onRebalanceWithStable(stableUsed, op.rawDebts - maxFxUSD);
     }
 
@@ -710,7 +986,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
     unchecked {
       colls -= protocolRevenue;
     }
-    _transferOut(op.collateralToken, colls, receiver);
+    _transferCollateralOut(pool, op.collateralToken, colls, receiver);
   }
 
   /// @dev Internal function to update collateral balance.
@@ -735,14 +1011,67 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, IPoolManager 
 
   /// @dev Internal function to get token scaling factor.
   function _getTokenScalingFactor(address token) internal view returns (uint256 value) {
-    TokenRate memory rate = tokenRates[token];
-    value = rate.scalar;
+    address rateProvider = tokenRates[token].rateProvider;
+    value = tokenRates[token].scalar;
     unchecked {
-      if (rate.rateProvider != address(0)) {
-        value *= IRateProvider(rate.rateProvider).getRate();
+      if (rateProvider != address(0)) {
+        value *= IRateProvider(rateProvider).getRate();
       } else {
         value *= PRECISION;
       }
+    }
+  }
+
+  /// @dev Internal function to get pool collateral info.
+  /// @param pool The address of pool.
+  /// @return collateralCapacity The capacity for collateral token.
+  /// @return collateralBalance The balance for collateral token.
+  /// @return rawCollateral The raw collateral balance for collateral token.
+  function _getPoolCollateralInfo(
+    address pool
+  ) internal view returns (uint256 collateralCapacity, uint256 collateralBalance, uint256 rawCollateral) {
+    bytes32 data = poolInfo[pool].collateralData;
+    collateralCapacity = data.decodeUint(COLLATERAL_CAPACITY_OFFSET, COLLATERAL_DATA_BITS);
+    collateralBalance = data.decodeUint(COLLATERAL_BALANCE_OFFSET, COLLATERAL_DATA_BITS);
+    rawCollateral = data.decodeUint(RAW_COLLATERAL_BALANCE_OFFSET, RAW_COLLATERAL_DATA_BITS);
+  }
+
+  /// @dev Internal function to transfer collateral out.
+  /// @param pool The address of pool.
+  /// @param collateralToken The address of collateral token.
+  /// @param scaledAmount The scaled amount of collateral token.
+  /// @param receiver The address of receiver.
+  function _transferCollateralOut(
+    address pool,
+    address collateralToken,
+    uint256 scaledAmount,
+    address receiver
+  ) internal {
+    address shortPool = ILongPool(pool).counterparty();
+    // check if current collateral is enough, if not use debt token to cover
+    if (shortPool != address(0)) {
+      uint256 balance = _balanceOf(collateralToken);
+      if (scaledAmount <= balance) {
+        _transferOut(collateralToken, scaledAmount, receiver);
+      } else {
+        address creditNote = IShortPool(shortPool).creditNote();
+        uint256 shortfall = scaledAmount - balance;
+        IERC20(creditNote).safeTransfer(receiver, shortfall);
+        _transferOut(collateralToken, balance, receiver);
+      }
+    } else {
+      _transferOut(collateralToken, scaledAmount, receiver);
+    }
+  }
+
+  /// @dev Internal function to transfer token from `msg.sender` to receiver.
+  /// @param token The address of token.
+  /// @param sender The address of sender.
+  /// @param receiver The address of receiver.
+  /// @param amount The amount of token.
+  function _transferFrom(address token, address sender, address receiver, uint256 amount) internal {
+    if (amount > 0) {
+      IERC20(token).safeTransferFrom(sender, receiver, amount);
     }
   }
 }
