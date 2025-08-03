@@ -22,8 +22,9 @@ contract MockPoolManager is PoolManager {
     address _fxUSD,
     address _fxBASE,
     address _counterparty,
-    address _configuration
-  ) PoolManager(_fxUSD, _fxBASE, _counterparty, _configuration) {}
+    address _configuration,
+    address _whitelist
+  ) PoolManager(_fxUSD, _fxBASE, _counterparty, _configuration, _whitelist) {}
 
   function setAccumulatedPoolFees(address pool, uint256 openFees, uint256 closeFees, uint256 miscFees) public {
     accumulatedPoolOpenFees[pool] = openFees;
@@ -288,7 +289,8 @@ contract PoolManagerBasicTest is PoolTestBase {
       address(fxUSD),
       address(fxBASE),
       address(shortPoolManager),
-      address(poolConfiguration)
+      address(poolConfiguration),
+      address(whitelist)
     );
     proxyAdmin.upgrade(ITransparentUpgradeableProxy(address(poolManager)), address(impl));
 

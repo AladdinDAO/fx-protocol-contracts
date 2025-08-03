@@ -5,9 +5,9 @@ pragma solidity ^0.8.20;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import { IFlashLoanRecipient } from "../../interfaces/Balancer/IFlashLoanRecipient.sol";
+import { IFlashLoanRecipient } from "../../../interfaces/Balancer/IFlashLoanRecipient.sol";
 
-import { LibRouter } from "../libraries/LibRouter.sol";
+import { LibRouter } from "../../libraries/LibRouter.sol";
 
 contract FlashLoanCallbackFacet is IFlashLoanRecipient {
   using SafeERC20 for IERC20;

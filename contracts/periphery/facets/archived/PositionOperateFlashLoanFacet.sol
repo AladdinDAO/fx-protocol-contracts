@@ -6,12 +6,12 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-import { IMultiPathConverter } from "../../helpers/interfaces/IMultiPathConverter.sol";
-import { IPoolManager } from "../../interfaces/IPoolManager.sol";
-import { IPool } from "../../interfaces/IPool.sol";
+import { IMultiPathConverter } from "../../../helpers/interfaces/IMultiPathConverter.sol";
+import { IPoolManager } from "../../../interfaces/IPoolManager.sol";
+import { IPool } from "../../../interfaces/IPool.sol";
 
-import { WordCodec } from "../../common/codec/WordCodec.sol";
-import { LibRouter } from "../libraries/LibRouter.sol";
+import { WordCodec } from "../../../common/codec/WordCodec.sol";
+import { LibRouter } from "../../libraries/LibRouter.sol";
 import { FlashLoanFacetBase } from "./FlashLoanFacetBase.sol";
 
 contract PositionOperateFlashLoanFacet is FlashLoanFacetBase {

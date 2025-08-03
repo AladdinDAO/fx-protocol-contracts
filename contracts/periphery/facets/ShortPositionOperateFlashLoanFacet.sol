@@ -48,7 +48,7 @@ contract ShortPositionOperateFlashLoanFacet is MorphoFlashLoanFacetBase, IPositi
    * Constructor *
    ***************/
 
-  constructor(address _morpho, address _poolManager) MorphoFlashLoanFacetBase(_morpho) {
+  constructor(address _morpho, address _poolManager, address _whitelist) MorphoFlashLoanFacetBase(_morpho, _whitelist) {
     poolManager = _poolManager;
   }
 
@@ -68,7 +68,7 @@ contract ShortPositionOperateFlashLoanFacet is MorphoFlashLoanFacetBase, IPositi
     uint256 positionId,
     uint256 debtTokenBorrowAmount,
     bytes calldata data
-  ) external payable nonReentrant {
+  ) external payable nonReentrant onlyTopLevelCall {
     // flashloan debt token
     // swap debt token to fxUSD
     // supply fxUSD and borrow debt token to repay flashloan
@@ -100,7 +100,7 @@ contract ShortPositionOperateFlashLoanFacet is MorphoFlashLoanFacetBase, IPositi
     uint256 fxUSDWithdrawAmount,
     uint256 debtTokenBorrowAmount,
     bytes calldata data
-  ) external nonReentrant {
+  ) external nonReentrant onlyTopLevelCall {
     // flashloan debt token
     // repay debt token and get fxUSD back
     // swap fxUSD to debt token to repay flashloan

@@ -31,6 +31,7 @@ import { ReservePool } from "../../contracts/core/ReservePool.sol";
 import { EmptyContract } from "../../contracts/helpers/EmptyContract.sol";
 import { GaugeRewarder } from "../../contracts/helpers/GaugeRewarder.sol";
 import { RevenuePool } from "../../contracts/helpers/RevenuePool.sol";
+import { SmartWalletWhitelist } from "../../contracts/voting-escrow/SmartWalletWhitelist.sol";
 
 abstract contract PoolTestBase is Test {
   MockAggregatorV3Interface internal mockAggregatorV3Interface;
@@ -48,6 +49,7 @@ abstract contract PoolTestBase is Test {
   address internal admin;
   address internal treasury;
 
+  SmartWalletWhitelist internal whitelist;
   ProxyAdmin internal proxyAdmin;
   PoolConfiguration internal poolConfiguration;
   PegKeeper internal pegKeeper;
@@ -75,6 +77,9 @@ abstract contract PoolTestBase is Test {
     openRevenuePool = new RevenuePool(treasury, treasury, admin);
     closeRevenuePool = new RevenuePool(treasury, treasury, admin);
     miscRevenuePool = new RevenuePool(treasury, treasury, admin);
+
+    whitelist = new SmartWalletWhitelist(admin);
+    whitelist.approveWallet(address(this));
 
     _deployMockContracts(TokenRate);
     _deployContracts(tokenDecimals);
@@ -163,7 +168,8 @@ abstract contract PoolTestBase is Test {
         address(FxUSDRegeneracyProxy),
         address(FxUSDBasePoolProxy),
         address(ShortPoolManagerProxy),
-        address(PoolConfigurationProxy)
+        address(PoolConfigurationProxy),
+        address(whitelist)
       );
       proxyAdmin.upgradeAndCall(
         ITransparentUpgradeableProxy(address(PoolManagerProxy)),
@@ -253,7 +259,8 @@ abstract contract PoolTestBase is Test {
       ShortPoolManager ShortPoolManagerImpl = new ShortPoolManager(
         address(FxUSDRegeneracyProxy),
         address(poolManager),
-        address(PoolConfigurationProxy)
+        address(PoolConfigurationProxy),
+        address(whitelist)
       );
       proxyAdmin.upgradeAndCall(
         ITransparentUpgradeableProxy(address(ShortPoolManagerProxy)),

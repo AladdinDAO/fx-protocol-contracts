@@ -3,6 +3,7 @@
 pragma solidity ^0.8.20;
 
 import { IMorpho } from "../../interfaces/Morpho/IMorpho.sol";
+import { ISmartWalletChecker } from "../../voting-escrow/interfaces/ISmartWalletChecker.sol";
 
 import { LibRouter } from "../libraries/LibRouter.sol";
 
@@ -17,6 +18,9 @@ abstract contract MorphoFlashLoanFacetBase {
   /// @dev Unauthorized reentrant call.
   error ReentrancyGuardReentrantCall();
 
+  /// @dev Thrown when the caller is not a top level call.
+  error ErrorTopLevelCall();
+
   /***********************
    * Immutable Variables *
    ***********************/
@@ -24,6 +28,9 @@ abstract contract MorphoFlashLoanFacetBase {
   /// @dev The address of Morpho Blue contract.
   /// In ethereum, it is 0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb.
   address private immutable morpho;
+
+  /// @notice The address of smart wallet whitelist.
+  address private immutable whitelist;
 
   /*************
    * Modifiers *
@@ -51,12 +58,28 @@ abstract contract MorphoFlashLoanFacetBase {
     $.reentrantContext = LibRouter.NOT_ENTRANT;
   }
 
+
+  /*************
+   * Modifiers *
+   *************/
+
+  modifier onlyTopLevelCall() {
+    uint256 codesize = msg.sender.code.length;
+    if (codesize > 0 || msg.sender != tx.origin) {
+      if (!ISmartWalletChecker(whitelist).check(msg.sender)) {
+        revert ErrorTopLevelCall();
+      }
+    }
+    _;
+  }
+
   /***************
    * Constructor *
    ***************/
 
-  constructor(address _morpho) {
+  constructor(address _morpho, address _whitelist) {
     morpho = _morpho;
+    whitelist = _whitelist;
   }
 
   /**********************

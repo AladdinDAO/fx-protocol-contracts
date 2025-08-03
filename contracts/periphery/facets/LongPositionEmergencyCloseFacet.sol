@@ -64,8 +64,9 @@ contract LongPositionEmergencyCloseFacet is MorphoFlashLoanFacetBase, IPositionO
     address _morpho,
     address _poolManager,
     address _shortPoolManager,
-    address _converter
-  ) MorphoFlashLoanFacetBase(_morpho) {
+    address _converter,
+    address _whitelist
+  ) MorphoFlashLoanFacetBase(_morpho, _whitelist) {
     poolManager = _poolManager;
     shortPoolManager = _shortPoolManager;
     converter = _converter;
@@ -88,7 +89,7 @@ contract LongPositionEmergencyCloseFacet is MorphoFlashLoanFacetBase, IPositionO
     uint256 amountOut,
     uint256 borrowAmount,
     bytes calldata data
-  ) external nonReentrant {
+  ) external nonReentrant onlyTopLevelCall {
     address collateralToken = IPool(pool).collateralToken();
 
     _invokeFlashLoan(
@@ -121,7 +122,7 @@ contract LongPositionEmergencyCloseFacet is MorphoFlashLoanFacetBase, IPositionO
     uint256 amountOut,
     uint256 borrowAmount,
     bytes calldata data
-  ) external nonReentrant {
+  ) external nonReentrant onlyTopLevelCall {
     address collateralToken = IPool(pool).collateralToken();
 
     _invokeFlashLoan(

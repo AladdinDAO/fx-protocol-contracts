@@ -14,6 +14,7 @@ import { IReservePool } from "../../interfaces/IReservePool.sol";
 import { IShortPool } from "../../interfaces/IShortPool.sol";
 import { IShortPoolManager } from "../../interfaces/IShortPoolManager.sol";
 import { IRateProvider } from "../../rate-provider/interfaces/IRateProvider.sol";
+import { ISmartWalletChecker } from "../../voting-escrow/interfaces/ISmartWalletChecker.sol";
 
 import { WordCodec } from "../../common/codec/WordCodec.sol";
 import { AssetManagement } from "../../fund/AssetManagement.sol";
@@ -46,6 +47,8 @@ contract ShortPoolManager is ProtocolFees, FlashLoans, AssetManagement, IShortPo
   error ErrorUnderCollateral();
 
   error ErrorPoolNotUnderCollateral();
+
+  error ErrorTopLevelCall();
 
   /*************
    * Constants *
@@ -91,6 +94,9 @@ contract ShortPoolManager is ProtocolFees, FlashLoans, AssetManagement, IShortPo
 
   /// @inheritdoc IPoolManager
   address public immutable configuration;
+
+  /// @notice The address of smart wallet whitelist.
+  address public immutable whitelist;
 
   /***********
    * Structs *
@@ -170,14 +176,25 @@ contract ShortPoolManager is ProtocolFees, FlashLoans, AssetManagement, IShortPo
     _;
   }
 
+  modifier onlyTopLevelCall() {
+    uint256 codesize = msg.sender.code.length;
+    if (codesize > 0 || msg.sender != tx.origin) {
+      if (!ISmartWalletChecker(whitelist).check(msg.sender)) {
+        revert ErrorTopLevelCall();
+      }
+    }
+    _;
+  }
+
   /***************
    * Constructor *
    ***************/
 
-  constructor(address _fxUSD, address _counterparty, address _configuration) {
+  constructor(address _fxUSD, address _counterparty, address _configuration, address _whitelist) {
     fxUSD = _fxUSD;
     counterparty = _counterparty;
     configuration = _configuration;
+    whitelist = _whitelist;
   }
 
   function initialize(
@@ -241,7 +258,7 @@ contract ShortPoolManager is ProtocolFees, FlashLoans, AssetManagement, IShortPo
     uint256 positionId,
     int256 newColl,
     int256 newDebt
-  ) public onlyRegisteredPool(pool) nonReentrant whenNotPaused returns (uint256) {
+  ) public onlyRegisteredPool(pool) nonReentrant whenNotPaused onlyTopLevelCall returns (uint256) {
     OperationMemoryVar memory vars;
 
     address debtToken = IShortPool(pool).debtToken();

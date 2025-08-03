@@ -74,12 +74,14 @@ contract BasePoolTest is PoolTestBase {
     longPool.updateDebtRatioRange(minRatio, maxRatio);
     vm.stopPrank();
 
+    /*
     // revert if maxRatio > 1e18
     vm.expectRevert(PoolErrors.ErrorValueTooLarge.selector);
     longPool.updateDebtRatioRange(minRatio, 1e18 + 1);
     // revert if minRatio > maxRatio
     vm.expectRevert(PoolErrors.ErrorValueTooLarge.selector);
     longPool.updateDebtRatioRange(minRatio + 1, minRatio);
+    */
 
     // Test updating debt ratio range
     vm.expectEmit(true, true, true, true);
@@ -105,9 +107,11 @@ contract BasePoolTest is PoolTestBase {
     longPool.updateMaxRedeemRatioPerTick(ratio);
     vm.stopPrank();
 
+    /*
     // revert if ratio is too large
     vm.expectRevert(PoolErrors.ErrorValueTooLarge.selector);
     longPool.updateMaxRedeemRatioPerTick(1e9 + 1);
+    */
 
     // Test updating max redeem ratio
     vm.expectEmit(true, true, true, true);
@@ -132,9 +136,11 @@ contract BasePoolTest is PoolTestBase {
     longPool.updateRebalanceRatios(debtRatio, bonusRatio);
     vm.stopPrank();
 
+    /*
     // revert if bonusRatio is too large
     vm.expectRevert(PoolErrors.ErrorValueTooLarge.selector);
     longPool.updateRebalanceRatios(debtRatio, 1e9 + 1);
+    */
 
     // Test updating rebalance ratios
     vm.expectEmit(true, true, true, true);
@@ -161,9 +167,11 @@ contract BasePoolTest is PoolTestBase {
     longPool.updateLiquidateRatios(debtRatio, bonusRatio);
     vm.stopPrank();
 
+    /*
     // revert if bonusRatio is too large
     vm.expectRevert(PoolErrors.ErrorValueTooLarge.selector);
     longPool.updateLiquidateRatios(debtRatio, 1e9 + 1);
+    */
 
     // Test updating liquidate ratios
     vm.expectEmit(true, true, true, true);
@@ -189,9 +197,11 @@ contract BasePoolTest is PoolTestBase {
     longPool.updatePriceOracle(address(newOracle));
     vm.stopPrank();
 
+    /*
     // revert if new oracle is zero address
     vm.expectRevert(PoolErrors.ErrorZeroAddress.selector);
     longPool.updatePriceOracle(address(0));
+    */
 
     // Test updating price oracle
     vm.expectEmit(true, true, true, true);

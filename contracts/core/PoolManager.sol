@@ -17,6 +17,7 @@ import { IShortPool } from "../interfaces/IShortPool.sol";
 import { IReservePool } from "../interfaces/IReservePool.sol";
 import { IFxUSDBasePool } from "../interfaces/IFxUSDBasePool.sol";
 import { IRateProvider } from "../rate-provider/interfaces/IRateProvider.sol";
+import { ISmartWalletChecker } from "../voting-escrow/interfaces/ISmartWalletChecker.sol";
 import { WordCodec } from "../common/codec/WordCodec.sol";
 import { AssetManagement } from "../fund/AssetManagement.sol";
 import { FlashLoans } from "./FlashLoans.sol";
@@ -62,6 +63,8 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
   error ErrorRedeemNotAllowed();
 
   error ErrorLiquidateDebtsTooSmall();
+
+  error ErrorTopLevelCall();
 
   /*************
    * Constants *
@@ -119,6 +122,9 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
 
   /// @inheritdoc ILongPoolManager
   address public immutable fxBASE;
+
+  /// @notice The address of smart wallet whitelist.
+  address public immutable whitelist;
 
   /***********
    * Structs *
@@ -231,15 +237,26 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
     _;
   }
 
+  modifier onlyTopLevelCall() {
+    uint256 codesize = msg.sender.code.length;
+    if (codesize > 0 || msg.sender != tx.origin) {
+      if (!ISmartWalletChecker(whitelist).check(msg.sender)) {
+        revert ErrorTopLevelCall();
+      }
+    }
+    _;
+  }
+
   /***************
    * Constructor *
    ***************/
 
-  constructor(address _fxUSD, address _fxBASE, address _counterparty, address _configuration) {
+  constructor(address _fxUSD, address _fxBASE, address _counterparty, address _configuration, address _whitelist) {
     fxUSD = _fxUSD;
     fxBASE = _fxBASE;
     counterparty = _counterparty;
     configuration = _configuration;
+    whitelist = _whitelist;
   }
 
   function initialize(
@@ -331,7 +348,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
     int256 newColl,
     int256 newDebt,
     bool useStable
-  ) public onlyRegisteredPool(pool) nonReentrant whenNotPaused returns (uint256) {
+  ) public onlyRegisteredPool(pool) nonReentrant whenNotPaused onlyTopLevelCall returns (uint256) {
     OperationMemoryVar memory vars;
 
     if (useStable) {
@@ -628,7 +645,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
     address longPool,
     address shortPool,
     uint256 amount
-  ) external onlyCounterparty onlyRegisteredPool(longPool) {
+  ) external onlyCounterparty onlyRegisteredPool(longPool) nonReentrant {
     address creditNote = IShortPool(shortPool).creditNote();
     address collateralToken = ILongPool(longPool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
@@ -650,7 +667,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
     address longPool,
     address shortPool,
     uint256 amount
-  ) external onlyCounterparty onlyRegisteredPool(longPool) {
+  ) external onlyCounterparty onlyRegisteredPool(longPool) nonReentrant {
     address collateralToken = ILongPool(longPool).collateralToken();
     _transferFrom(collateralToken, counterparty, address(this), amount);
     ICreditNote(IShortPool(shortPool).creditNote()).burn(address(this), amount);
@@ -661,7 +678,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
     address longPool,
     address shortPool,
     uint256 amount
-  ) external onlyCounterparty onlyRegisteredPool(longPool) {
+  ) external onlyCounterparty onlyRegisteredPool(longPool) nonReentrant {
     ICreditNote(IShortPool(shortPool).creditNote()).burn(counterparty, amount);
   }
 
@@ -671,7 +688,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
     address shortPool,
     uint256 amountFxUSD,
     uint256 totalBorrowed
-  ) external onlyCounterparty onlyRegisteredPool(longPool) returns (uint256 shortfall) {
+  ) external onlyCounterparty onlyRegisteredPool(longPool) nonReentrant returns (uint256 shortfall) {
     address collateralToken = ILongPool(longPool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
 

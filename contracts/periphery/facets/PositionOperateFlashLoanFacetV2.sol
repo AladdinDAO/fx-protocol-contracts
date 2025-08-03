@@ -55,7 +55,7 @@ contract PositionOperateFlashLoanFacetV2 is MorphoFlashLoanFacetBase {
    * Constructor *
    ***************/
 
-  constructor(address _morpho, address _poolManager) MorphoFlashLoanFacetBase(_morpho) {
+  constructor(address _morpho, address _poolManager, address _whitelist) MorphoFlashLoanFacetBase(_morpho, _whitelist) {
     poolManager = _poolManager;
   }
 
@@ -75,7 +75,7 @@ contract PositionOperateFlashLoanFacetV2 is MorphoFlashLoanFacetBase {
     uint256 positionId,
     uint256 borrowAmount,
     bytes calldata data
-  ) external payable nonReentrant {
+  ) external payable nonReentrant onlyTopLevelCall {
     uint256 amountIn = LibRouter.transferInAndConvert(params, IPool(pool).collateralToken()) + borrowAmount;
     _invokeFlashLoan(
       IPool(pool).collateralToken(),
@@ -102,7 +102,7 @@ contract PositionOperateFlashLoanFacetV2 is MorphoFlashLoanFacetBase {
     uint256 amountOut,
     uint256 borrowAmount,
     bytes calldata data
-  ) external nonReentrant {
+  ) external nonReentrant onlyTopLevelCall {
     address collateralToken = IPool(pool).collateralToken();
 
     _invokeFlashLoan(

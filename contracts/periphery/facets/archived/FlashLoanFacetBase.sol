@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.20;
 
-import { IBalancerVault } from "../../interfaces/Balancer/IBalancerVault.sol";
+import { IBalancerVault } from "../../../interfaces/Balancer/IBalancerVault.sol";
 
-import { LibRouter } from "../libraries/LibRouter.sol";
+import { LibRouter } from "../../libraries/LibRouter.sol";
 
 abstract contract FlashLoanFacetBase {
   /**********
