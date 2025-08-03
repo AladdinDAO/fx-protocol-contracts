@@ -1,3 +1,9 @@
 {
-  "Upgrade20250801#PoolManagerImplementation": "0x0d73d31E1E0d4cC266F0805c94F8E2b9b37d4C3A"
+  "Upgrade20250801#DiamondCutFacet": "0x33636D49FbefBE798e15e7F356E8DBef543CC708",
+  "Upgrade20250801#SmartWalletWhitelist": "0xAc94B8eA0E3a080F0Fa6aE89cC873d956F72aa3e",
+  "Upgrade20250801#LongPositionEmergencyCloseFacet": "0x2319289E56830b50A282c25af4F0045C724b3f79",
+  "Upgrade20250801#PoolManagerImplementation": "0x9af12daBD518A6Da606Caac455B2D0eFb3eF97F9",
+  "Upgrade20250801#PositionOperateFlashLoanFacetV2": "0x21275a57CF7592a1BB41E75497C070eFc8b66b52",
+  "Upgrade20250801#ShortPoolManagerImplementation": "0x6844Aaab4131041B563E6217Eb0Ba218123F5E45",
+  "Upgrade20250801#ShortPositionOperateFlashLoanFacet": "0xCE744C8b9069776F3367e5aD3585C9e5a7Bdd448"
 }

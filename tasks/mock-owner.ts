@@ -11,6 +11,7 @@ task("mock-owner", "Mock owner")
     const ProxyAdmin = await hre.ethers.getContractAt("ProxyAdmin", "0x9b54b7703551d9d0ced177a78367560a8b2edda4");
     const WstETHPool = await hre.ethers.getContractAt("AaveFundingPool", "0x6Ecfa38FeE8a5277B91eFdA204c235814F0122E8");
     const PoolManager = await hre.ethers.getContractAt("PoolManager", "0x250893ca4ba5d05626c785e8da758026928fcd24");
+    const ShortPoolManager = await hre.ethers.getContractAt("ShortPoolManager", "0xaCDc0AB51178d0Ae8F70c1EAd7d3cF5421FDd66D");
     const OwnershipFacet = await hre.ethers.getContractAt(
       "OwnershipFacet",
       "0x33636d49fbefbe798e15e7f356e8dbef543cc708"
@@ -36,6 +37,13 @@ task("mock-owner", "Mock owner")
         from: admin,
         to: await PoolManager.getAddress(),
         data: PoolManager.interface.encodeFunctionData("grantRole", [ZeroHash, owner]),
+      },
+    ]);
+    await rpc.send("eth_sendTransaction", [
+      {
+        from: admin,
+        to: await ShortPoolManager.getAddress(),
+        data: ShortPoolManager.interface.encodeFunctionData("grantRole", [ZeroHash, owner]),
       },
     ]);
     await rpc.send("eth_sendTransaction", [

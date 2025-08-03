@@ -74,9 +74,11 @@ export default buildModule("Upgrade20250801", (m) => {
     SmartWalletWhitelist,
   ]);
 
+  const DiamondCutFacet = m.contractAt("DiamondCutFacet", m.getParameter("Router"));
+  m.call(SmartWalletWhitelist, "approveWallet", [DiamondCutFacet]);
+
   /*
   // upgrade facets
-  const DiamondCutFacet = m.contractAt("DiamondCutFacet", m.getParameter("Router"));
   m.call(DiamondCutFacet, "diamondCut", [
     [
       {
