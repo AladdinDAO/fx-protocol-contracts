@@ -1,0 +1,13 @@
+{
+  "ProxyAdmin": {
+    "Fx": "0x9B54B7703551D9d0ced177A78367560a8B2eDDA4",
+    "Custom": "0xd41d29fc53fE5Ce9f0fB2328E54d35A2a03a324B"
+  },
+  "Upgrade20250725": {
+    "WBTCLongPoolProxy": "0xAB709e26Fa6B0A30c119D8c55B887DeD24952473",
+    "ShortPoolManagerProxy": "0xaCDc0AB51178d0Ae8F70c1EAd7d3cF5421FDd66D",
+    "WBTCPriceOracle": "0xb3c90e64EB6f456A5F5C17Aa99b6aecA6f4a6390",
+    "CreditNoteImplementation": "0x55A51450b1D025b4f6Fa259b2008851553343cdE",
+    "ShortPoolImplementation": "0x0055e248EE7feaB91969b77Ab32f184b72bE82Fa"
+  }
+}
