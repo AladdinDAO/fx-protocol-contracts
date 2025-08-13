@@ -65,7 +65,7 @@ abstract contract MorphoFlashLoanFacetBase {
 
   modifier onlyTopLevelCall() {
     uint256 codesize = msg.sender.code.length;
-    if (codesize > 0 || msg.sender != tx.origin) {
+    if (whitelist != address(0) && (codesize > 0 || msg.sender != tx.origin)) {
       if (!ISmartWalletChecker(whitelist).check(msg.sender)) {
         revert ErrorTopLevelCall();
       }

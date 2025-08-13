@@ -390,4 +390,17 @@ contract PoolConfigurationTest is PoolTestBase {
     mockAggregatorV3Interface.setPrice(0.94e8); // Stable price below depeg threshold
     assertFalse(poolConfiguration.isStableRepayAllowed());
   }
+
+  function test_Lock() public {
+    this._testLockInternal();
+  }
+
+  function _testLockInternal() public {
+    // Test lock when not locked
+    poolConfiguration.lock(address(this), msg.sig);
+
+    // Test lock when locked
+    vm.expectRevert(abi.encodeWithSelector(PoolConfiguration.ErrorPoolManagerLocked.selector));
+    poolConfiguration.lock(address(this), msg.sig);
+  }
 }

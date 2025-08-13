@@ -26,6 +26,9 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
   /// @dev Thrown when the pool is invalid.
   error ErrorInvalidPool();
 
+  /// @dev Thrown when the pool manager is locked.
+  error ErrorPoolManagerLocked();
+
   /*************
    * Constants *
    *************/
@@ -61,6 +64,9 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
   uint256 private constant SCALAR_C_OFFSET = 0;
   /// @dev The offset of *max borrow ratio* in short funding ratio parameter.
   uint256 private constant MAX_BORROW_RATIO_OFFSET = 64;
+
+  /// @dev The key for pool manager lock.
+  bytes32 private constant POOL_MANAGER_LOCK_KEY = keccak256("POOL_MANAGER_LOCK_KEY");
 
   /***********************
    * Immutable Variables *
@@ -320,6 +326,22 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
       if (lastInterestRate == 0) lastInterestRate = snapshot.lastInterestRate;
 
       _updateBorrowRateSnapshot(newBorrowIndex, lastInterestRate);
+    }
+  }
+
+  /// @inheritdoc IPoolConfiguration
+  /// @dev This function can be called by anyone. The state will be automatically cleared when the tx is over.
+  function lock(address manager, bytes4 selector) external {
+    bytes32 key = POOL_MANAGER_LOCK_KEY;
+    bytes32 value;
+    assembly {
+      value := tload(key)
+    }
+    if (value != 0) {
+        revert ErrorPoolManagerLocked();
+    }
+    assembly {
+      tstore(key, 1)
     }
   }
 

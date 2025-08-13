@@ -110,4 +110,9 @@ interface IPoolConfiguration {
   /// @notice Checkpoint the lending pool snapshot.
   /// @param pool The address of pool.
   function checkpoint(address pool) external;
+
+  /// @notice Lock the pool manager.
+  /// @param manager The address of pool manager.
+  /// @param selector The selector of the function to lock.
+  function lock(address manager, bytes4 selector) external;
 }

@@ -1,0 +1,9 @@
+{
+  "Upgrade20250812#LongPositionEmergencyCloseFacet": "0xa5145ff1E321B717D5f137961FE2Dc8Ec5af31E1",
+  "Upgrade20250812#PoolConfigurationImplementation": "0x9963e06c9D3fe874B944C5bF63729BD4ae6f07b2",
+  "Upgrade20250812#PoolManagerImplementation": "0x376909C828fa57d271e6b208036d24943503FbAD",
+  "Upgrade20250812#PositionOperateFlashLoanFacetV2": "0x1f844447ecF5b1523BfbADaD3d9DEA975982Ea93",
+  "Upgrade20250812#ShortPoolManagerImplementation": "0x958dF8F124509d45A1C39bc4aEdBe486fF2ffB3b",
+  "Upgrade20250812#ShortPositionOperateFlashLoanFacet": "0xB0c25521fB7dC1EeAd2f99132c852Ac9C715e8d6",
+  "Upgrade20250812#DiamondCutFacet": "0x33636D49FbefBE798e15e7F356E8DBef543CC708"
+}

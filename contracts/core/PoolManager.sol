@@ -239,11 +239,16 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
 
   modifier onlyTopLevelCall() {
     uint256 codesize = msg.sender.code.length;
-    if (codesize > 0 || msg.sender != tx.origin) {
+    if (whitelist != address(0) && (codesize > 0 || msg.sender != tx.origin)) {
       if (!ISmartWalletChecker(whitelist).check(msg.sender)) {
         revert ErrorTopLevelCall();
       }
     }
+    _;
+  }
+
+  modifier lock() {
+    IPoolConfiguration(configuration).lock(address(this), msg.sig);
     _;
   }
 
@@ -348,7 +353,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
     int256 newColl,
     int256 newDebt,
     bool useStable
-  ) public onlyRegisteredPool(pool) nonReentrant whenNotPaused onlyTopLevelCall returns (uint256) {
+  ) public onlyRegisteredPool(pool) nonReentrant whenNotPaused onlyTopLevelCall lock returns (uint256) {
     OperationMemoryVar memory vars;
 
     if (useStable) {
@@ -408,7 +413,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
     address pool,
     uint256 debts,
     uint256 minColls
-  ) external onlyRegisteredPool(pool) nonReentrant whenNotPaused returns (uint256 actualDebts, uint256 colls) {
+  ) external onlyRegisteredPool(pool) nonReentrant whenNotPaused lock returns (uint256 actualDebts, uint256 colls) {
     if (debts > IERC20(fxUSD).balanceOf(_msgSender())) {
       revert ErrorRedeemExceedBalance();
     }
@@ -489,6 +494,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
     nonReentrant
     whenNotPaused
     onlyFxUSDSave
+    lock
     returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
   {
     LiquidateOrRebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(pool);
@@ -520,6 +526,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
     nonReentrant
     whenNotPaused
     onlyFxUSDSave
+    lock
     returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
   {
     LiquidateOrRebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(pool);

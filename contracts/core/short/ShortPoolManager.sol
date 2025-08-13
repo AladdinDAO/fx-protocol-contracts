@@ -178,11 +178,16 @@ contract ShortPoolManager is ProtocolFees, FlashLoans, AssetManagement, IShortPo
 
   modifier onlyTopLevelCall() {
     uint256 codesize = msg.sender.code.length;
-    if (codesize > 0 || msg.sender != tx.origin) {
+    if (whitelist != address(0) && (codesize > 0 || msg.sender != tx.origin)) {
       if (!ISmartWalletChecker(whitelist).check(msg.sender)) {
         revert ErrorTopLevelCall();
       }
     }
+    _;
+  }
+
+  modifier lock() {
+    IPoolConfiguration(configuration).lock(address(this), msg.sig);
     _;
   }
 
@@ -258,7 +263,7 @@ contract ShortPoolManager is ProtocolFees, FlashLoans, AssetManagement, IShortPo
     uint256 positionId,
     int256 newColl,
     int256 newDebt
-  ) public onlyRegisteredPool(pool) nonReentrant whenNotPaused onlyTopLevelCall returns (uint256) {
+  ) public onlyRegisteredPool(pool) nonReentrant whenNotPaused onlyTopLevelCall lock returns (uint256) {
     OperationMemoryVar memory vars;
 
     address debtToken = IShortPool(pool).debtToken();
@@ -365,7 +370,7 @@ contract ShortPoolManager is ProtocolFees, FlashLoans, AssetManagement, IShortPo
     address pool,
     address receiver,
     uint256 maxRawDebts
-  ) external onlyRegisteredPool(pool) nonReentrant whenNotPaused returns (uint256 colls, uint256 debts) {
+  ) external onlyRegisteredPool(pool) nonReentrant whenNotPaused lock returns (uint256 colls, uint256 debts) {
     _checkRawDebtValues(pool, maxRawDebts);
 
     LiquidateOrRebalanceMemoryVar memory op = _beforeRebalanceOrLiquidate(pool);
@@ -383,7 +388,7 @@ contract ShortPoolManager is ProtocolFees, FlashLoans, AssetManagement, IShortPo
     address pool,
     address receiver,
     uint256 maxRawDebts
-  ) external onlyRegisteredPool(pool) nonReentrant whenNotPaused returns (uint256 colls, uint256 debts) {
+  ) external onlyRegisteredPool(pool) nonReentrant whenNotPaused lock returns (uint256 colls, uint256 debts) {
     _checkRawDebtValues(pool, maxRawDebts);
 
     (bool underCollateral, ) = IShortPool(pool).isUnderCollateral();
