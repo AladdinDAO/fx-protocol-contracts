@@ -49,6 +49,12 @@ interface IPoolManager {
   /// @param protocolFees The amount of protocol fees charges.
   event Redeem(address indexed pool, uint256 colls, uint256 debts, uint256 protocolFees);
 
+  /// @notice Emitted when redeem for settle happened.
+  /// @param pool The address of pool redeemed.
+  /// @param colls The amount of collateral tokens redeemed.
+  /// @param debts The amount of debt tokens redeemed.
+  event RedeemForSettle(address indexed pool, uint256 colls, uint256 debts);
+
   /// @notice Emitted when someone harvest pending rewards.
   /// @param caller The address of caller.
   /// @param amountRewards The amount of total harvested rewards.
@@ -84,6 +90,11 @@ interface IPoolManager {
 
   /// @notice The address of reward splitter.
   function rewardSplitter(address pool) external view returns (address);
+
+  /// @notice Get the scaling factor for a token.
+  /// @param token The address of the token.
+  /// @return scalingFactor The scaling factor for the token.
+  function getTokenScalingFactor(address token) external view returns (uint256);
 
   /****************************
    * Public Mutated Functions *

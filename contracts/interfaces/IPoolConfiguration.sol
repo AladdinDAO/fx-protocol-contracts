@@ -115,4 +115,9 @@ interface IPoolConfiguration {
   /// @param manager The address of pool manager.
   /// @param selector The selector of the function to lock.
   function lock(address manager, bytes4 selector) external;
+
+  /// @notice Unlock the pool manager.
+  /// @param manager The address of pool manager.
+  /// @param selector The selector of the function to unlock.
+  function unlock(address manager, bytes4 selector) external;
 }

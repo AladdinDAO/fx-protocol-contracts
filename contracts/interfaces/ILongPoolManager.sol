@@ -133,16 +133,18 @@ interface ILongPoolManager is IPoolManager {
   /// @param amount The amount of credit note token to repay.
   function repayByCreditNote(address longPool, address shortPool, uint256 amount) external;
 
-  /// @notice Liquidate short pool.
+  /// @notice Redeem fxUSD for settle killed short pool.
+  /// @param longPool The address of long pool.
+  /// @param amountFxUSD The amount of fxUSD to redeem.
+  /// @return colls The amount of collateral token redeemed.
+  function redeemForSettle(
+    address longPool,
+    uint256 amountFxUSD
+  ) external returns (uint256 colls);
+
+  /// @notice Settle short pool.
   /// @param longPool The address of long pool.
   /// @param shortPool The address of short pool.
-  /// @param amountFxUSD The amount of fxUSD to liquidate.
-  /// @param totalBorrowed The total amount of collateral tokens borrowed from long pool.
-  /// @return shortfall The amount of shortfall collateral token.
-  function liquidateShortPool(
-    address longPool,
-    address shortPool,
-    uint256 amountFxUSD,
-    uint256 totalBorrowed
-  ) external returns (uint256 shortfall);
+  /// @param shortfall The amount of shortfall collateral token.
+  function settleShortPool(address longPool, address shortPool, uint256 shortfall) external;
 }

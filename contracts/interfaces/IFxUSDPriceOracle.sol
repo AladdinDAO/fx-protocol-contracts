@@ -28,6 +28,10 @@ interface IFxUSDPriceOracle {
    * Public View Functions *
    *************************/
 
+  /// @notice Get the current price of USDC
+  /// @return price The current price of USDC in USD, multiplied by 1e18
+  function getUSDCPrice() external view returns (uint256);
+
   /// @notice Get the current price of FXUSD
   /// @return isPegged Whether the price is currently pegged to 1 USD
   /// @return price The current price of FXUSD in USD, multiplied by 1e18

@@ -90,7 +90,7 @@ abstract contract PoolTestBase is Test {
     mockAggregatorV3Interface = new MockAggregatorV3Interface(8, 100000000);
     mockCurveStableSwapNG = new MockCurveStableSwapNG();
     mockLongPriceOracle = new MockPriceOracle(3000 ether, 2999 ether, 3001 ether);
-    mockShortPriceOracle = new MockPriceOracle(3000 ether, 2999 ether, 3001 ether);
+    mockShortPriceOracle = new MockPriceOracle(333333333333333, 333333333333333, 333333333333333);
     mockRateProvider = new MockRateProvider(TokenRate);
     mockAaveV3Pool = new MockAaveV3Pool(0);
     mockConverter = new MockMultiPathConverter();
@@ -202,7 +202,7 @@ abstract contract PoolTestBase is Test {
         address(PegKeeperProxy),
         address(FxUSDRegeneracyProxy),
         address(stableToken),
-        encodeChainlinkPriceFeed(address(mockAggregatorV3Interface), 10000000000, 1000000000)
+        address(FxUSDPriceOracleProxy)
       );
       proxyAdmin.upgrade(ITransparentUpgradeableProxy(address(FxUSDBasePoolProxy)), address(FxUSDBasePoolImpl));
       fxBASE = FxUSDBasePool(address(FxUSDBasePoolProxy));
@@ -211,7 +211,10 @@ abstract contract PoolTestBase is Test {
 
     // deploy FxUSDPriceOracle
     {
-      FxUSDPriceOracle FxUSDPriceOracleImpl = new FxUSDPriceOracle(address(FxUSDRegeneracyProxy));
+      FxUSDPriceOracle FxUSDPriceOracleImpl = new FxUSDPriceOracle(
+        address(FxUSDRegeneracyProxy),
+        encodeChainlinkPriceFeed(address(mockAggregatorV3Interface), 10000000000, 1000000000)
+      );
       proxyAdmin.upgrade(ITransparentUpgradeableProxy(address(FxUSDPriceOracleProxy)), address(FxUSDPriceOracleImpl));
       fxUSDPriceOracle = FxUSDPriceOracle(address(FxUSDPriceOracleProxy));
       fxUSDPriceOracle.initialize(admin, address(mockCurveStableSwapNG));
@@ -233,7 +236,9 @@ abstract contract PoolTestBase is Test {
       PoolConfiguration PoolConfigurationImpl = new PoolConfiguration(
         address(FxUSDBasePoolProxy),
         address(mockAaveV3Pool),
-        address(stableToken)
+        address(stableToken),
+        address(poolManager),
+        address(ShortPoolManagerProxy)
       );
       proxyAdmin.upgrade(ITransparentUpgradeableProxy(address(PoolConfigurationProxy)), address(PoolConfigurationImpl));
       poolConfiguration = PoolConfiguration(address(PoolConfigurationProxy));

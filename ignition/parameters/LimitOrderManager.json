@@ -1,0 +1,10 @@
+{
+    "LimitOrderManager": {
+      "FxProxyAdmin": "0x9B54B7703551D9d0ced177A78367560a8B2eDDA4",
+      "FxUSDProxy": "0x085780639CC2cACd35E474e71f4d000e2405d8f6",
+      "ShortPoolManagerProxy": "0xaCDc0AB51178d0Ae8F70c1EAd7d3cF5421FDd66D",
+      "PoolManagerProxy": "0x250893CA4Ba5d05626C785e8da758026928FCD24",
+      "Treasury": "0x26B2ec4E02ebe2F54583af25b647b1D619e67BbF"
+    }
+  }
+  

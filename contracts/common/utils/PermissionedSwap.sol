@@ -51,6 +51,25 @@ abstract contract PermissionedSwap is AccessControlUpgradeable {
   /// @dev reserved slots.
   uint256[50] private __gap;
 
+  /****************************
+   * Public Mutated Functions *
+   ****************************/
+
+  /// @notice Swap token with permissioned router.
+  /// @param srcToken The address of source token.
+  /// @param dstToken The address of destination token.
+  /// @param amountIn The amount of input token.
+  /// @param params The token converting parameters.
+  /// @return amountOut The amount of output token received.
+  function swap(
+    address srcToken,
+    address dstToken,
+    uint256 amountIn,
+    TradingParameter memory params
+  ) external returns (uint256 amountOut) {
+    amountOut = _doTrade(srcToken, dstToken, amountIn, params);
+  }
+
   /************************
    * Restricted Functions *
    ************************/

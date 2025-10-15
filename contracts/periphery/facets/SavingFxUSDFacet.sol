@@ -5,6 +5,7 @@ pragma solidity ^0.8.20;
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 import { IFxUSDBasePool } from "../../interfaces/IFxUSDBasePool.sol";
 import { ISavingFxUSD } from "../../interfaces/ISavingFxUSD.sol";
@@ -21,6 +22,9 @@ contract SavingFxUSDFacet {
   /*************
    * Constants *
    *************/
+
+  /// @notice The role for no instantly redeem fee.
+  bytes32 public constant NO_INSTANT_REDEEM_FEE_ROLE = keccak256("NO_INSTANT_REDEEM_FEE_ROLE");
 
   /// @notice The address of USDC token.
   address private constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
@@ -96,7 +100,13 @@ contract SavingFxUSDFacet {
     address receiver
   ) external {
     uint256 assets = IERC4626(fxSAVE).redeem(shares, address(this), msg.sender);
-    (uint256 amountFxUSD, uint256 amountUSDC) = IFxUSDBasePool(fxBASE).instantRedeem(address(this), assets);
+    uint256 amountFxUSD;
+    uint256 amountUSDC;
+    if (IAccessControl(fxBASE).hasRole(NO_INSTANT_REDEEM_FEE_ROLE, msg.sender)) {
+      (amountFxUSD, amountUSDC) = IFxUSDBasePool(fxBASE).instantRedeemNoFee(address(this), assets);
+    } else {
+      (amountFxUSD, amountUSDC) = IFxUSDBasePool(fxBASE).instantRedeem(address(this), assets);
+    }
     LibRouter.convertAndTransferOut(fxusdParams, fxUSD, amountFxUSD, receiver);
     LibRouter.convertAndTransferOut(usdcParams, USDC, amountUSDC, receiver);
   }

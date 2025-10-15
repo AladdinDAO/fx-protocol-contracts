@@ -17,6 +17,7 @@ import { IPegKeeper } from "../interfaces/IPegKeeper.sol";
 import { IPool } from "../interfaces/IPool.sol";
 import { ILongPoolManager } from "../interfaces/ILongPoolManager.sol";
 import { IFxUSDBasePool } from "../interfaces/IFxUSDBasePool.sol";
+import { IFxUSDPriceOracle } from "../interfaces/IFxUSDPriceOracle.sol";
 
 import { AssetManagement } from "../fund/AssetManagement.sol";
 import { Math } from "../libraries/Math.sol";
@@ -70,6 +71,9 @@ contract FxUSDBasePool is
    * Constants *
    *************/
 
+  /// @notice The role for no instantly redeem fee.
+  bytes32 public constant NO_INSTANT_REDEEM_FEE_ROLE = keccak256("NO_INSTANT_REDEEM_FEE_ROLE");
+
   /// @dev The exchange rate precision.
   uint256 internal constant PRECISION = 1e18;
 
@@ -102,7 +106,7 @@ contract FxUSDBasePool is
   /// | heartbeat |  scale  | price_feed |
   /// |low                          high |
   /// ```
-  bytes32 public immutable Chainlink_USDC_USD_Spot;
+  address public immutable fxUSDPriceOracle;
 
   /***********
    * Structs *
@@ -176,13 +180,13 @@ contract FxUSDBasePool is
     address _pegKeeper,
     address _yieldToken,
     address _stableToken,
-    bytes32 _Chainlink_USDC_USD_Spot
+    address _fxUSDPriceOracle
   ) {
     poolManager = _poolManager;
     pegKeeper = _pegKeeper;
     yieldToken = _yieldToken;
     stableToken = _stableToken;
-    Chainlink_USDC_USD_Spot = _Chainlink_USDC_USD_Spot;
+    fxUSDPriceOracle = _fxUSDPriceOracle;
 
     stableTokenScale = 10 ** (18 - IERC20Metadata(_stableToken).decimals());
   }
@@ -254,26 +258,14 @@ contract FxUSDBasePool is
       return PRECISION;
     } else {
       uint256 stablePrice = getStableTokenPriceWithScale();
-      uint256 yieldPrice = IPegKeeper(pegKeeper).getFxUSDPrice();
+      (, uint256 yieldPrice) = IFxUSDPriceOracle(fxUSDPriceOracle).getPrice();
       return (totalYieldToken * yieldPrice + _getTotalStableTokenInPool() * stablePrice) / _totalSupply;
     }
   }
 
   /// @inheritdoc IFxUSDBasePool
   function getStableTokenPrice() public view returns (uint256) {
-    bytes32 encoding = Chainlink_USDC_USD_Spot;
-    address aggregator;
-    uint256 scale;
-    uint256 heartbeat;
-    assembly {
-      aggregator := shr(96, encoding)
-      scale := and(shr(32, encoding), 0xffffffffffffffff)
-      heartbeat := and(encoding, 0xffffffff)
-    }
-    (, int256 answer, , uint256 updatedAt, ) = AggregatorV3Interface(aggregator).latestRoundData();
-    if (answer < 0) revert("invalid");
-    if (block.timestamp - updatedAt > heartbeat) revert("expired");
-    return uint256(answer) * scale;
+    return IFxUSDPriceOracle(fxUSDPriceOracle).getUSDCPrice();
   }
 
   /// @inheritdoc IFxUSDBasePool
@@ -362,7 +354,7 @@ contract FxUSDBasePool is
   function instantRedeem(
     address receiver,
     uint256 amountSharesToRedeem
-  ) external nonReentrant sync returns (uint256 amountYieldOut, uint256 amountStableOut) {
+  ) public nonReentrant sync returns (uint256 amountYieldOut, uint256 amountStableOut) {
     if (amountSharesToRedeem == 0) revert ErrRedeemZeroShares();
 
     address caller = _msgSender();
@@ -397,6 +389,16 @@ contract FxUSDBasePool is
     }
 
     emit InstantRedeem(caller, receiver, amountSharesToRedeem, amountYieldOut, amountStableOut);
+  }
+
+  /// @inheritdoc IFxUSDBasePool
+  function instantRedeemNoFee(address receiver, uint256 amountSharesToRedeem) external onlyRole(NO_INSTANT_REDEEM_FEE_ROLE) returns (uint256 amountYieldOut, uint256 amountStableOut) {
+    // clear the fee ratio for this function call
+    uint256 originalFeeRatio = instantRedeemFeeRatio;
+    instantRedeemFeeRatio = 0;
+    (amountYieldOut, amountStableOut) = instantRedeem(receiver, amountSharesToRedeem);
+    // restore the fee ratio
+    instantRedeemFeeRatio = originalFeeRatio;
   }
 
   /// @inheritdoc IFxUSDBasePool

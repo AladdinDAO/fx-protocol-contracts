@@ -1,5 +1,6 @@
 import * as dotenv from "dotenv";
 import { HardhatUserConfig } from "hardhat/config";
+import "@nomicfoundation/hardhat-verify";
 import "@nomicfoundation/hardhat-toolbox";
 import { ethers } from "ethers";
 import "./tasks/mock-owner";
@@ -84,12 +85,7 @@ const config: HardhatUserConfig = {
     currency: "USD",
   },
   etherscan: {
-    apiKey: {
-      mainnet: process.env.ETHERSCAN_API_KEY || "",
-      hermez: process.env.POLYGON_SCAN_API_KEY || "",
-      phalcon: process.env.PHALCON_FORK_ACCESS_KEY || "",
-      tenderly: process.env.TENDERLY_ACCESS_TOKEN || "",
-    },
+    apiKey: process.env.ETHERSCAN_API_KEY || "",
     customChains: [
       {
         network: "hermez",

@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
+import { AggregatorV3Interface } from "../interfaces/Chainlink/AggregatorV3Interface.sol";
 import { ICurveStableSwapNG } from "../interfaces/Curve/ICurveStableSwapNG.sol";
 import { IFxUSDPriceOracle } from "../interfaces/IFxUSDPriceOracle.sol";
 
@@ -29,6 +30,15 @@ contract FxUSDPriceOracle is AccessControlUpgradeable, IFxUSDPriceOracle {
   /// @notice The fxUSD token.
   address public immutable fxUSD;
 
+  /// @notice The Chainlink USDC/USD price feed.
+  /// @dev The encoding is below.
+  /// ```text
+  /// |  32 bits  | 64 bits |  160 bits  |
+  /// | heartbeat |  scale  | price_feed |
+  /// |low                          high |
+  /// ```
+  bytes32 public immutable Chainlink_USDC_USD_Spot;
+
   /*********************
    * Storage Variables *
    *********************/
@@ -48,8 +58,9 @@ contract FxUSDPriceOracle is AccessControlUpgradeable, IFxUSDPriceOracle {
 
   /// @notice Constructor.
   /// @param _fxUSD The address of the fxUSD token.
-  constructor(address _fxUSD) {
+  constructor(address _fxUSD, bytes32 _Chainlink_USDC_USD_Spot) {
     fxUSD = _fxUSD;
+    Chainlink_USDC_USD_Spot = _Chainlink_USDC_USD_Spot;
   }
 
   /// @notice Initialize the contract storage.
@@ -68,6 +79,11 @@ contract FxUSDPriceOracle is AccessControlUpgradeable, IFxUSDPriceOracle {
   /*************************
    * Public View Functions *
    *************************/
+
+  /// @inheritdoc IFxUSDPriceOracle
+  function getUSDCPrice() external view returns (uint256) {
+    return _readUSDCPriceByChainlink();
+  }
 
   /// @inheritdoc IFxUSDPriceOracle
   function getPrice() external view returns (bool isPegged, uint256 price) {
@@ -118,6 +134,9 @@ contract FxUSDPriceOracle is AccessControlUpgradeable, IFxUSDPriceOracle {
     if (firstCoin == fxUSD) {
       price = (PRECISION * PRECISION) / price;
     }
+
+    // The price is in USDC, so we need to convert it to USD
+    price = (_readUSDCPriceByChainlink() * price) / PRECISION;
   }
 
   /// @dev Internal function to update the address of curve pool.
@@ -141,5 +160,22 @@ contract FxUSDPriceOracle is AccessControlUpgradeable, IFxUSDPriceOracle {
     maxUpPegPriceDeviation = newUpPegDeviation;
 
     emit UpdateMaxPriceDeviation(oldDePegDeviation, oldUpPegDeviation, newDePegDeviation, newUpPegDeviation);
+  }
+
+  /// @dev Internal function to read the USDC/USD price from Chainlink.
+  function _readUSDCPriceByChainlink() internal view returns (uint256) {
+    bytes32 encoding = Chainlink_USDC_USD_Spot;
+    address aggregator;
+    uint256 scale;
+    uint256 heartbeat;
+    assembly {
+      aggregator := shr(96, encoding)
+      scale := and(shr(32, encoding), 0xffffffffffffffff)
+      heartbeat := and(encoding, 0xffffffff)
+    }
+    (, int256 answer, , uint256 updatedAt, ) = AggregatorV3Interface(aggregator).latestRoundData();
+    if (answer < 0) revert("invalid");
+    if (block.timestamp - updatedAt > heartbeat) revert("expired");
+    return uint256(answer) * scale;
   }
 }

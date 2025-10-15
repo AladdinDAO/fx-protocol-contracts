@@ -50,6 +50,8 @@ contract ShortPoolManager is ProtocolFees, FlashLoans, AssetManagement, IShortPo
 
   error ErrorTopLevelCall();
 
+  error ErrorPoolNotKilled();
+
   /*************
    * Constants *
    *************/
@@ -151,6 +153,18 @@ contract ShortPoolManager is ProtocolFees, FlashLoans, AssetManagement, IShortPo
     uint256 poolRepayFeeRatio;
   }
 
+  /// @dev The struct for kill pool data.
+  /// @param colls The amount of collateral tokens killed.
+  /// @param debts The amount of debt tokens killed.
+  /// @param settledColls The amount of collateral tokens settled.
+  /// @param settledDebts The amount of debt tokens settled.
+  struct KillPoolData {
+    uint256 colls;
+    uint256 debts;
+    uint256 settledColls;
+    uint256 settledDebts;
+  }
+
   /*********************
    * Storage Variables *
    *********************/
@@ -166,6 +180,9 @@ contract ShortPoolManager is ProtocolFees, FlashLoans, AssetManagement, IShortPo
 
   /// @notice Mapping from token address to token rate struct.
   mapping(address => TokenRate) public tokenRates;
+
+  /// @notice Mapping from pool address to kill pool data.
+  mapping(address => KillPoolData) public killPoolData;
 
   /*************
    * Modifiers *
@@ -251,6 +268,11 @@ contract ShortPoolManager is ProtocolFees, FlashLoans, AssetManagement, IShortPo
   /// @return minRawDebt The minimum raw debt.
   function getMinRawDebt(address pool) external view returns (uint256 minRawDebt) {
     minRawDebt = _getPoolMinRawDebt(pool);
+  }
+
+  /// @inheritdoc IShortPoolManager
+  function getTokenScalingFactor(address token) external view returns (uint256) {
+    return _getTokenScalingFactor(token);
   }
 
   /****************************
@@ -426,15 +448,36 @@ contract ShortPoolManager is ProtocolFees, FlashLoans, AssetManagement, IShortPo
 
     uint256 rawDebts = IShortPool(pool).getTotalRawDebts();
     uint256 rawColls = IShortPool(pool).getTotalRawCollaterals();
-    uint256 shortfall = ILongPoolManager(counterparty).liquidateShortPool(
-      IShortPool(pool).counterparty(),
-      pool,
-      rawColls,
-      rawDebts
-    );
+    uint256 debts = _scaleDown(rawDebts, _getTokenScalingFactor(IShortPool(pool).debtToken()));
     IShortPool(pool).kill();
 
-    emit KillPool(pool, rawColls, rawDebts, shortfall);
+    killPoolData[pool].colls = rawColls;
+    killPoolData[pool].debts = debts;
+
+    emit KillPool(pool, rawColls, debts);
+  }
+
+  /// @inheritdoc IShortPoolManager
+  function settleKillPool(address pool, uint256 colls) external onlyRegisteredPool(pool) onlyRole(POOL_KILLER_ROLE) {
+    KillPoolData memory data = killPoolData[pool];
+    if (data.debts == 0 && data.colls == 0) revert ErrorPoolNotKilled();
+    if (colls > data.colls - data.settledColls) colls = data.colls - data.settledColls;
+
+    address longPool = IShortPool(pool).counterparty();
+    uint256 debts = ILongPoolManager(counterparty).redeemForSettle(longPool, colls);
+    emit SettleKillPool(pool, colls, debts);
+
+    data.settledColls += colls;
+    data.settledDebts += debts;
+    killPoolData[pool] = data;
+
+    if (data.settledColls == data.colls) {
+      if (data.debts > data.settledDebts) { 
+        ILongPoolManager(counterparty).settleShortPool(longPool, pool, data.debts - data.settledDebts);
+      } else {
+        ILongPoolManager(counterparty).settleShortPool(longPool, pool, 0);
+      }
+    }
   }
 
   /// @inheritdoc IPoolManager

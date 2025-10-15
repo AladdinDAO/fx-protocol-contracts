@@ -25,6 +25,9 @@ abstract contract TickLogic is PoolStorage {
   uint256 internal constant COLL_SHARE_OFFSET = 0;
   uint256 internal constant DEBT_SHARE_OFFSET = 128;
 
+  /// @dev The role to compress the tick tree.
+  bytes32 public constant TREE_COMPRESS_ROLE = keccak256("TREE_COMPRESS_ROLE");
+
   /***************
    * Constructor *
    ***************/
@@ -46,7 +49,7 @@ abstract contract TickLogic is PoolStorage {
   /// @return debtRatio The actual debt ratio of the given node, multiplied by 2^60.
   function getRootNodeAndCompress(
     uint256 node
-  ) external onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256 root, uint256 collRatio, uint256 debtRatio) {
+  ) external onlyRole(TREE_COMPRESS_ROLE) returns (uint256 root, uint256 collRatio, uint256 debtRatio) {
     (root, collRatio, debtRatio) = _getRootNodeAndCompress(node);
   }
 

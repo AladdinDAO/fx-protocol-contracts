@@ -337,6 +337,11 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
     debtBalance = data.decodeUint(DEBT_BALANCE_OFFSET, DEBT_DATA_BITS);
   }
 
+  /// @inheritdoc IPoolManager
+  function getTokenScalingFactor(address token) external view returns (uint256) {
+    return _getTokenScalingFactor(token);
+  }
+
   /****************************
    * Public Mutated Functions *
    ****************************/
@@ -690,27 +695,39 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
   }
 
   /// @inheritdoc ILongPoolManager
-  function liquidateShortPool(
-    address longPool,
-    address shortPool,
-    uint256 amountFxUSD,
-    uint256 totalBorrowed
-  ) external onlyCounterparty onlyRegisteredPool(longPool) nonReentrant returns (uint256 shortfall) {
-    address collateralToken = ILongPool(longPool).collateralToken();
+  function redeemForSettle(
+    address pool,
+    uint256 debts
+  ) external onlyCounterparty onlyRegisteredPool(pool) nonReentrant returns (uint256 colls) {
+    address collateralToken = ILongPool(pool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
 
-    (, uint256 redeemedRawColls) = ILongPool(longPool).redeem(amountFxUSD);
-    uint256 redeemedColls = _scaleDown(redeemedRawColls, scalingFactor);
+    // allow tick not moved to make sure all fxusd is redeemed
+    (, uint256 rawColls) = ILongPool(pool).redeem(debts, true);
+    colls = _scaleDown(rawColls, scalingFactor);
 
-    shortfall = totalBorrowed - redeemedColls;
+    _changePoolCollateral(pool, -int256(colls), -int256(rawColls));
+
+    // burn fxUSD, the caller is the short pool manager
+    IFxUSDRegeneracy(fxUSD).burn(_msgSender(), debts);
+    _changePoolDebts(pool, -int256(debts));
+
+    emit RedeemForSettle(pool, colls, debts);
+  }
+
+  /// @inheritdoc ILongPoolManager
+  function settleShortPool(
+    address longPool,
+    address shortPool,
+    uint256 shortfall
+  ) external onlyCounterparty onlyRegisteredPool(shortPool) nonReentrant {
+    address collateralToken = ILongPool(longPool).collateralToken();
+    uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
     uint256 rawShortfall = _scaleUp(shortfall, scalingFactor);
 
     // reduce collateral in long pool
     ILongPool(longPool).reduceCollateral(rawShortfall);
     _changePoolCollateral(longPool, -int256(shortfall), -int256(rawShortfall));
-
-    // burn fxUSD in short pool pool manager
-    IFxUSDRegeneracy(fxUSD).burn(counterparty, amountFxUSD);
 
     // burn all credit note tokens in pool manager.
     // for tokens outside of pool manager, the short pool is killed, the tokens are useless.

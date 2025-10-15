@@ -189,9 +189,14 @@ abstract contract BasePool is TickLogic, PositionLogic {
 
   /// @inheritdoc IPool
   function redeem(uint256 rawDebts) external onlyPoolManager returns (uint256 actualRawDebts, uint256 rawColls) {
+    return redeem(rawDebts, false);
+  }
+
+  /// @inheritdoc IPool
+  function redeem(uint256 rawDebts, bool allowTickNotMoved) public onlyPoolManager returns (uint256 actualRawDebts, uint256 rawColls) {
     if (_isRedeemPaused()) revert ErrorRedeemPaused();
 
-    (actualRawDebts, rawColls) = _redeem(rawDebts, false);
+    (actualRawDebts, rawColls) = _redeem(rawDebts, allowTickNotMoved);
   }
 
   /// @inheritdoc IPool

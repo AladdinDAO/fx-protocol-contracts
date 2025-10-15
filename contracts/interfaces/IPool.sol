@@ -199,6 +199,13 @@ interface IPool {
   /// @return rawColls The amount of collateral tokens to redeemed.
   function redeem(uint256 rawDebts) external returns (uint256 actualRawDebts, uint256 rawColls);
 
+  /// @notice Redeem debt tokens to get collateral tokens.
+  /// @param rawDebts The amount of debt tokens to redeem.
+  /// @param allowTickNotMoved Whether to allow tick not moved.
+  /// @return actualRawDebts The actual amount of debt tokens used.
+  /// @return rawColls The amount of collateral tokens to redeemed.
+  function redeem(uint256 rawDebts, bool allowTickNotMoved) external returns (uint256 actualRawDebts, uint256 rawColls);
+
   /// @notice Rebalance all positions in the given tick.
   /// @param tick The id of tick to rebalance.
   /// @param maxRawDebts The maximum amount of debt tokens to rebalance.

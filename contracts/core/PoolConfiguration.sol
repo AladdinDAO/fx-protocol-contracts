@@ -10,6 +10,8 @@ import { IPoolConfiguration } from "../interfaces/IPoolConfiguration.sol";
 import { IFxUSDPriceOracle } from "../interfaces/IFxUSDPriceOracle.sol";
 import { ILongPool } from "../interfaces/ILongPool.sol";
 import { IShortPool } from "../interfaces/IShortPool.sol";
+import { ILongPoolManager } from "../interfaces/ILongPoolManager.sol";
+import { IShortPoolManager } from "../interfaces/IShortPoolManager.sol";
 
 import { WordCodec } from "../common/codec/WordCodec.sol";
 
@@ -68,6 +70,9 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
   /// @dev The key for pool manager lock.
   bytes32 private constant POOL_MANAGER_LOCK_KEY = keccak256("POOL_MANAGER_LOCK_KEY");
 
+  /// @dev The role to unlock the pool manager.
+  bytes32 public constant UNLOCK_ROLE = keccak256("UNLOCK_ROLE");
+
   /***********************
    * Immutable Variables *
    ***********************/
@@ -80,6 +85,12 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
 
   /// @notice The address of the FxUSDBasePool contract.
   address public immutable FXUSD_BASE_POOL;
+
+  /// @notice The address of the pool manager.
+  address public immutable POOL_MANAGER;
+
+  /// @notice The address of the short pool manager.
+  address public immutable SHORT_POOL_MANAGER;
 
   /***********
    * Structs *
@@ -174,10 +185,20 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
   /// @param _fxUSDBasePool The address of the FxUSDBasePool contract.
   /// @param _aaveLendingPool The address of the Aave lending pool.
   /// @param _aaveBaseAsset The address of the Aave base asset.
-  constructor(address _fxUSDBasePool, address _aaveLendingPool, address _aaveBaseAsset) {
+  /// @param _poolManager The address of the pool manager.
+  /// @param _shortPoolManager The address of the short pool manager.
+  constructor(
+    address _fxUSDBasePool,
+    address _aaveLendingPool,
+    address _aaveBaseAsset,
+    address _poolManager,
+    address _shortPoolManager
+  ) {
     FXUSD_BASE_POOL = _fxUSDBasePool;
     AAVE_LENDING_POOL = _aaveLendingPool;
     AAVE_BASE_ASSET = _aaveBaseAsset;
+    POOL_MANAGER = _poolManager;
+    SHORT_POOL_MANAGER = _shortPoolManager;
   }
 
   /// @notice Initialize the contract storage.
@@ -286,8 +307,12 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
 
     uint256 interestRate = _getAverageInterestRate(borrowRateSnapshot);
     address counterparty = IShortPool(pool).counterparty();
-    uint256 collateral = ILongPool(counterparty).getTotalRawCollaterals();
-    uint256 debts = IShortPool(pool).getTotalRawDebts();
+    address collateralToken = ILongPool(counterparty).collateralToken();
+    uint256 longScalingFactor = ILongPoolManager(POOL_MANAGER).getTokenScalingFactor(collateralToken);
+    uint256 collateral = _scaleDown(ILongPool(counterparty).getTotalRawCollaterals(), longScalingFactor);
+    uint256 shortScalingFactor = IShortPoolManager(SHORT_POOL_MANAGER).getTokenScalingFactor(collateralToken);
+    uint256 debts = _scaleDown(IShortPool(pool).getTotalRawDebts(), shortScalingFactor);
+
     uint256 debtRatio;
     if (collateral == 0) {
       debtRatio = 0;
@@ -338,10 +363,18 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
       value := tload(key)
     }
     if (value != 0) {
-        revert ErrorPoolManagerLocked();
+      revert ErrorPoolManagerLocked();
     }
     assembly {
       tstore(key, 1)
+    }
+  }
+
+  /// @inheritdoc IPoolConfiguration
+  function unlock(address manager, bytes4 selector) external onlyRole(UNLOCK_ROLE) {
+    bytes32 key = POOL_MANAGER_LOCK_KEY;
+    assembly {
+      tstore(key, 0)
     }
   }
 
@@ -520,5 +553,10 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
   /// @param upperBound The upper bound for the given value.
   function _checkValueTooLarge(uint256 value, uint256 upperBound) internal pure {
     if (value > upperBound) revert ErrorValueTooLarge();
+  }
+
+  /// @dev Internal function to scaler down for `uint256`, rounding down.
+  function _scaleDown(uint256 value, uint256 scale) internal pure returns (uint256) {
+    return (value * PRECISION) / scale;
   }
 }

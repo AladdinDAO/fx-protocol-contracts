@@ -40,6 +40,9 @@
     "@openzeppelin/contracts": "^5.0.2",
     "@openzeppelin/contracts-upgradeable": "^5.0.2",
     "@openzeppelin/contracts-upgradeable-v4": "npm:@openzeppelin/contracts-upgradeable@4.9.6",
-    "@openzeppelin/contracts-v4": "npm:@openzeppelin/contracts@4.9.6"
+    "@openzeppelin/contracts-v4": "npm:@openzeppelin/contracts@4.9.6",
+    "@uniswap/v4-core": "^1.0.2",
+    "@uniswap/v4-periphery": "^1.0.3",
+    "solmate": "^6.8.0"
   }
 }

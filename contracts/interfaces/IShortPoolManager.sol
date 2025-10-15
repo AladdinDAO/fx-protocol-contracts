@@ -38,13 +38,23 @@ interface IShortPoolManager is IPoolManager {
   /// @notice Emitted when pool killed.
   /// @param pool The address of pool killed.
   /// @param rawColls The amount of fxUSD as collateral.
-  /// @param rawDebts The amount of raw debt tokens borrowed from long pool.
-  /// @param shortfall The amount of shortfall debt token.
-  event KillPool(address indexed pool, uint256 rawColls, uint256 rawDebts, uint256 shortfall);
+  /// @param debts The amount of debt tokens borrowed from long pool.
+  event KillPool(address indexed pool, uint256 rawColls, uint256 debts);
+
+  /// @notice Emitted when kill pool settled.
+  /// @param pool The address of pool killed.
+  /// @param colls The amount of collateral tokens settled.
+  /// @param debts The amount of debt tokens settled.
+  event SettleKillPool(address indexed pool, uint256 colls, uint256 debts);
 
   /*************************
    * Public View Functions *
    *************************/
+
+  /// @notice Get the scaling factor for a token.
+  /// @param token The address of the token.
+  /// @return scalingFactor The scaling factor for the token.
+  function getTokenScalingFactor(address token) external view returns (uint256);
 
   /****************************
    * Public Mutated Functions *
@@ -90,4 +100,9 @@ interface IShortPoolManager is IPoolManager {
   /// @notice Kill the pool.
   /// @param pool The address of the pool to kill.
   function killPool(address pool) external;
+
+  /// @notice Settle kill pool.
+  /// @param pool The address of the pool to settle.
+  /// @param colls The amount of collateral tokens to settle.
+  function settleKillPool(address pool, uint256 colls) external;
 }

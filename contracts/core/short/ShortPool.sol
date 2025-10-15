@@ -86,6 +86,8 @@ contract ShortPool is BasePool, IShortPool {
 
   /// @inheritdoc IShortPool
   function kill() external onlyPoolManager {
+    if (isKilled) revert ErrorPoolKilled();
+
     isKilled = true;
   }
 

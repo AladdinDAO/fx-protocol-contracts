@@ -1,16 +1,17 @@
 {
-    "ts-node": {
-      // Do not forget to `npm i -D tsconfig-paths`
-      "require": ["tsconfig-paths/register"]
-    },
+  "ts-node": {
+    "experimentalResolver": true,
+    // Do not forget to `npm i -D tsconfig-paths`
+    "require": ["tsconfig-paths/register"]
+  },
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
       "@/test/*": ["test/*"],
       "@/types/*": ["src/@types/*"],
-      "@/utils/*": ["src/utils/*"],
+      "@/utils/*": ["src/utils/*"]
     },
-    "target": "es2020",
+    "target": "es2022",
     "module": "commonjs",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,

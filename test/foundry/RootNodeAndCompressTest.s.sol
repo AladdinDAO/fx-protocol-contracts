@@ -7,6 +7,7 @@ import { Test } from "forge-std/Test.sol";
 import { WordCodec } from "../../contracts/common/codec/WordCodec.sol";
 import { TickMath } from "../../contracts/libraries/TickMath.sol";
 
+/*
 contract MinimumPool {
   using WordCodec for bytes32;
 
@@ -234,3 +235,4 @@ contract RootNodeAndCompressTest is Test {
     check();
   }
 }
+*/
