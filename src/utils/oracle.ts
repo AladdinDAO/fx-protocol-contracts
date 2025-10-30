@@ -1,6 +1,6 @@
-import { Addresses } from "./address";
-import { encodeSpotPricePool, encodeSpotPriceSources, SpotPricePoolType } from "./codec";
-import { EthereumTokens } from "./tokens";
+import { Addresses } from "./address.ts";
+import { encodeSpotPricePool, encodeSpotPriceSources, SpotPricePoolType } from "./codec.ts";
+import { EthereumTokens } from "./tokens.ts";
 
 export const ChainlinkPriceFeed: {
   [network: string]: {

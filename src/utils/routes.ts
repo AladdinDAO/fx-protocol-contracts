@@ -1,9 +1,9 @@
 import assert from "assert";
 import { toBigInt } from "ethers";
 
-import { Addresses } from "./address";
-import { Action, encodePoolHintV3, PoolTypeV3 } from "./codec";
-import { EthereumTokens } from "./tokens";
+import { Addresses } from "./address.ts";
+import { Action, encodePoolHintV3, PoolTypeV3 } from "./codec.ts";
+import { EthereumTokens } from "./tokens.ts";
 
 /* eslint-disable prettier/prettier */
 // prettier-ignore

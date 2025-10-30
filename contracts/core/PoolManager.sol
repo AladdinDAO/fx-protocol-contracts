@@ -720,7 +720,7 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
     address longPool,
     address shortPool,
     uint256 shortfall
-  ) external onlyCounterparty onlyRegisteredPool(shortPool) nonReentrant {
+  ) external onlyCounterparty onlyRegisteredPool(longPool) nonReentrant {
     address collateralToken = ILongPool(longPool).collateralToken();
     uint256 scalingFactor = _getTokenScalingFactor(collateralToken);
     uint256 rawShortfall = _scaleUp(shortfall, scalingFactor);

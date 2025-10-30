@@ -1,15 +1,15 @@
 import * as dotenv from "dotenv";
-import { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-verify";
-import "@nomicfoundation/hardhat-toolbox";
 import { ethers } from "ethers";
-import "./tasks/mock-owner";
 
 dotenv.config();
+
+import type { HardhatUserConfig } from "hardhat/config";
+import hardhatToolboxMochaEthers from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
 
 const testAccounts = process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [];
 
 const config: HardhatUserConfig = {
+  plugins: [hardhatToolboxMochaEthers],
   solidity: {
     compilers: [
       {
@@ -38,6 +38,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     mainnet: {
+      type: "http",
       url: process.env.MAINNET_RPC_URL || "https://rpc.ankr.com/eth",
       chainId: 1,
       accounts: [process.env.PRIVATE_KEY_MAINNET!],
@@ -47,21 +48,25 @@ const config: HardhatUserConfig = {
       },
     },
     hermez: {
+      type: "http",
       url: process.env.HERMEZ_RPC_URL || "https://zkevm-rpc.com",
       chainId: 1101,
       accounts: [process.env.PRIVATE_KEY_HERMEZ!],
     },
     sepolia: {
+      type: "http",
       url: "https://sepolia.gateway.tenderly.co",
       chainId: 11155111,
       accounts: testAccounts,
     },
     phalcon: {
+      type: "http",
       url: `https://rpc.phalcon.blocksec.com/${process.env.PHALCON_RPC_ID || ""}`,
       chainId: parseInt(process.env.PHALCON_CHAIN_ID || "1"),
       accounts: testAccounts,
     },
     tenderly: {
+      type: "http",
       url: `https://virtual.mainnet.rpc.tenderly.co/${process.env.TENDERLY_ETHEREUM_RPC_ID || ""}`,
       chainId: parseInt(process.env.TENDERLY_ETHEREUM_CHAIN_ID || "1"),
       accounts: testAccounts,
@@ -72,7 +77,6 @@ const config: HardhatUserConfig = {
   },
   typechain: {
     outDir: "./src/@types",
-    target: "ethers-v6",
   },
   ignition: {
     blockPollingInterval: 1_000,
@@ -80,50 +84,20 @@ const config: HardhatUserConfig = {
     maxFeeBumps: 3,
     disableFeeBumping: false,
   },
-  gasReporter: {
-    enabled: process.env.REPORT_GAS !== undefined,
-    currency: "USD",
-  },
-  etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY || "",
-    customChains: [
-      {
-        network: "hermez",
-        chainId: 1101,
-        urls: {
-          apiURL: "https://api-zkevm.polygonscan.com/api",
-          browserURL: "https://zkevm.polygonscan.com",
-        },
-      },
-      {
-        network: "phalcon",
-        chainId: parseInt(process.env.PHALCON_CHAIN_ID || "1"),
-        urls: {
-          apiURL: `https://api.phalcon.xyz/api/${process.env.PHALCON_RPC_ID || ""}`,
-          browserURL: `https://scan.phalcon.xyz/${process.env.PHALCON_FORK_ID || ""}`,
-        },
-      },
-      {
-        network: "tenderly",
-        chainId: parseInt(process.env.TENDERLY_ETHEREUM_CHAIN_ID || "1"),
-        urls: {
-          apiURL: `https://virtual.mainnet.rpc.tenderly.co/${process.env.TENDERLY_ETHEREUM_RPC_ID || ""}/verify/etherscan`,
-          browserURL: `https://dashboard.tenderly.co/${process.env.TENDERLY_USERNAME}/${process.env.TENDERLY_PROJECT}/testnet/${process.env.TENDERLY_ETHEREUM_TESTNET_ID}/contract/virtual/`,
-        },
-      },
-    ],
+  verify: {
+    etherscan: {
+      apiKey: process.env.ETHERSCAN_API_KEY || "",
+      enabled: false,
+    },
+    blockscout: {
+      enabled: true,
+    },
   },
   paths: {
     artifacts: "./artifacts-hardhat",
     cache: "./cache-hardhat",
     sources: "./contracts",
     tests: "./test",
-  },
-  sourcify: {
-    enabled: false,
-  },
-  mocha: {
-    timeout: 400000,
   },
 };
 

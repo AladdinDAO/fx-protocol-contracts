@@ -2,3 +2,5 @@ forge-std/=lib/forge-std/src
 @openzeppelin/=node_modules/@openzeppelin
 @uniswap/=node_modules/@uniswap
 solmate/=node_modules/solmate
+contracts/=contracts/
+test/=test/

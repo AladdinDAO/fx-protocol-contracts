@@ -189,6 +189,8 @@ library LibRouter {
     }
 
     amountOut = IERC20(tokenOut).balanceOf(address(this)) - amountOut;
+
+    if (amountOut < params.minOut) revert ErrorInsufficientOutput();
   }
 
   /// @dev Convert `tokenIn` to other token and transfer out.

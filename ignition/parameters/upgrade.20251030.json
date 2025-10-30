@@ -1,0 +1,10 @@
+{
+  "Upgrade20251030": {
+    "DiamondCutFacet": "0x221ffB180AD01213FF882ab7DE9c75E23F9efA63",
+    "DiamondLoupeFacet": "0x6793De5E5a329bE514B51184Db13639DC7ccf8dd",
+    "OwnershipFacet": "0x14F1CbAE37F765614655967aFC51b544b8143749",
+    "RouterManagementFacet": "0x447d902da96A22727d0B53F215D0C387fe1AE114",
+    "MultiPathConverter": "0x12AF4529129303D7FbD2563E242C4a2890525912",
+    "RevenuePool": "0x4Fb9445019ba1e3A39bD1dfBe9cC7815E0a3C285"
+  }
+}

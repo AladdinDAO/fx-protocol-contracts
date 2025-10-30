@@ -1,8 +1,7 @@
 import { assert } from "console";
-import { concat, getAddress, toBeHex, toBigInt } from "ethers";
-import { ethers } from "hardhat";
+import { concat, getAddress, toBeHex, toBigInt, ethers } from "ethers";
 
-import { EthereumTokens } from "./tokens";
+import { EthereumTokens } from "./tokens.ts";
 
 export enum PoolTypeV3 {
   UniswapV2,

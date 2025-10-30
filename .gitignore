@@ -5,6 +5,9 @@ node_modules
 /cache*
 /artifacts*
 
+broadcast/**/*.json
+!broadcast/*/1/run-latest.json
+
 # TypeChain files
 /typechain
 /typechain-types
