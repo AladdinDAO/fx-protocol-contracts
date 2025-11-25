@@ -3,14 +3,21 @@ import { ethers } from "ethers";
 
 dotenv.config();
 
-import type { HardhatUserConfig } from "hardhat/config";
+import { configVariable, type HardhatUserConfig } from "hardhat/config";
 import hardhatToolboxMochaEthers from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
+
+// custom plugins
+import FxProtocolPlugin from "./plugins/index.ts";
 
 const testAccounts = process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [];
 
 const config: HardhatUserConfig = {
-  plugins: [hardhatToolboxMochaEthers],
+  plugins: [hardhatToolboxMochaEthers, FxProtocolPlugin],
   solidity: {
+    npmFilesToBuild: [
+      "@openzeppelin/contracts-v4/proxy/transparent/ProxyAdmin.sol",
+      "@openzeppelin/contracts-v4/proxy/transparent/TransparentUpgradeableProxy.sol",
+    ],
     compilers: [
       {
         version: "0.8.26",
@@ -75,6 +82,18 @@ const config: HardhatUserConfig = {
       },
     },
   },
+  chainDescriptors: {
+    1: {
+      name: "mainnet",
+      blockExplorers: {
+        etherscan: {
+          name: "Etherscan",
+          url: "https://etherscan.io",
+          apiUrl: "https://api.etherscan.io/v2/api",
+        },
+      },
+    },
+  },
   typechain: {
     outDir: "./src/@types",
   },
@@ -86,8 +105,8 @@ const config: HardhatUserConfig = {
   },
   verify: {
     etherscan: {
-      apiKey: process.env.ETHERSCAN_API_KEY || "",
-      enabled: false,
+      apiKey: configVariable("ETHERSCAN_API_KEY"),
+      enabled: true,
     },
     blockscout: {
       enabled: true,

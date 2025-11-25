@@ -1,27 +1,11 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-import { Interface, ZeroAddress } from "ethers";
+import { ZeroAddress, ZeroHash } from "ethers";
 
 import { ChainlinkPriceFeed } from "@/utils/index.ts";
 import { encodeChainlinkPriceFeed, EthereumTokens } from "@/utils/index.ts";
-import {
-  DiamondCutFacet__factory,
-  DiamondLoupeFacet__factory,
-  OwnershipFacet__factory,
-  PositionOperateFacet__factory,
-  RouterManagementFacet__factory,
-  SavingFxUSDFacet__factory,
-} from "@/types/index.ts";
-import { MultiPathConverter } from "@/types/contracts/helpers/converter/index.ts";
+import { SavingFxUSDFacet__factory } from "@/types/index.ts";
 
-const getAllSignatures = (e: Interface): string[] => {
-  const sigs: string[] = [];
-  e.forEachFunction((func, _) => {
-    sigs.push(func.selector);
-  });
-  return sigs;
-};
-
-export default buildModule("Upgrade202510xx", (m) => {
+export default buildModule("Upgrade20251031", (m) => {
   const owner = m.getAccount(0);
 
   // deploy FxUSDBasePool implementation
@@ -111,12 +95,42 @@ export default buildModule("Upgrade202510xx", (m) => {
     m.getParameter("SavingFxUSDProxy"),
   ]);
 
-  // deploy PositionOperateFacet
-  const PositionOperateFacet = m.contract("PositionOperateFacet", []);
+  // deploy ProtocolTreasury implementation
+  const ProtocolTreasuryImplementation = m.contract("ProtocolTreasury", [], { id: "ProtocolTreasuryImplementation" });
 
-  // upgrades
-  /*
   const ProxyAdmin = m.contractAt("ProxyAdmin", "0x9B54B7703551D9d0ced177A78367560a8B2eDDA4");
+
+  // deploy ProtocolTreasury for funding
+  const ProtocolTreasuryInitializer = m.encodeFunctionCall(ProtocolTreasuryImplementation, "initialize", [owner]);
+  const ProtocolTreasuryProxyFunding = m.contract(
+    "TransparentUpgradeableProxy",
+    [ProtocolTreasuryImplementation, ProxyAdmin, ProtocolTreasuryInitializer],
+    {
+      id: "ProtocolTreasuryProxy_Funding",
+    }
+  );
+  const ProtocolTreasuryFunding = m.contractAt("ProtocolTreasury", ProtocolTreasuryProxyFunding, {
+    id: "ProtocolTreasuryFunding",
+  });
+  m.call(ProtocolTreasuryFunding, "grantRole", [ZeroHash, "0x26B2ec4E02ebe2F54583af25b647b1D619e67BbF"], {
+    id: "ProtocolTreasuryProxy_Funding_grantRole_DEFAULT_ADMIN_ROLE",
+  });
+  const ProtocolTreasuryProxyPegKeeper = m.contract(
+    "TransparentUpgradeableProxy",
+    [ProtocolTreasuryImplementation, ProxyAdmin, ProtocolTreasuryInitializer],
+    {
+      id: "ProtocolTreasuryProxy_PegKeeper",
+    }
+  );
+  const ProtocolTreasuryPegKeeper = m.contractAt("ProtocolTreasury", ProtocolTreasuryProxyPegKeeper, {
+    id: "ProtocolTreasuryPegKeeper",
+  });
+  m.call(ProtocolTreasuryPegKeeper, "grantRole", [ZeroHash, "0x26B2ec4E02ebe2F54583af25b647b1D619e67BbF"], {
+    id: "ProtocolTreasuryProxy_PegKeeper_grantRole_DEFAULT_ADMIN_ROLE",
+  });
+
+  /*
+  // upgrades
   m.call(ProxyAdmin, "upgrade", [m.getParameter("FxUSDBasePoolProxy"), FxUSDBasePoolImplementation], {
     id: "FxUSDBasePoolProxy_upgrade",
   });
@@ -144,6 +158,12 @@ export default buildModule("Upgrade202510xx", (m) => {
   m.call(ProxyAdmin, "upgrade", ["0xA0cC8162c523998856D59065fAa254F87D20A5b0", ShortPoolImplementation], {
     id: "WBTCShort_upgrade",
   });
+  m.call(ProxyAdmin, "upgrade", ["0xb178197E88D58Da21bE22A408E850d1e6Dc09A38", ProtocolTreasuryImplementation], {
+    id: "ProtocolTreasury_Funding_upgrade",
+  });
+  m.call(ProxyAdmin, "upgrade", ["0x32356FE312Eba9B7D6A157ad28D1ca91b571CdA6", ProtocolTreasuryImplementation], {
+    id: "ProtocolTreasury_LSD_upgrade",
+  });
   */
 
   // upgrade facets for router
@@ -162,55 +182,6 @@ export default buildModule("Upgrade202510xx", (m) => {
     "0x",
   ]);
 
-  // deploy router
-  const diamondCuts = [
-    {
-      facetAddress: m.getParameter("DiamondCutFacet"),
-      action: 0,
-      functionSelectors: getAllSignatures(DiamondCutFacet__factory.createInterface()),
-    },
-    {
-      facetAddress: m.getParameter("DiamondLoupeFacet"),
-      action: 0,
-      functionSelectors: getAllSignatures(DiamondLoupeFacet__factory.createInterface()),
-    },
-    {
-      facetAddress: m.getParameter("OwnershipFacet"),
-      action: 0,
-      functionSelectors: getAllSignatures(OwnershipFacet__factory.createInterface()),
-    },
-    {
-      facetAddress: m.getParameter("RouterManagementFacet"),
-      action: 0,
-      functionSelectors: getAllSignatures(RouterManagementFacet__factory.createInterface()),
-    },
-    {
-      facetAddress: PositionOperateFacet,
-      action: 0,
-      functionSelectors: getAllSignatures(PositionOperateFacet__factory.createInterface()),
-    },
-  ];
-  // deploy Router
-  const FxMintRouter = m.contract(
-    "Diamond",
-    [
-      diamondCuts,
-      {
-        owner: owner,
-        init: ZeroAddress,
-        initCalldata: "0x",
-      },
-    ],
-    { id: "FxMintRouter" }
-  );
-  // config parameters
-  const RouterManagementFacet = m.contractAt("RouterManagementFacet", FxMintRouter);
-  m.call(RouterManagementFacet, "approveTarget", [
-    m.getParameter("MultiPathConverter"),
-    m.getParameter("MultiPathConverter"),
-  ]);
-  m.call(RouterManagementFacet, "updateRevenuePool", [m.getParameter("RevenuePool")]);
-
   return {
     FxUSDBasePoolImplementation,
     FxUSDPriceOracleImplementation,
@@ -219,5 +190,7 @@ export default buildModule("Upgrade202510xx", (m) => {
     PoolManagerImplementation,
     ShortPoolManagerImplementation,
     ShortPoolImplementation,
+    ProtocolTreasuryImplementation,
+    ProtocolTreasuryProxyFunding,
   };
 });

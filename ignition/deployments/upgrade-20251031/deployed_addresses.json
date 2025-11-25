@@ -1,0 +1,17 @@
+{
+  "Upgrade20251031#ProxyAdmin": "0x9B54B7703551D9d0ced177A78367560a8B2eDDA4",
+  "Upgrade20251031#AaveFundingPoolImplementation": "0x449014A5A57269bABDAbC3749cef963d1cEd6d51",
+  "Upgrade20251031#FxUSDBasePoolImplementation": "0x3374B9466d571eDd695cf5e198F7C89b33C0cE01",
+  "Upgrade20251031#FxUSDPriceOracleImplementation": "0x12be1e1E1F4632f68A78E0Ea0247d7E3C2DBc8aA",
+  "Upgrade20251031#PoolConfigurationImplementation": "0x69c40892C814FBb6fcDcbEb034e3dc854f3D7E10",
+  "Upgrade20251031#PoolManagerImplementation": "0xa70DDDb8ddD06B1C26061d998E041748b18eCf85",
+  "Upgrade20251031#ProtocolTreasuryImplementation": "0x253d0C045eE4fB6F2707Fe7d1Fcd0ef036E032A9",
+  "Upgrade20251031#SavingFxUSDFacet": "0x3cfE091C9028154cc5Cb721258E9360803B130f5",
+  "Upgrade20251031#ShortPoolImplementation": "0xf3d24bb506038F6639B34b5175E0fcf2d610a098",
+  "Upgrade20251031#ShortPoolManagerImplementation": "0x73A7B27308f2c8B3769FB88734f561C23A4AFb66",
+  "Upgrade20251031#ProtocolTreasuryProxy_Funding": "0x6D9e81c5b7C4b37d0Fe9E8CDA776e057f4040868",
+  "Upgrade20251031#ProtocolTreasuryFunding": "0x6D9e81c5b7C4b37d0Fe9E8CDA776e057f4040868",
+  "Upgrade20251031#ProtocolTreasuryProxy_PegKeeper": "0x87d5e4cAaF4358A4337C10859c7107c7AEF4f8Ce",
+  "Upgrade20251031#ProtocolTreasuryPegKeeper": "0x87d5e4cAaF4358A4337C10859c7107c7AEF4f8Ce",
+  "Upgrade20251031#DiamondCutFacet": "0x33636D49FbefBE798e15e7F356E8DBef543CC708"
+}
