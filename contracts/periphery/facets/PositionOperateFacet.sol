@@ -47,16 +47,16 @@ contract PositionOperateFacet {
   uint256 private constant FEE_PRECISION = 1e9;
 
   /// @dev The address of fxUSD token.
-  address private constant fxUSD = 0x085780639CC2cACd35E474e71f4d000e2405d8f6;
+  address private immutable fxUSD = 0x085780639CC2cACd35E474e71f4d000e2405d8f6;
 
   /// @dev The address of long pool manager.
-  address private constant longPoolManager = 0x250893CA4Ba5d05626C785e8da758026928FCD24;
+  address private immutable longPoolManager = 0x250893CA4Ba5d05626C785e8da758026928FCD24;
 
   /// @dev The address of short pool manager.
-  address private constant shortPoolManager = 0xaCDc0AB51178d0Ae8F70c1EAd7d3cF5421FDd66D;
+  address private immutable shortPoolManager = 0xaCDc0AB51178d0Ae8F70c1EAd7d3cF5421FDd66D;
 
   /// @dev The address of PoolConfiguration.
-  address private constant configuration = 0x16b334f2644cc00b85DB1A1efF0C2C395e00C28d;
+  address private immutable configuration = 0x16b334f2644cc00b85DB1A1efF0C2C395e00C28d;
 
   /***********
    * Structs *
@@ -100,6 +100,13 @@ contract PositionOperateFacet {
   /***************
    * Constructor *
    ***************/
+
+  constructor(address _fxUSD, address _longPoolManager, address _shortPoolManager, address _configuration) {
+    fxUSD = _fxUSD;
+    longPoolManager = _longPoolManager;
+    shortPoolManager = _shortPoolManager;
+    configuration = _configuration;
+  }
 
   /****************************
    * Public Mutated Functions *

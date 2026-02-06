@@ -61,7 +61,7 @@ describe("AaveFundingPool.spec", async () => {
     mockPriceOracle = await MockPriceOracle.deploy(
       ethers.parseEther("3000"),
       ethers.parseEther("2999"),
-      ethers.parseEther("3001")
+      ethers.parseEther("3001"),
     );
     mockAaveV3Pool = await MockAaveV3Pool.deploy(ethers.parseUnits("0.05", 27));
     await mockAaveV3Pool.setReserveNormalizedVariableDebt(ethers.parseUnits("1", 27));
@@ -87,18 +87,18 @@ describe("AaveFundingPool.spec", async () => {
     const FxUSDRegeneracyProxy = await TransparentUpgradeableProxy.deploy(
       empty.getAddress(),
       proxyAdmin.getAddress(),
-      "0x"
+      "0x",
     );
     const PegKeeperProxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), proxyAdmin.getAddress(), "0x");
     const PoolManagerProxy = await TransparentUpgradeableProxy.deploy(
       empty.getAddress(),
       proxyAdmin.getAddress(),
-      "0x"
+      "0x",
     );
     const FxUSDBasePoolProxy = await TransparentUpgradeableProxy.deploy(
       empty.getAddress(),
       proxyAdmin.getAddress(),
-      "0x"
+      "0x",
     );
 
     // deploy ReservePool
@@ -108,7 +108,7 @@ describe("AaveFundingPool.spec", async () => {
     const PoolManagerImpl = await PoolManager.deploy(
       FxUSDRegeneracyProxy.getAddress(),
       FxUSDBasePoolProxy.getAddress(),
-      PegKeeperProxy.getAddress()
+      PegKeeperProxy.getAddress(),
     );
     await proxyAdmin.upgradeAndCall(
       PoolManagerProxy.getAddress(),
@@ -121,7 +121,7 @@ describe("AaveFundingPool.spec", async () => {
         treasury.address,
         revenuePool.address,
         await reservePool.getAddress(),
-      ])
+      ]),
     );
     poolManager = await ethers.getContractAt("PoolManager", await PoolManagerProxy.getAddress(), admin);
 
@@ -129,7 +129,7 @@ describe("AaveFundingPool.spec", async () => {
     const FxUSDRegeneracyImpl = await FxUSDRegeneracy.deploy(
       PoolManagerProxy.getAddress(),
       stableToken.getAddress(),
-      PegKeeperProxy.getAddress()
+      PegKeeperProxy.getAddress(),
     );
     await proxyAdmin.upgrade(FxUSDRegeneracyProxy.getAddress(), FxUSDRegeneracyImpl.getAddress());
     fxUSD = await ethers.getContractAt("FxUSDRegeneracy", await FxUSDRegeneracyProxy.getAddress(), admin);
@@ -142,7 +142,7 @@ describe("AaveFundingPool.spec", async () => {
       PegKeeperProxy.getAddress(),
       FxUSDRegeneracyProxy.getAddress(),
       stableToken.getAddress(),
-      encodeChainlinkPriceFeed(await mockAggregatorV3Interface.getAddress(), 10n ** 10n, 1000000000)
+      encodeChainlinkPriceFeed(await mockAggregatorV3Interface.getAddress(), 10n ** 10n, 1000000000),
     );
     await proxyAdmin.upgradeAndCall(
       FxUSDBasePoolProxy.getAddress(),
@@ -153,7 +153,7 @@ describe("AaveFundingPool.spec", async () => {
         "fxUSDBase",
         ethers.parseEther("0.995"),
         0n,
-      ])
+      ]),
     );
     fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), admin);
 
@@ -166,7 +166,7 @@ describe("AaveFundingPool.spec", async () => {
         admin.address,
         await converter.getAddress(),
         await mockCurveStableSwapNG.getAddress(),
-      ])
+      ]),
     );
     pegKeeper = await ethers.getContractAt("PegKeeper", await PegKeeperProxy.getAddress(), admin);
 
@@ -175,14 +175,14 @@ describe("AaveFundingPool.spec", async () => {
     pool = await AaveFundingPool.deploy(
       poolManager.getAddress(),
       mockAaveV3Pool.getAddress(),
-      stableToken.getAddress()
+      stableToken.getAddress(),
     );
     await pool.initialize(
       admin.address,
       "f(x) wstETH position",
       "xstETH",
       collateralToken.getAddress(),
-      mockPriceOracle.getAddress()
+      mockPriceOracle.getAddress(),
     );
     await pool.updateRebalanceRatios(ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9));
     await pool.updateLiquidateRatios(ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9));
@@ -192,7 +192,7 @@ describe("AaveFundingPool.spec", async () => {
       pool.getAddress(),
       fxBASERewarder.getAddress(),
       ethers.parseEther("10000"),
-      ethers.parseEther("10000000")
+      ethers.parseEther("10000000"),
     );
     await mockCurveStableSwapNG.setCoin(0, stableToken.getAddress());
     await mockCurveStableSwapNG.setCoin(1, fxUSD.getAddress());
@@ -232,7 +232,7 @@ describe("AaveFundingPool.spec", async () => {
     it("should revert, when initialize again", async () => {
       await expect(pool.initialize(ZeroAddress, "", "", ZeroAddress, ZeroAddress)).to.revertedWithCustomError(
         pool,
-        "InvalidInitialization"
+        "InvalidInitialization",
       );
     });
   });
@@ -290,11 +290,11 @@ describe("AaveFundingPool.spec", async () => {
       it("should succeed", async () => {
         await expect(pool.connect(admin).updateDebtRatioRange(1, 0)).to.revertedWithCustomError(
           pool,
-          "ErrorValueTooLarge"
+          "ErrorValueTooLarge",
         );
         await expect(pool.connect(admin).updateDebtRatioRange(0, 10n ** 18n + 1n)).to.revertedWithCustomError(
           pool,
-          "ErrorValueTooLarge"
+          "ErrorValueTooLarge",
         );
         expect(await pool.getDebtRatioRange()).to.deep.eq([500000000000000000n, 857142857142857142n]);
         await expect(pool.connect(admin).updateDebtRatioRange(1n, 2n))
@@ -314,7 +314,7 @@ describe("AaveFundingPool.spec", async () => {
       it("should succeed", async () => {
         await expect(pool.connect(admin).updateMaxRedeemRatioPerTick(10n ** 9n + 1n)).to.revertedWithCustomError(
           pool,
-          "ErrorValueTooLarge"
+          "ErrorValueTooLarge",
         );
         expect(await pool.getMaxRedeemRatioPerTick()).to.eq(ethers.parseUnits("0.2", 9));
         await expect(pool.connect(admin).updateMaxRedeemRatioPerTick(1n))
@@ -334,11 +334,11 @@ describe("AaveFundingPool.spec", async () => {
       it("should succeed", async () => {
         await expect(pool.connect(admin).updateRebalanceRatios(10n ** 18n + 1n, 0)).to.revertedWithCustomError(
           pool,
-          "ErrorValueTooLarge"
+          "ErrorValueTooLarge",
         );
         await expect(pool.connect(admin).updateRebalanceRatios(0, 10n ** 9n + 1n)).to.revertedWithCustomError(
           pool,
-          "ErrorValueTooLarge"
+          "ErrorValueTooLarge",
         );
         expect(await pool.getRebalanceRatios()).to.deep.eq([ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9)]);
         await expect(pool.connect(admin).updateRebalanceRatios(1n, 2n))
@@ -358,11 +358,11 @@ describe("AaveFundingPool.spec", async () => {
       it("should succeed", async () => {
         await expect(pool.connect(admin).updateLiquidateRatios(10n ** 18n + 1n, 0)).to.revertedWithCustomError(
           pool,
-          "ErrorValueTooLarge"
+          "ErrorValueTooLarge",
         );
         await expect(pool.connect(admin).updateLiquidateRatios(0, 10n ** 9n + 1n)).to.revertedWithCustomError(
           pool,
-          "ErrorValueTooLarge"
+          "ErrorValueTooLarge",
         );
         expect(await pool.getLiquidateRatios()).to.deep.eq([ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9)]);
         await expect(pool.connect(admin).updateLiquidateRatios(1n, 2n))
@@ -382,7 +382,7 @@ describe("AaveFundingPool.spec", async () => {
       it("should succeed", async () => {
         await expect(pool.connect(admin).updatePriceOracle(ZeroAddress)).to.revertedWithCustomError(
           pool,
-          "ErrorZeroAddress"
+          "ErrorZeroAddress",
         );
 
         expect(await pool.priceOracle()).to.eq(await mockPriceOracle.getAddress());
@@ -403,11 +403,11 @@ describe("AaveFundingPool.spec", async () => {
       it("should succeed", async () => {
         await expect(pool.connect(admin).updateOpenRatio(10n ** 9n + 1n, 0)).to.revertedWithCustomError(
           pool,
-          "ErrorValueTooLarge"
+          "ErrorValueTooLarge",
         );
         await expect(pool.connect(admin).updateOpenRatio(0, 10n ** 18n + 1n)).to.revertedWithCustomError(
           pool,
-          "ErrorValueTooLarge"
+          "ErrorValueTooLarge",
         );
         expect(await pool.getOpenRatio()).to.deep.eq([ethers.parseUnits("0.001", 9), ethers.parseEther("0.05")]);
         await expect(pool.connect(admin).updateOpenRatio(1n, 2n)).to.emit(pool, "UpdateOpenRatio").withArgs(1n, 2n);
@@ -465,7 +465,7 @@ describe("AaveFundingPool.spec", async () => {
       it("should succeed", async () => {
         await expect(pool.connect(admin).updateCloseFeeRatio(10n ** 9n + 1n)).to.revertedWithCustomError(
           pool,
-          "ErrorValueTooLarge"
+          "ErrorValueTooLarge",
         );
         expect(await pool.getCloseFeeRatio()).to.eq(ethers.parseUnits("0.001", 9));
         await expect(pool.connect(admin).updateCloseFeeRatio(1n))
@@ -485,7 +485,7 @@ describe("AaveFundingPool.spec", async () => {
       it("should succeed", async () => {
         await expect(pool.connect(admin).updateFundingRatio(4294967295n + 1n)).to.revertedWithCustomError(
           pool,
-          "ErrorValueTooLarge"
+          "ErrorValueTooLarge",
         );
         expect(await pool.getFundingRatio()).to.eq(0n);
         await expect(pool.connect(admin).updateFundingRatio(1n)).to.emit(pool, "UpdateFundingRatio").withArgs(0n, 1n);
@@ -506,36 +506,36 @@ describe("AaveFundingPool.spec", async () => {
     it("should revert, when ErrorCallerNotPoolManager", async () => {
       await expect(pool.connect(deployer).operate(0, 0, 0, deployer.address)).to.revertedWithCustomError(
         pool,
-        "ErrorCallerNotPoolManager"
+        "ErrorCallerNotPoolManager",
       );
     });
 
     it("should revert, when ErrorNoSupplyAndNoBorrow", async () => {
       await expect(pool.connect(signer).operate(0, 0n, 0n, deployer.address)).to.revertedWithCustomError(
         pool,
-        "ErrorNoSupplyAndNoBorrow"
+        "ErrorNoSupplyAndNoBorrow",
       );
     });
 
     it("should revert, when ErrorCollateralTooSmall", async () => {
       await expect(pool.connect(signer).operate(0, 999999999n, 0n, deployer.address)).to.revertedWithCustomError(
         pool,
-        "ErrorCollateralTooSmall"
+        "ErrorCollateralTooSmall",
       );
       await expect(pool.connect(signer).operate(0, -999999999n, 0n, deployer.address)).to.revertedWithCustomError(
         pool,
-        "ErrorCollateralTooSmall"
+        "ErrorCollateralTooSmall",
       );
     });
 
     it("should revert, when ErrorDebtTooSmall", async () => {
       await expect(pool.connect(signer).operate(0, 0n, 999999999n, deployer.address)).to.revertedWithCustomError(
         pool,
-        "ErrorDebtTooSmall"
+        "ErrorDebtTooSmall",
       );
       await expect(pool.connect(signer).operate(0, 0n, -999999999n, deployer.address)).to.revertedWithCustomError(
         pool,
-        "ErrorDebtTooSmall"
+        "ErrorDebtTooSmall",
       );
     });
 
@@ -547,7 +547,7 @@ describe("AaveFundingPool.spec", async () => {
       expect(await pegKeeper.isBorrowAllowed()).to.eq(true);
       await expect(pool.connect(signer).operate(0, 0n, 10n ** 9n, deployer.address)).to.revertedWithCustomError(
         pool,
-        "ErrorBorrowPaused"
+        "ErrorBorrowPaused",
       );
       // pool borrow not paused, peg keeper borrow not allowed
       await pool.connect(admin).updateBorrowAndRedeemStatus(false, false);
@@ -556,7 +556,7 @@ describe("AaveFundingPool.spec", async () => {
       expect(await pegKeeper.isBorrowAllowed()).to.eq(false);
       await expect(pool.connect(signer).operate(0, 0n, 10n ** 9n, deployer.address)).to.revertedWithCustomError(
         pool,
-        "ErrorBorrowPaused"
+        "ErrorBorrowPaused",
       );
       // pool borrow paused, peg keeper borrow not allowed
       await pool.connect(admin).updateBorrowAndRedeemStatus(true, false);
@@ -565,7 +565,7 @@ describe("AaveFundingPool.spec", async () => {
       expect(await pegKeeper.isBorrowAllowed()).to.eq(false);
       await expect(pool.connect(signer).operate(0, 0n, 10n ** 9n, deployer.address)).to.revertedWithCustomError(
         pool,
-        "ErrorBorrowPaused"
+        "ErrorBorrowPaused",
       );
     });
 
@@ -575,7 +575,7 @@ describe("AaveFundingPool.spec", async () => {
       await expect(
         pool
           .connect(signer)
-          .operate(0, ethers.parseEther("1.23"), ethers.parseEther("3161.802857142857139696"), deployer.address)
+          .operate(0, ethers.parseEther("1.23"), ethers.parseEther("3161.802857142857139696"), deployer.address),
       ).to.revertedWithCustomError(pool, "ErrorDebtRatioTooLarge");
     });
 
@@ -583,7 +583,7 @@ describe("AaveFundingPool.spec", async () => {
       await pool.updateOpenRatio(0n, 1n);
       // current price is 2999, max allow to borrow is
       await expect(
-        pool.connect(signer).operate(0, ethers.parseEther("1.23"), ethers.parseEther("1844.384"), deployer.address)
+        pool.connect(signer).operate(0, ethers.parseEther("1.23"), ethers.parseEther("1844.384"), deployer.address),
       ).to.revertedWithCustomError(pool, "ErrorDebtRatioTooSmall");
     });
 
@@ -612,7 +612,7 @@ describe("AaveFundingPool.spec", async () => {
       expect(await pool.getTopTick()).to.eq((await pool.positionData(1)).tick);
 
       await expect(
-        pool.connect(signer).operate(1, newRawColl - protocolFees, ethers.parseEther("2000"), signer.address)
+        pool.connect(signer).operate(1, newRawColl - protocolFees, ethers.parseEther("2000"), signer.address),
       ).to.revertedWithCustomError(pool, "ErrorNotPositionOwner");
     });
 
@@ -696,7 +696,7 @@ describe("AaveFundingPool.spec", async () => {
       const InitialRawCollateral = ethers.parseEther("1.23") - ethers.parseEther("1.23") / 1000n;
       beforeEach(async () => {
         expect(
-          await pool.connect(signer).operate(0, ethers.parseEther("1.23"), ethers.parseEther("2000"), deployer.address)
+          await pool.connect(signer).operate(0, ethers.parseEther("1.23"), ethers.parseEther("2000"), deployer.address),
         ).to.to.emit(pool, "PositionSnapshot");
       });
 
@@ -743,7 +743,7 @@ describe("AaveFundingPool.spec", async () => {
 
       beforeEach(async () => {
         expect(
-          await pool.connect(signer).operate(0, ethers.parseEther("1.23"), ethers.parseEther("2000"), deployer.address)
+          await pool.connect(signer).operate(0, ethers.parseEther("1.23"), ethers.parseEther("2000"), deployer.address),
         ).to.to.emit(pool, "PositionSnapshot");
       });
 
@@ -775,7 +775,7 @@ describe("AaveFundingPool.spec", async () => {
         expect(await pool.getDebtAndCollateralShares()).to.deep.eq([InitialRawDebt, InitialRawCollateral - rawColl]);
 
         await expect(
-          pool.connect(signer).operate(1, -InitialRawCollateral * 2n, 0n, deployer.address)
+          pool.connect(signer).operate(1, -InitialRawCollateral * 2n, 0n, deployer.address),
         ).to.revertedWithCustomError(pool, "ErrorWithdrawExceedSupply");
       });
 
@@ -840,7 +840,7 @@ describe("AaveFundingPool.spec", async () => {
         expect(
           await pool
             .connect(signer)
-            .operate(2, ethers.parseEther("0.139953348883705431"), ethers.parseEther("420"), deployer.address)
+            .operate(2, ethers.parseEther("0.139953348883705431"), ethers.parseEther("420"), deployer.address),
         ).to.emit(pool, "PositionSnapshot");
         expect((await pool.getPosition(2)).rawColls).to.closeTo(ethers.parseEther("1.23"), 10n);
         expect((await pool.getPosition(2)).rawDebts).to.closeTo(ethers.parseEther("2100"), 1000000n);
@@ -852,7 +852,7 @@ describe("AaveFundingPool.spec", async () => {
         expect(
           await pool
             .connect(signer)
-            .operate(1, ethers.parseEther("0.263968620556715720"), ethers.parseEther("792"), deployer.address)
+            .operate(1, ethers.parseEther("0.263968620556715720"), ethers.parseEther("792"), deployer.address),
         ).to.emit(pool, "PositionSnapshot");
         expect((await pool.getPosition(1)).rawColls).to.closeTo(ethers.parseEther("1.23"), 10n);
         expect((await pool.getPosition(1)).rawDebts).to.closeTo(ethers.parseEther("2200"), 1000000n);
@@ -893,7 +893,7 @@ describe("AaveFundingPool.spec", async () => {
       await pool.connect(admin).updateBorrowAndRedeemStatus(true, true);
       await expect(pool.connect(signer).redeem(ethers.parseEther("440"))).to.revertedWithCustomError(
         pool,
-        "ErrorRedeemPaused"
+        "ErrorRedeemPaused",
       );
     });
 
@@ -921,7 +921,7 @@ describe("AaveFundingPool.spec", async () => {
       expect(await pool.getTotalRawDebts()).to.eq(ethers.parseEther("8200"));
       expect(await pool.connect(signer).redeem.staticCall(redeemAmount)).to.closeTo(
         ethers.parseEther("0.286571142952349216"),
-        10n
+        10n,
       );
       await pool.connect(signer).redeem(redeemAmount);
       expect(await pool.getPosition(3)).to.deep.eq([ethers.parseEther("1.23"), ethers.parseEther("2000")]);
@@ -949,7 +949,7 @@ describe("AaveFundingPool.spec", async () => {
       expect(await pool.getTotalRawDebts()).to.eq(ethers.parseEther("8200"));
       expect(await pool.connect(signer).redeem.staticCall(redeemAmount)).to.closeTo(
         ethers.parseEther("0.546484505164945018"),
-        10n
+        10n,
       );
       await pool.connect(signer).redeem(redeemAmount);
       expect((await pool.getPosition(4)).rawColls).to.closeTo(ethers.parseEther("1.220669776741086305"), 10n);
@@ -993,14 +993,14 @@ describe("AaveFundingPool.spec", async () => {
     it("should revert, when ErrorCallerNotPoolManager", async () => {
       await expect(pool.connect(deployer)["rebalance(int16,uint256)"](0, 0)).to.revertedWithCustomError(
         pool,
-        "ErrorCallerNotPoolManager"
+        "ErrorCallerNotPoolManager",
       );
     });
 
     it("should revert, when ErrorRebalanceDebtRatioNotReached", async () => {
       await expect(pool.connect(signer)["rebalance(int16,uint256)"](4997, MaxUint256)).to.revertedWithCustomError(
         pool,
-        "ErrorRebalanceDebtRatioNotReached"
+        "ErrorRebalanceDebtRatioNotReached",
       );
     });
 
@@ -1011,7 +1011,7 @@ describe("AaveFundingPool.spec", async () => {
 
       await expect(pool.connect(signer)["rebalance(int16,uint256)"](4997, MaxUint256)).to.revertedWithCustomError(
         pool,
-        "ErrorRebalanceOnLiquidatableTick"
+        "ErrorRebalanceOnLiquidatableTick",
       );
     });
 
@@ -1032,16 +1032,16 @@ describe("AaveFundingPool.spec", async () => {
       expect(await pool.getTotalRawCollaterals()).to.closeTo(ethers.parseEther("11.609693877551020409"), 10n);
       expect(await pool.getTotalRawDebts()).to.closeTo(ethers.parseEther("20433.061224489795918368"), 10n);
       expect(
-        ((await pool.getTotalRawDebts()) * 10n ** 18n) / ((await pool.getTotalRawCollaterals()) * 2000n)
+        ((await pool.getTotalRawDebts()) * 10n ** 18n) / ((await pool.getTotalRawCollaterals()) * 2000n),
       ).to.closeTo(ethers.parseEther("0.88"), 1000000n);
       expect(
-        ((await pool.getPosition(1)).rawDebts * 10n ** 18n) / ((await pool.getPosition(1)).rawColls * 2000n)
+        ((await pool.getPosition(1)).rawDebts * 10n ** 18n) / ((await pool.getPosition(1)).rawColls * 2000n),
       ).to.closeTo(ethers.parseEther("0.88"), 1000000n);
       expect(
-        ((await pool.getPosition(2)).rawDebts * 10n ** 18n) / ((await pool.getPosition(2)).rawColls * 2000n)
+        ((await pool.getPosition(2)).rawDebts * 10n ** 18n) / ((await pool.getPosition(2)).rawColls * 2000n),
       ).to.closeTo(ethers.parseEther("0.88"), 1000000n);
       expect(
-        ((await pool.getPosition(3)).rawDebts * 10n ** 18n) / ((await pool.getPosition(3)).rawColls * 2000n)
+        ((await pool.getPosition(3)).rawDebts * 10n ** 18n) / ((await pool.getPosition(3)).rawColls * 2000n),
       ).to.closeTo(ethers.parseEther("0.88"), 1000000n);
       expect((await pool.getPosition(1)).rawColls).to.closeTo(ethers.parseEther("0.104591836734693877"), 10n);
       expect((await pool.getPosition(1)).rawDebts).to.closeTo(ethers.parseEther("184.081632653061224305"), 1000000n);
@@ -1073,7 +1073,7 @@ describe("AaveFundingPool.spec", async () => {
     it("should revert, when ErrorCallerNotPoolManager", async () => {
       await expect(pool.connect(deployer)["rebalance(uint256)"](0)).to.revertedWithCustomError(
         pool,
-        "ErrorCallerNotPoolManager"
+        "ErrorCallerNotPoolManager",
       );
     });
 
@@ -1094,16 +1094,16 @@ describe("AaveFundingPool.spec", async () => {
       expect(await pool.getTotalRawCollaterals()).to.closeTo(ethers.parseEther("11.609693877551020409"), 10n);
       expect(await pool.getTotalRawDebts()).to.closeTo(ethers.parseEther("20433.061224489795918368"), 10n);
       expect(
-        ((await pool.getTotalRawDebts()) * 10n ** 18n) / ((await pool.getTotalRawCollaterals()) * 2000n)
+        ((await pool.getTotalRawDebts()) * 10n ** 18n) / ((await pool.getTotalRawCollaterals()) * 2000n),
       ).to.closeTo(ethers.parseEther("0.88"), 1000000n);
       expect(
-        ((await pool.getPosition(1)).rawDebts * 10n ** 18n) / ((await pool.getPosition(1)).rawColls * 2000n)
+        ((await pool.getPosition(1)).rawDebts * 10n ** 18n) / ((await pool.getPosition(1)).rawColls * 2000n),
       ).to.closeTo(ethers.parseEther("0.88"), 1000000n);
       expect(
-        ((await pool.getPosition(2)).rawDebts * 10n ** 18n) / ((await pool.getPosition(2)).rawColls * 2000n)
+        ((await pool.getPosition(2)).rawDebts * 10n ** 18n) / ((await pool.getPosition(2)).rawColls * 2000n),
       ).to.closeTo(ethers.parseEther("0.88"), 1000000n);
       expect(
-        ((await pool.getPosition(3)).rawDebts * 10n ** 18n) / ((await pool.getPosition(3)).rawColls * 2000n)
+        ((await pool.getPosition(3)).rawDebts * 10n ** 18n) / ((await pool.getPosition(3)).rawColls * 2000n),
       ).to.closeTo(ethers.parseEther("0.88"), 1000000n);
       expect((await pool.getPosition(1)).rawColls).to.closeTo(ethers.parseEther("0.104591836734693877"), 10n);
       expect((await pool.getPosition(1)).rawDebts).to.closeTo(ethers.parseEther("184.081632653061224305"), 1000000n);
@@ -1136,7 +1136,7 @@ describe("AaveFundingPool.spec", async () => {
     it("should revert, when ErrorCallerNotPoolManager", async () => {
       await expect(pool.connect(deployer).liquidate(0, 0)).to.revertedWithCustomError(
         pool,
-        "ErrorCallerNotPoolManager"
+        "ErrorCallerNotPoolManager",
       );
     });
 

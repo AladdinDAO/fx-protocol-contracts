@@ -1,3 +1,9 @@
+export const KatanaTokens: { [symbol: string]: { address: string; decimals: number } } = {
+  USDC: { decimals: 6, address: "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36" },
+  weETH: { decimals: 18, address: "0x9893989433e7a383cb313953e4c2365107dc19a7" },
+  WBTC: { decimals: 8, address: "0x0913da6da4b42f538b445599b46bb4622342cf52" },
+};
+
 export const EthereumTokens: { [symbol: string]: { address: string; decimals: number } } = {
   "3CRV": { decimals: 18, address: "0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490" },
   AAVE: { decimals: 18, address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9" },

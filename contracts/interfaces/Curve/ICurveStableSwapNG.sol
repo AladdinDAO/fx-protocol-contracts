@@ -33,11 +33,7 @@ interface ICurveStableSwapNG {
   /// @param j Index value of the coin to receive
   /// @param dy Amount of `j` being received after exchange
   /// @return Amount of `i` predicted
-  function get_dx(
-    int128 i,
-    int128 j,
-    uint256 dy
-  ) external view returns (uint256);
+  function get_dx(int128 i, int128 j, uint256 dy) external view returns (uint256);
 
   /// @notice Calculate the current output dy given input dx
   /// @dev Index values can be found via the `coins` public getter method
@@ -45,11 +41,7 @@ interface ICurveStableSwapNG {
   /// @param j Index value of the coin to receive
   /// @param dx Amount of `i` being exchanged
   /// @return Amount of `j` predicted
-  function get_dy(
-    int128 i,
-    int128 j,
-    uint256 dx
-  ) external view returns (uint256);
+  function get_dy(int128 i, int128 j, uint256 dx) external view returns (uint256);
 
   /// @notice Calculate the amount received when withdrawing a single coin
   /// @param burn_amount Amount of LP tokens to burn in the withdrawal
@@ -97,12 +89,7 @@ interface ICurveStableSwapNG {
   /// @param dx Amount of `i` being exchanged
   /// @param min_dy Minimum amount of `j` to receive
   /// @return Actual amount of `j` received
-  function exchange(
-    int128 i,
-    int128 j,
-    uint256 dx,
-    uint256 min_dy
-  ) external returns (uint256);
+  function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy) external returns (uint256);
 
   /// @notice Perform an exchange between two coins
   /// @dev Index values can be found via the `coins` public getter method
@@ -112,13 +99,7 @@ interface ICurveStableSwapNG {
   /// @param min_dy Minimum amount of `j` to receive
   /// @param receiver Address that receives `j`
   /// @return Actual amount of `j` received
-  function exchange(
-    int128 i,
-    int128 j,
-    uint256 dx,
-    uint256 min_dy,
-    address receiver
-  ) external returns (uint256);
+  function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy, address receiver) external returns (uint256);
 
   /// @notice Perform an exchange between two coins without transferring token in
   /// @dev The contract swaps tokens based on a change in balance of coin[i]. The
@@ -132,12 +113,7 @@ interface ICurveStableSwapNG {
   /// @param dx Amount of `i` being exchanged
   /// @param min_dy Minimum amount of `j` to receive
   /// @return Actual amount of `j` received
-  function exchange_received(
-    int128 i,
-    int128 j,
-    uint256 dx,
-    uint256 min_dy
-  ) external returns (uint256);
+  function exchange_received(int128 i, int128 j, uint256 dx, uint256 min_dy) external returns (uint256);
 
   /// @notice Perform an exchange between two coins without transferring token in
   /// @dev The contract swaps tokens based on a change in balance of coin[i]. The
@@ -182,11 +158,7 @@ interface ICurveStableSwapNG {
   /// @param i Index value of the coin to withdraw
   /// @param min_received Minimum amount of coin to receive
   /// @return Amount of coin received
-  function remove_liquidity_one_coin(
-    uint256 burn_amount,
-    int128 i,
-    uint256 min_received
-  ) external returns (uint256);
+  function remove_liquidity_one_coin(uint256 burn_amount, int128 i, uint256 min_received) external returns (uint256);
 
   /// @notice Withdraw a single coin from the pool
   /// @param burn_amount Amount of LP tokens to burn in the withdrawal

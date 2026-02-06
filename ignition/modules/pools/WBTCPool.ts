@@ -1,0 +1,86 @@
+import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
+
+import { KatanaTokens } from "@/utils/tokens";
+
+import FxProtocolModule from "../FxProtocol";
+import PriceOracleModule from "../PriceOracle";
+import ProxyAdminModule from "../ProxyAdmin";
+import MorphoFundingPoolModule from "./MorphoFundingPool";
+import { ethers, id, ZeroAddress } from "ethers";
+
+export default buildModule("WBTCPool", (m) => {
+  const admin = m.getAccount(0);
+  const { fx: ProxyAdmin } = m.useModule(ProxyAdminModule);
+  const { MorphoFundingPoolImplementation } = m.useModule(MorphoFundingPoolModule);
+  const { WBTCPriceOracle } = m.useModule(PriceOracleModule);
+  const { PoolManagerProxy, RevenuePool, PoolConfiguration } = m.useModule(FxProtocolModule);
+
+  const WBTCPoolInitializer = m.encodeFunctionCall(MorphoFundingPoolImplementation, "initialize", [
+    admin,
+    m.getParameter("Name"),
+    m.getParameter("Symbol"),
+    KatanaTokens.WBTC.address,
+    WBTCPriceOracle,
+  ]);
+  const WBTCPoolProxy = m.contract(
+    "TransparentUpgradeableProxy",
+    [MorphoFundingPoolImplementation, ProxyAdmin, WBTCPoolInitializer],
+    { id: "WBTCPoolProxy" },
+  );
+  const WBTCPool = m.contractAt("MorphoFundingPool", WBTCPoolProxy, { id: "WBTCPool" });
+  m.call(WBTCPool, "updateDebtRatioRange", [m.getParameter("DebtRatioLower"), m.getParameter("DebtRatioUpper")]);
+  m.call(WBTCPool, "updateRebalanceRatios", [
+    m.getParameter("RebalanceDebtRatio"),
+    m.getParameter("RebalanceBonusRatio"),
+  ]);
+  m.call(WBTCPool, "updateLiquidateRatios", [
+    m.getParameter("LiquidateDebtRatio"),
+    m.getParameter("LiquidateBonusRatio"),
+  ]);
+  // const grantRole = m.call(WBTCPool, "grantRole", [id("EMERGENCY_ROLE"), admin]);
+  // m.call(WBTCPool, "updateBorrowAndRedeemStatus", [true, true], { after: [grantRole] });
+  // m.call(WBTCPool, "updateOpenRatio", [m.getParameter("OpenRatio"), m.getParameter("OpenRatioStep")]);
+  // m.call(WBTCPool, "updateCloseFeeRatio", [m.getParameter("CloseFeeRatio")]);
+  // m.call(WBTCPool, "updateFundingRatio", [m.getParameter("FundingRatio")]);
+
+  // register to PoolManagerProxy
+  m.call(PoolManagerProxy, "registerPool", [
+    WBTCPoolProxy,
+    m.getParameter("CollateralCapacity"),
+    m.getParameter("DebtCapacity"),
+  ]);
+
+  // register wstETH rate provider
+  m.call(PoolManagerProxy, "updateRateProvider", [KatanaTokens.WBTC.address, ZeroAddress]);
+
+  // add reward token, 70% to fxSave, 30% to treasury
+  m.call(RevenuePool, "addRewardToken", [
+    KatanaTokens.WBTC.address,
+    m.getParameter("burner"),
+    0n,
+    ethers.parseUnits("0.3", 9),
+    ethers.parseUnits("0.7", 9),
+  ]);
+
+  m.call(
+    PoolConfiguration,
+    "updatePoolFeeRatio",
+    [WBTCPool, ZeroAddress, 3000000n, 300000000000000000n, 1000000n, 0, 0],
+    {
+      id: "WBTCLongPoolDefaultFeeRatio",
+    },
+  );
+
+  m.call(
+    PoolConfiguration,
+    "updateLongFundingRatioParameter",
+    [WBTCPool, 1000000000000000000n, 10000000000000000000n, 950000000000000000n],
+    {
+      id: "WBTCLongPoolFundingRatioParameter",
+    },
+  );
+
+  return {
+    WBTCPool,
+  };
+});

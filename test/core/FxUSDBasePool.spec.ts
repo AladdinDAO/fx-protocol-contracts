@@ -68,7 +68,7 @@ describe("FxUSDBasePool.spec", async () => {
     mockPriceOracle = await MockPriceOracle.deploy(
       ethers.parseEther("3000"),
       ethers.parseEther("2999"),
-      ethers.parseEther("3001")
+      ethers.parseEther("3001"),
     );
     mockRateProvider = await MockRateProvider.deploy(TokenRate);
     mockAaveV3Pool = await MockAaveV3Pool.deploy(ethers.parseUnits("0.05", 27));
@@ -94,18 +94,18 @@ describe("FxUSDBasePool.spec", async () => {
     const FxUSDRegeneracyProxy = await TransparentUpgradeableProxy.deploy(
       empty.getAddress(),
       proxyAdmin.getAddress(),
-      "0x"
+      "0x",
     );
     const PegKeeperProxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), proxyAdmin.getAddress(), "0x");
     const PoolManagerProxy = await TransparentUpgradeableProxy.deploy(
       empty.getAddress(),
       proxyAdmin.getAddress(),
-      "0x"
+      "0x",
     );
     const FxUSDBasePoolProxy = await TransparentUpgradeableProxy.deploy(
       empty.getAddress(),
       proxyAdmin.getAddress(),
-      "0x"
+      "0x",
     );
 
     // deploy ReservePool
@@ -115,7 +115,7 @@ describe("FxUSDBasePool.spec", async () => {
     const PoolManagerImpl = await PoolManager.deploy(
       FxUSDRegeneracyProxy.getAddress(),
       FxUSDBasePoolProxy.getAddress(),
-      PegKeeperProxy.getAddress()
+      PegKeeperProxy.getAddress(),
     );
     await proxyAdmin.upgradeAndCall(
       PoolManagerProxy.getAddress(),
@@ -128,7 +128,7 @@ describe("FxUSDBasePool.spec", async () => {
         treasury.address,
         revenuePool.address,
         await reservePool.getAddress(),
-      ])
+      ]),
     );
     poolManager = await ethers.getContractAt("PoolManager", await PoolManagerProxy.getAddress(), admin);
 
@@ -136,7 +136,7 @@ describe("FxUSDBasePool.spec", async () => {
     const FxUSDRegeneracyImpl = await FxUSDRegeneracy.deploy(
       PoolManagerProxy.getAddress(),
       stableToken.getAddress(),
-      PegKeeperProxy.getAddress()
+      PegKeeperProxy.getAddress(),
     );
     await proxyAdmin.upgrade(FxUSDRegeneracyProxy.getAddress(), FxUSDRegeneracyImpl.getAddress());
     fxUSD = await ethers.getContractAt("FxUSDRegeneracy", await FxUSDRegeneracyProxy.getAddress(), admin);
@@ -149,7 +149,7 @@ describe("FxUSDBasePool.spec", async () => {
       PegKeeperProxy.getAddress(),
       FxUSDRegeneracyProxy.getAddress(),
       stableToken.getAddress(),
-      encodeChainlinkPriceFeed(await mockAggregatorV3Interface.getAddress(), 10n ** 10n, 1000000000)
+      encodeChainlinkPriceFeed(await mockAggregatorV3Interface.getAddress(), 10n ** 10n, 1000000000),
     );
     await proxyAdmin.upgradeAndCall(
       FxUSDBasePoolProxy.getAddress(),
@@ -160,7 +160,7 @@ describe("FxUSDBasePool.spec", async () => {
         "fxBASE",
         ethers.parseEther("0.95"),
         0,
-      ])
+      ]),
     );
     fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), admin);
 
@@ -173,7 +173,7 @@ describe("FxUSDBasePool.spec", async () => {
         admin.address,
         await mockConverter.getAddress(),
         await mockCurveStableSwapNG.getAddress(),
-      ])
+      ]),
     );
     pegKeeper = await ethers.getContractAt("PegKeeper", await PegKeeperProxy.getAddress(), admin);
 
@@ -182,14 +182,14 @@ describe("FxUSDBasePool.spec", async () => {
     pool = await AaveFundingPool.deploy(
       poolManager.getAddress(),
       mockAaveV3Pool.getAddress(),
-      stableToken.getAddress()
+      stableToken.getAddress(),
     );
     await pool.initialize(
       admin.address,
       "f(x) wstETH position",
       "xstETH",
       collateralToken.getAddress(),
-      mockPriceOracle.getAddress()
+      mockPriceOracle.getAddress(),
     );
     await pool.updateRebalanceRatios(ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9));
     await pool.updateLiquidateRatios(ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9));
@@ -199,7 +199,7 @@ describe("FxUSDBasePool.spec", async () => {
       pool.getAddress(),
       rewarder.getAddress(),
       ethers.parseUnits("10000", 18),
-      ethers.parseEther("10000000")
+      ethers.parseEther("10000000"),
     );
     await poolManager.updateRateProvider(collateralToken.getAddress(), mockRateProvider.getAddress());
     await mockCurveStableSwapNG.setCoin(0, stableToken.getAddress());
@@ -225,7 +225,7 @@ describe("FxUSDBasePool.spec", async () => {
     it("should revert, when initialize again", async () => {
       await expect(fxBASE.initialize(ZeroAddress, "", "", 0n, 0n)).to.revertedWithCustomError(
         pool,
-        "InvalidInitialization"
+        "InvalidInitialization",
       );
     });
   });
@@ -266,7 +266,7 @@ describe("FxUSDBasePool.spec", async () => {
     it("should revert, when ErrInvalidTokenIn", async () => {
       await expect(fxBASE.deposit(ZeroAddress, ZeroAddress, 0n, 0n)).to.revertedWithCustomError(
         fxBASE,
-        "ErrInvalidTokenIn"
+        "ErrInvalidTokenIn",
       );
       await expect(fxBASE.previewDeposit(ZeroAddress, 0n)).to.revertedWithCustomError(fxBASE, "ErrInvalidTokenIn");
     });
@@ -274,7 +274,7 @@ describe("FxUSDBasePool.spec", async () => {
     it("should revert, when ErrDepositZeroAmount", async () => {
       await expect(fxBASE.deposit(ZeroAddress, fxUSD.getAddress(), 0n, 0n)).to.revertedWithCustomError(
         fxBASE,
-        "ErrDepositZeroAmount"
+        "ErrDepositZeroAmount",
       );
     });
 
@@ -284,7 +284,7 @@ describe("FxUSDBasePool.spec", async () => {
       expect(await fxBASE.getStableTokenPrice()).to.eq((ethers.parseUnits("0.95", 8) - 1n) * 10n ** 10n);
       expect(await fxBASE.getStableTokenPriceWithScale()).to.eq((ethers.parseUnits("0.95", 8) - 1n) * 10n ** 22n);
       await expect(
-        fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("1"), 0n)
+        fxBASE.connect(deployer).deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("1"), 0n),
       ).to.revertedWithCustomError(fxBASE, "ErrorStableTokenDepeg");
     });
 
@@ -293,7 +293,7 @@ describe("FxUSDBasePool.spec", async () => {
       await expect(
         fxBASE
           .connect(deployer)
-          .deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("1"), ethers.parseEther("1") + 1n)
+          .deposit(deployer.address, fxUSD.getAddress(), ethers.parseEther("1"), ethers.parseEther("1") + 1n),
       ).to.revertedWithCustomError(fxBASE, "ErrInsufficientSharesOut");
     });
 
@@ -436,7 +436,7 @@ describe("FxUSDBasePool.spec", async () => {
       await fxBASE.connect(deployer).requestRedeem(0n);
       await expect(fxBASE.connect(deployer).redeem(deployer.address, 0n)).to.revertedWithCustomError(
         fxBASE,
-        "ErrorRedeemLockedShares"
+        "ErrorRedeemLockedShares",
       );
     });
 
@@ -444,7 +444,7 @@ describe("FxUSDBasePool.spec", async () => {
       await fxBASE.connect(deployer).requestRedeem(0n);
       await expect(fxBASE.connect(deployer).redeem(deployer.address, 0n)).to.revertedWithCustomError(
         fxBASE,
-        "ErrRedeemZeroShares"
+        "ErrRedeemZeroShares",
       );
     });
 
@@ -551,13 +551,9 @@ describe("FxUSDBasePool.spec", async () => {
       await expect(
         fxBASE
           .connect(deployer)
-          ["rebalance(address,int16,address,uint256,uint256)"](
-            pool.getAddress(),
-            4997,
-            fxUSD.getAddress(),
-            ethers.parseEther("3990"),
-            ethers.parseEther("1.661224489795918366") + 1n
-          )
+          [
+            "rebalance(address,int16,address,uint256,uint256)"
+          ](pool.getAddress(), 4997, fxUSD.getAddress(), ethers.parseEther("3990"), ethers.parseEther("1.661224489795918366") + 1n),
       ).to.revertedWithCustomError(fxBASE, "ErrorInsufficientOutput");
 
       // rebalance to 0.88
@@ -570,13 +566,9 @@ describe("FxUSDBasePool.spec", async () => {
       const collateralBefore = await collateralToken.balanceOf(deployer.address);
       await fxBASE
         .connect(deployer)
-        ["rebalance(address,int16,address,uint256,uint256)"](
-          pool.getAddress(),
-          4997,
-          fxUSD.getAddress(),
-          ethers.parseEther("3990"),
-          0n
-        );
+        [
+          "rebalance(address,int16,address,uint256,uint256)"
+        ](pool.getAddress(), 4997, fxUSD.getAddress(), ethers.parseEther("3990"), 0n);
       const totalYieldTokenAfter = await fxBASE.totalYieldToken();
       const totalStableTokenAfter = await fxBASE.totalStableToken();
       const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
@@ -620,13 +612,9 @@ describe("FxUSDBasePool.spec", async () => {
       const collateralBefore = await collateralToken.balanceOf(deployer.address);
       await fxBASE
         .connect(deployer)
-        ["rebalance(address,int16,address,uint256,uint256)"](
-          pool.getAddress(),
-          4997,
-          stableToken.getAddress(),
-          ethers.parseUnits("4026.236125"),
-          0n
-        );
+        [
+          "rebalance(address,int16,address,uint256,uint256)"
+        ](pool.getAddress(), 4997, stableToken.getAddress(), ethers.parseUnits("4026.236125"), 0n);
       const totalYieldTokenAfter = await fxBASE.totalYieldToken();
       const totalStableTokenAfter = await fxBASE.totalStableToken();
       const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
@@ -669,13 +657,9 @@ describe("FxUSDBasePool.spec", async () => {
       const collateralBefore = await collateralToken.balanceOf(deployer.address);
       await fxBASE
         .connect(deployer)
-        ["rebalance(address,int16,address,uint256,uint256)"](
-          pool.getAddress(),
-          4997,
-          fxUSD.getAddress(),
-          ethers.parseEther("3990"),
-          0n
-        );
+        [
+          "rebalance(address,int16,address,uint256,uint256)"
+        ](pool.getAddress(), 4997, fxUSD.getAddress(), ethers.parseEther("3990"), 0n);
       const totalYieldTokenAfter = await fxBASE.totalYieldToken();
       const totalStableTokenAfter = await fxBASE.totalStableToken();
       const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
@@ -718,13 +702,9 @@ describe("FxUSDBasePool.spec", async () => {
       const collateralBefore = await collateralToken.balanceOf(deployer.address);
       await fxBASE
         .connect(deployer)
-        ["rebalance(address,int16,address,uint256,uint256)"](
-          pool.getAddress(),
-          4997,
-          stableToken.getAddress(),
-          ethers.parseEther("5000"),
-          0n
-        );
+        [
+          "rebalance(address,int16,address,uint256,uint256)"
+        ](pool.getAddress(), 4997, stableToken.getAddress(), ethers.parseEther("5000"), 0n);
       const totalYieldTokenAfter = await fxBASE.totalYieldToken();
       const totalStableTokenAfter = await fxBASE.totalStableToken();
       const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
@@ -769,13 +749,9 @@ describe("FxUSDBasePool.spec", async () => {
       const collateralBefore = await collateralToken.balanceOf(deployer.address);
       await fxBASE
         .connect(deployer)
-        ["rebalance(address,int16,address,uint256,uint256)"](
-          pool.getAddress(),
-          4997,
-          fxUSD.getAddress(),
-          ethers.parseEther("3990"),
-          0n
-        );
+        [
+          "rebalance(address,int16,address,uint256,uint256)"
+        ](pool.getAddress(), 4997, fxUSD.getAddress(), ethers.parseEther("3990"), 0n);
       const totalYieldTokenAfter = await fxBASE.totalYieldToken();
       const totalStableTokenAfter = await fxBASE.totalStableToken();
       const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
@@ -820,13 +796,9 @@ describe("FxUSDBasePool.spec", async () => {
       const collateralBefore = await collateralToken.balanceOf(deployer.address);
       await fxBASE
         .connect(deployer)
-        ["rebalance(address,int16,address,uint256,uint256)"](
-          pool.getAddress(),
-          4997,
-          stableToken.getAddress(),
-          ethers.parseEther("5000"),
-          0n
-        );
+        [
+          "rebalance(address,int16,address,uint256,uint256)"
+        ](pool.getAddress(), 4997, stableToken.getAddress(), ethers.parseEther("5000"), 0n);
       const totalYieldTokenAfter = await fxBASE.totalYieldToken();
       const totalStableTokenAfter = await fxBASE.totalStableToken();
       const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
@@ -892,12 +864,9 @@ describe("FxUSDBasePool.spec", async () => {
       await expect(
         fxBASE
           .connect(deployer)
-          ["rebalance(address,address,uint256,uint256)"](
-            pool.getAddress(),
-            fxUSD.getAddress(),
-            ethers.parseEther("3990"),
-            ethers.parseEther("1.661224489795918366") + 1n
-          )
+          [
+            "rebalance(address,address,uint256,uint256)"
+          ](pool.getAddress(), fxUSD.getAddress(), ethers.parseEther("3990"), ethers.parseEther("1.661224489795918366") + 1n),
       ).to.revertedWithCustomError(fxBASE, "ErrorInsufficientOutput");
 
       // rebalance to 0.88
@@ -910,12 +879,9 @@ describe("FxUSDBasePool.spec", async () => {
       const collateralBefore = await collateralToken.balanceOf(deployer.address);
       await fxBASE
         .connect(deployer)
-        ["rebalance(address,address,uint256,uint256)"](
-          pool.getAddress(),
-          fxUSD.getAddress(),
-          ethers.parseEther("3990"),
-          0n
-        );
+        [
+          "rebalance(address,address,uint256,uint256)"
+        ](pool.getAddress(), fxUSD.getAddress(), ethers.parseEther("3990"), 0n);
       const totalYieldTokenAfter = await fxBASE.totalYieldToken();
       const totalStableTokenAfter = await fxBASE.totalStableToken();
       const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
@@ -959,12 +925,9 @@ describe("FxUSDBasePool.spec", async () => {
       const collateralBefore = await collateralToken.balanceOf(deployer.address);
       await fxBASE
         .connect(deployer)
-        ["rebalance(address,address,uint256,uint256)"](
-          pool.getAddress(),
-          stableToken.getAddress(),
-          ethers.parseUnits("4026.236125"),
-          0n
-        );
+        [
+          "rebalance(address,address,uint256,uint256)"
+        ](pool.getAddress(), stableToken.getAddress(), ethers.parseUnits("4026.236125"), 0n);
       const totalYieldTokenAfter = await fxBASE.totalYieldToken();
       const totalStableTokenAfter = await fxBASE.totalStableToken();
       const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
@@ -1007,12 +970,9 @@ describe("FxUSDBasePool.spec", async () => {
       const collateralBefore = await collateralToken.balanceOf(deployer.address);
       await fxBASE
         .connect(deployer)
-        ["rebalance(address,address,uint256,uint256)"](
-          pool.getAddress(),
-          fxUSD.getAddress(),
-          ethers.parseEther("3990"),
-          0n
-        );
+        [
+          "rebalance(address,address,uint256,uint256)"
+        ](pool.getAddress(), fxUSD.getAddress(), ethers.parseEther("3990"), 0n);
       const totalYieldTokenAfter = await fxBASE.totalYieldToken();
       const totalStableTokenAfter = await fxBASE.totalStableToken();
       const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
@@ -1055,12 +1015,9 @@ describe("FxUSDBasePool.spec", async () => {
       const collateralBefore = await collateralToken.balanceOf(deployer.address);
       await fxBASE
         .connect(deployer)
-        ["rebalance(address,address,uint256,uint256)"](
-          pool.getAddress(),
-          stableToken.getAddress(),
-          ethers.parseEther("5000"),
-          0n
-        );
+        [
+          "rebalance(address,address,uint256,uint256)"
+        ](pool.getAddress(), stableToken.getAddress(), ethers.parseEther("5000"), 0n);
       const totalYieldTokenAfter = await fxBASE.totalYieldToken();
       const totalStableTokenAfter = await fxBASE.totalStableToken();
       const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
@@ -1105,12 +1062,9 @@ describe("FxUSDBasePool.spec", async () => {
       const collateralBefore = await collateralToken.balanceOf(deployer.address);
       await fxBASE
         .connect(deployer)
-        ["rebalance(address,address,uint256,uint256)"](
-          pool.getAddress(),
-          fxUSD.getAddress(),
-          ethers.parseEther("3990"),
-          0n
-        );
+        [
+          "rebalance(address,address,uint256,uint256)"
+        ](pool.getAddress(), fxUSD.getAddress(), ethers.parseEther("3990"), 0n);
       const totalYieldTokenAfter = await fxBASE.totalYieldToken();
       const totalStableTokenAfter = await fxBASE.totalStableToken();
       const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
@@ -1155,12 +1109,9 @@ describe("FxUSDBasePool.spec", async () => {
       const collateralBefore = await collateralToken.balanceOf(deployer.address);
       await fxBASE
         .connect(deployer)
-        ["rebalance(address,address,uint256,uint256)"](
-          pool.getAddress(),
-          stableToken.getAddress(),
-          ethers.parseEther("5000"),
-          0n
-        );
+        [
+          "rebalance(address,address,uint256,uint256)"
+        ](pool.getAddress(), stableToken.getAddress(), ethers.parseEther("5000"), 0n);
       const totalYieldTokenAfter = await fxBASE.totalYieldToken();
       const totalStableTokenAfter = await fxBASE.totalStableToken();
       const fxusdBalanceInBaseAfter = await fxUSD.balanceOf(fxBASE.getAddress());
@@ -1230,8 +1181,8 @@ describe("FxUSDBasePool.spec", async () => {
             pool.getAddress(),
             fxUSD.getAddress(),
             ethers.parseEther("3990"),
-            ethers.parseEther("0.098844672657252887") + 1n
-          )
+            ethers.parseEther("0.098844672657252887") + 1n,
+          ),
       ).to.revertedWithCustomError(fxBASE, "ErrorInsufficientOutput");
 
       // liquidate position 1
@@ -1499,13 +1450,13 @@ describe("FxUSDBasePool.spec", async () => {
       await mockETHBalance(signer.address, ethers.parseEther("100"));
       await expect(fxBASE.connect(signer).arbitrage(ZeroAddress, 0n, ZeroAddress, "0x")).to.revertedWithCustomError(
         fxBASE,
-        "ErrInvalidTokenIn"
+        "ErrInvalidTokenIn",
       );
     });
 
     it("should revert, when caller not peg keeper", async () => {
       await expect(
-        fxBASE.connect(deployer).arbitrage(fxUSD.getAddress(), 0n, ZeroAddress, "0x")
+        fxBASE.connect(deployer).arbitrage(fxUSD.getAddress(), 0n, ZeroAddress, "0x"),
       ).to.revertedWithCustomError(fxBASE, "ErrorCallerNotPegKeeper");
     });
 
@@ -1515,7 +1466,7 @@ describe("FxUSDBasePool.spec", async () => {
       await mockETHBalance(signer.address, ethers.parseEther("100"));
       await mockAggregatorV3Interface.setPrice(ethers.parseUnits("0.95", 8) - 1n);
       await expect(
-        fxBASE.connect(signer).arbitrage(fxUSD.getAddress(), 0n, ZeroAddress, "0x")
+        fxBASE.connect(signer).arbitrage(fxUSD.getAddress(), 0n, ZeroAddress, "0x"),
       ).to.revertedWithCustomError(fxBASE, "ErrorStableTokenDepeg");
     });
 
@@ -1524,7 +1475,7 @@ describe("FxUSDBasePool.spec", async () => {
       const signer = await ethers.getSigner(await pegKeeper.getAddress());
       await mockETHBalance(signer.address, ethers.parseEther("100"));
       await expect(
-        fxBASE.connect(signer).arbitrage(fxUSD.getAddress(), ethers.parseEther("1000") + 1n, ZeroAddress, "0x")
+        fxBASE.connect(signer).arbitrage(fxUSD.getAddress(), ethers.parseEther("1000") + 1n, ZeroAddress, "0x"),
       ).to.revertedWithCustomError(fxBASE, "ErrorSwapExceedBalance");
     });
 
@@ -1533,7 +1484,9 @@ describe("FxUSDBasePool.spec", async () => {
       const signer = await ethers.getSigner(await pegKeeper.getAddress());
       await mockETHBalance(signer.address, ethers.parseEther("100"));
       await expect(
-        fxBASE.connect(signer).arbitrage(stableToken.getAddress(), ethers.parseUnits("1000", 6) + 1n, ZeroAddress, "0x")
+        fxBASE
+          .connect(signer)
+          .arbitrage(stableToken.getAddress(), ethers.parseUnits("1000", 6) + 1n, ZeroAddress, "0x"),
       ).to.revertedWithCustomError(fxBASE, "ErrorSwapExceedBalance");
     });
 
@@ -1552,8 +1505,8 @@ describe("FxUSDBasePool.spec", async () => {
             .stabilize(
               fxUSD,
               ethers.parseEther("1"),
-              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []])
-            )
+              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []]),
+            ),
         ).to.revertedWithCustomError(fxBASE, "ErrorInsufficientArbitrage");
       });
 
@@ -1573,8 +1526,8 @@ describe("FxUSDBasePool.spec", async () => {
             .stabilize(
               fxUSD,
               ethers.parseEther("1"),
-              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []])
-            )
+              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []]),
+            ),
         )
           .to.emit(fxBASE, "Arbitrage")
           .withArgs(
@@ -1582,7 +1535,7 @@ describe("FxUSDBasePool.spec", async () => {
             await fxUSD.getAddress(),
             ethers.parseEther("1"),
             ethers.parseUnits("1.009082", 6),
-            0n
+            0n,
           );
         const totalYieldAfter = await fxBASE.totalYieldToken();
         const totalStableAfter = await fxBASE.totalStableToken();
@@ -1604,11 +1557,11 @@ describe("FxUSDBasePool.spec", async () => {
         // 1 fxUSD => 1.009082 stable, 1 stable => 0.991 fxUSD
         await mockConverter.setTokenOut(
           stableToken.getAddress(),
-          ethers.parseUnits("1.009082", 6) + ethers.parseUnits("1", 6)
+          ethers.parseUnits("1.009082", 6) + ethers.parseUnits("1", 6),
         );
         await stableToken.transfer(
           mockConverter.getAddress(),
-          ethers.parseUnits("1.009082", 6) + ethers.parseUnits("1", 6)
+          ethers.parseUnits("1.009082", 6) + ethers.parseUnits("1", 6),
         );
         const totalYieldBefore = await fxBASE.totalYieldToken();
         const totalStableBefore = await fxBASE.totalStableToken();
@@ -1622,8 +1575,8 @@ describe("FxUSDBasePool.spec", async () => {
             .stabilize(
               fxUSD,
               ethers.parseEther("1"),
-              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []])
-            )
+              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []]),
+            ),
         )
           .to.emit(fxBASE, "Arbitrage")
           .withArgs(
@@ -1631,7 +1584,7 @@ describe("FxUSDBasePool.spec", async () => {
             await fxUSD.getAddress(),
             ethers.parseEther("1"),
             ethers.parseUnits("1.009082", 6) + ethers.parseUnits("1", 6),
-            ethers.parseUnits("1", 6)
+            ethers.parseUnits("1", 6),
           );
         const totalYieldAfter = await fxBASE.totalYieldToken();
         const totalStableAfter = await fxBASE.totalStableToken();
@@ -1665,8 +1618,8 @@ describe("FxUSDBasePool.spec", async () => {
             .stabilize(
               stableToken,
               ethers.parseUnits("1", 6),
-              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []])
-            )
+              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []]),
+            ),
         ).to.revertedWithCustomError(fxBASE, "ErrorInsufficientArbitrage");
       });
 
@@ -1686,8 +1639,8 @@ describe("FxUSDBasePool.spec", async () => {
             .stabilize(
               stableToken,
               ethers.parseUnits("1", 6),
-              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []])
-            )
+              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []]),
+            ),
         )
           .to.emit(fxBASE, "Arbitrage")
           .withArgs(
@@ -1695,7 +1648,7 @@ describe("FxUSDBasePool.spec", async () => {
             await stableToken.getAddress(),
             ethers.parseUnits("1", 6),
             ethers.parseEther("0.991"),
-            0n
+            0n,
           );
         const totalYieldAfter = await fxBASE.totalYieldToken();
         const totalStableAfter = await fxBASE.totalStableToken();
@@ -1729,8 +1682,8 @@ describe("FxUSDBasePool.spec", async () => {
             .stabilize(
               stableToken,
               ethers.parseUnits("1", 6),
-              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []])
-            )
+              AbiCoder.defaultAbiCoder().encode(["uint256", "uint256", "uint256[]"], [0n, 0n, []]),
+            ),
         )
           .to.emit(fxBASE, "Arbitrage")
           .withArgs(
@@ -1738,7 +1691,7 @@ describe("FxUSDBasePool.spec", async () => {
             await stableToken.getAddress(),
             ethers.parseUnits("1", 6),
             ethers.parseEther("1.991"),
-            ethers.parseEther("1")
+            ethers.parseEther("1"),
           );
         const totalYieldAfter = await fxBASE.totalYieldToken();
         const totalStableAfter = await fxBASE.totalStableToken();

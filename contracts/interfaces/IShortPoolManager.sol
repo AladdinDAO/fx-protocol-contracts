@@ -87,7 +87,11 @@ interface IShortPoolManager is IPoolManager {
   /// @param maxRawDebts The maximum amount of raw debt tokens to use for rebalancing.
   /// @return colls The amount of fxUSD rebalanced.
   /// @return debts The amount of debt tokens used for rebalancing.
-  function rebalance(address pool, address receiver, uint256 maxRawDebts) external returns (uint256 colls, uint256 debts);
+  function rebalance(
+    address pool,
+    address receiver,
+    uint256 maxRawDebts
+  ) external returns (uint256 colls, uint256 debts);
 
   /// @notice Liquidate positions in the pool.
   /// @param pool The address of the pool to liquidate.
@@ -95,7 +99,11 @@ interface IShortPoolManager is IPoolManager {
   /// @param maxRawDebts The maximum amount of raw debt tokens to use for liquidation.
   /// @return colls The amount of fxUSD liquidated.
   /// @return debts The amount of debt tokens used for liquidation.
-  function liquidate(address pool, address receiver, uint256 maxRawDebts) external returns (uint256 colls, uint256 debts);
+  function liquidate(
+    address pool,
+    address receiver,
+    uint256 maxRawDebts
+  ) external returns (uint256 colls, uint256 debts);
 
   /// @notice Kill the pool.
   /// @param pool The address of the pool to kill.

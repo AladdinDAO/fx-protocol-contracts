@@ -33,7 +33,7 @@ export default buildModule("Upgrade20250725", (m) => {
     [CreditNoteImplementation, FxProxyAdmin, CreditNoteInitializer],
     {
       id: "CreditNoteProxy",
-    }
+    },
   );
   const CreditNote = m.contractAt("CreditNote", CreditNoteProxy);
 
@@ -54,7 +54,7 @@ export default buildModule("Upgrade20250725", (m) => {
     [ShortPoolImplementation, FxProxyAdmin, ShortPoolInitializer],
     {
       id: "WBTCShortPoolProxy",
-    }
+    },
   );
   const WBTCShortPool = m.contractAt("ShortPool", WBTCShortPoolProxy, { id: "WBTCShortPool" });
 

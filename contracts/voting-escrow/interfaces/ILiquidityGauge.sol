@@ -120,11 +120,7 @@ interface ILiquidityGauge {
   /// @param amount The amount of staking token to deposit.
   /// @param receiver The address of the pool share recipient.
   /// @param manage The parameter passed to possible `LiquidityManager`.
-  function deposit(
-    uint256 amount,
-    address receiver,
-    bool manage
-  ) external;
+  function deposit(uint256 amount, address receiver, bool manage) external;
 
   /// @notice Withdraw some staking token from this contract.
   ///

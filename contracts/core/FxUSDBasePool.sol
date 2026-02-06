@@ -392,7 +392,10 @@ contract FxUSDBasePool is
   }
 
   /// @inheritdoc IFxUSDBasePool
-  function instantRedeemNoFee(address receiver, uint256 amountSharesToRedeem) external onlyRole(NO_INSTANT_REDEEM_FEE_ROLE) returns (uint256 amountYieldOut, uint256 amountStableOut) {
+  function instantRedeemNoFee(
+    address receiver,
+    uint256 amountSharesToRedeem
+  ) external onlyRole(NO_INSTANT_REDEEM_FEE_ROLE) returns (uint256 amountYieldOut, uint256 amountStableOut) {
     // clear the fee ratio for this function call
     uint256 originalFeeRatio = instantRedeemFeeRatio;
     instantRedeemFeeRatio = 0;

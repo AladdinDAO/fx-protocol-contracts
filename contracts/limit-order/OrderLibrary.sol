@@ -163,7 +163,7 @@ library OrderLibrary {
     int256 fxUSDDelta; // positive: take from maker, negative: give to maker
     int256 collDelta; // collateral delta passing to the corresponding pool manager
     int256 debtDelta; // debt delta passing to the corresponding pool manager
-    uint256 nonce; 
+    uint256 nonce;
     bytes32 salt;
     uint256 deadline;
   }

@@ -58,7 +58,6 @@ abstract contract MorphoFlashLoanFacetBase {
     $.reentrantContext = LibRouter.NOT_ENTRANT;
   }
 
-
   /*************
    * Modifiers *
    *************/

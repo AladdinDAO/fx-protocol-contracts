@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.0;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-import {ISmartWalletChecker} from "./interfaces/ISmartWalletChecker.sol";
+import { ISmartWalletChecker } from "./interfaces/ISmartWalletChecker.sol";
 
 // copy from https://etherscan.io/address/0xca719728ef172d0961768581fdf35cb116e0b7a4
 contract SmartWalletWhitelist is Ownable, ISmartWalletChecker {

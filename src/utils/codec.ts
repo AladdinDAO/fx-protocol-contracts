@@ -40,7 +40,7 @@ export function encodePoolHintV3(
     use_eth?: boolean;
     use_underlying?: boolean;
     protocol?: number;
-  }
+  },
 ) {
   let encoding = toBigInt(poolAddress);
   switch (poolType) {
@@ -209,7 +209,7 @@ export function encodeSpotPricePool(
     has_amm_precise?: boolean;
     base_is_underlying?: boolean;
     base_is_ETH?: boolean;
-  }
+  },
 ) {
   let encoding = BigInt(poolAddress);
   let customized = 0n;

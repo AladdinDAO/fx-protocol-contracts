@@ -152,37 +152,33 @@ interface IFxTreasuryV2 {
   /// @param newCollateralRatio The target collateral ratio, multiplied by 1e18.
   /// @return maxBaseIn The amount of underlying value of base token needed.
   /// @return maxFTokenMintable The amount of fToken can be minted.
-  function maxMintableFToken(uint256 newCollateralRatio)
-    external
-    view
-    returns (uint256 maxBaseIn, uint256 maxFTokenMintable);
+  function maxMintableFToken(
+    uint256 newCollateralRatio
+  ) external view returns (uint256 maxBaseIn, uint256 maxFTokenMintable);
 
   /// @notice Compute the amount of base token needed to reach the new collateral ratio.
   /// @param newCollateralRatio The target collateral ratio, multiplied by 1e18.
   /// @return maxBaseIn The amount of underlying value of base token needed.
   /// @return maxXTokenMintable The amount of xToken can be minted.
-  function maxMintableXToken(uint256 newCollateralRatio)
-    external
-    view
-    returns (uint256 maxBaseIn, uint256 maxXTokenMintable);
+  function maxMintableXToken(
+    uint256 newCollateralRatio
+  ) external view returns (uint256 maxBaseIn, uint256 maxXTokenMintable);
 
   /// @notice Compute the amount of fToken needed to reach the new collateral ratio.
   /// @param newCollateralRatio The target collateral ratio, multiplied by 1e18.
   /// @return maxBaseOut The amount of underlying value of base token redeemed.
   /// @return maxFTokenRedeemable The amount of fToken needed.
-  function maxRedeemableFToken(uint256 newCollateralRatio)
-    external
-    view
-    returns (uint256 maxBaseOut, uint256 maxFTokenRedeemable);
+  function maxRedeemableFToken(
+    uint256 newCollateralRatio
+  ) external view returns (uint256 maxBaseOut, uint256 maxFTokenRedeemable);
 
   /// @notice Compute the amount of xToken needed to reach the new collateral ratio.
   /// @param newCollateralRatio The target collateral ratio, multiplied by 1e18.
   /// @return maxBaseOut The amount of underlying value of base token redeemed.
   /// @return maxXTokenRedeemable The amount of xToken needed.
-  function maxRedeemableXToken(uint256 newCollateralRatio)
-    external
-    view
-    returns (uint256 maxBaseOut, uint256 maxXTokenRedeemable);
+  function maxRedeemableXToken(
+    uint256 newCollateralRatio
+  ) external view returns (uint256 maxBaseOut, uint256 maxXTokenRedeemable);
 
   /// @notice Return the exponential moving average of the leverage ratio.
   function leverageRatio() external view returns (uint256);
@@ -226,11 +222,7 @@ interface IFxTreasuryV2 {
   /// @param xTokenIn The amount of xToken to redeem.
   /// @param owner The owner of the fToken or xToken.
   /// @param baseOut The amount of underlying value of base token redeemed.
-  function redeem(
-    uint256 fTokenIn,
-    uint256 xTokenIn,
-    address owner
-  ) external returns (uint256 baseOut);
+  function redeem(uint256 fTokenIn, uint256 xTokenIn, address owner) external returns (uint256 baseOut);
 
   /// @notice Settle the nav of base token, fToken and xToken.
   function settle() external;

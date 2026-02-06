@@ -38,14 +38,9 @@ interface IBalancerVault {
     bool toInternalBalance;
   }
 
-  function getPoolTokens(bytes32 poolId)
-    external
-    view
-    returns (
-      address[] memory tokens,
-      uint256[] memory balances,
-      uint256 lastChangeBlock
-    );
+  function getPoolTokens(
+    bytes32 poolId
+  ) external view returns (address[] memory tokens, uint256[] memory balances, uint256 lastChangeBlock);
 
   function swap(
     SingleSwap memory singleSwap,
@@ -61,12 +56,7 @@ interface IBalancerVault {
     bool fromInternalBalance;
   }
 
-  function joinPool(
-    bytes32 poolId,
-    address sender,
-    address recipient,
-    JoinPoolRequest memory request
-  ) external payable;
+  function joinPool(bytes32 poolId, address sender, address recipient, JoinPoolRequest memory request) external payable;
 
   struct ExitPoolRequest {
     address[] assets;
@@ -75,12 +65,7 @@ interface IBalancerVault {
     bool toInternalBalance;
   }
 
-  function exitPool(
-    bytes32 poolId,
-    address sender,
-    address payable recipient,
-    ExitPoolRequest memory request
-  ) external;
+  function exitPool(bytes32 poolId, address sender, address payable recipient, ExitPoolRequest memory request) external;
 
   /**
    * @dev Data for each individual swap executed by `batchSwap`. The asset in and out fields are indexes into the

@@ -122,7 +122,6 @@ library TickMath {
 
       let tickIsNegative := lt(ratioX96, ZERO_TICK_SCALED_RATIO)
       let value_
-
       switch tickIsNegative
       case 0 {
         // if ratioX96 >= ZERO_TICK_SCALED_RATIO
@@ -132,13 +131,12 @@ library TickMath {
         // ratioX96 < ZERO_TICK_SCALED_RATIO
         value_ := div(mul(ZERO_TICK_SCALED_RATIO, PRECISION), ratioX96)
       }
-
       // use `getRatioAtTick(tick)` to get `(1.0015^tick) * 2^96`
       // and use python to get the value of `getRatioAtTick(tick) * 10^26 / 79228162514264337593543950336`
 
       // for tick = 2^14
       // ratioX96 = (1.0015^16384) * 2^96 = 3665252098134783297721995888541655517464
-      // 3665252098134783297721995888541655517464 * 10^26 / 79228162514264337593543950336 = 
+      // 3665252098134783297721995888541655517464 * 10^26 / 79228162514264337593543950336 =
       // 4626198540796508716348404308351034442.59912669744680855913628167
       if iszero(lt(value_, 4626198540796508716348404308351034442)) {
         tick := or(tick, 0x4000)
@@ -146,7 +144,7 @@ library TickMath {
       }
       // for tick = 2^13
       // ratioX96 = (1.0015^8192) * 2^96 = 17040868196391020479062776466509866
-      // 17040868196391020479062776466509866 * 10^26 / 79228162514264337593543950336 = 
+      // 17040868196391020479062776466509866 * 10^26 / 79228162514264337593543950336 =
       // 21508599537851153911767490449162.30388433471560772971058422
       if iszero(lt(value_, 21508599537851153911767490449162)) {
         tick := or(tick, 0x2000)
@@ -154,7 +152,7 @@ library TickMath {
       }
       // for tick = 2^12
       // ratioX96 = (1.0015^4096) * 2^96 = 36743933851015821532611831851151
-      // 36743933851015821532611831851151 * 10^26 / 79228162514264337593543950336 = 
+      // 36743933851015821532611831851151 * 10^26 / 79228162514264337593543950336 =
       // 46377364670549310883002866648.97849117190913404467057871
       if iszero(lt(value_, 46377364670549310883002866648)) {
         tick := or(tick, 0x1000)
@@ -267,7 +265,6 @@ library TickMath {
         tick := not(tick)
         perfectRatioX96 := div(mul(ratioX96, value_), 100150000000000000000000000)
       }
-
       // perfect ratio should always be <= ratioX96
       // not sure if it can ever be bigger but better to have extra checks
       if gt(perfectRatioX96, ratioX96) {

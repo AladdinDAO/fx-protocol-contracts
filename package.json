@@ -10,7 +10,9 @@
     "test:hardhat": "npx hardhat test",
     "test:simulation": "npx hardhat test simulation/**/*.ts",
     "test:foundry": "forge test -vvv",
-    "coverage": "npx hardhat coverage"
+    "coverage": "npx hardhat coverage",
+    "fmt:sol": "prettier 'contracts/**/*.sol' -w",
+    "fmt:ts": "prettier 'src/**/*.ts' '*.ts' 'test/**/*.ts' 'ignition/**/*.ts' -w"
   },
   "type": "module",
   "devDependencies": {
@@ -35,6 +37,8 @@
     "forge-std": "foundry-rs/forge-std#v1.9.4",
     "hardhat": "^3.0.9",
     "mocha": "^11.0.0",
+    "prettier": "^3.8.1",
+    "prettier-plugin-solidity": "^2.2.1",
     "ts-node": ">=8.0.0",
     "tsconfig-paths": "^4.2.0",
     "typechain": "^8.3.0",
@@ -45,6 +49,7 @@
     "@openzeppelin/contracts-upgradeable": "^5.0.2",
     "@openzeppelin/contracts-upgradeable-v4": "npm:@openzeppelin/contracts-upgradeable@4.9.6",
     "@openzeppelin/contracts-v4": "npm:@openzeppelin/contracts@4.9.6",
+    "@uniswap/v3-periphery": "https://github.com/Uniswap/v3-periphery.git#0.8",
     "@uniswap/v4-core": "^1.0.2",
     "@uniswap/v4-periphery": "^1.0.3",
     "solmate": "^6.8.0"

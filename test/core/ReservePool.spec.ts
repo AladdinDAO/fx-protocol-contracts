@@ -63,7 +63,7 @@ describe("ReservePool.spec", async () => {
     it("should revert when caller is not manager", async () => {
       await expect(pool.connect(deployer).requestBonus(ZeroAddress, ZeroAddress, 0n)).to.revertedWithCustomError(
         pool,
-        "ErrorCallerNotPoolManager"
+        "ErrorCallerNotPoolManager",
       );
     });
 

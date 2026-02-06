@@ -10,14 +10,14 @@ export default buildModule("Upgrade20250318", (m) => {
     [m.getParameter("FxUSDProxy"), m.getParameter("FxUSDBasePoolProxy"), m.getParameter("PegKeeperProxy")],
     {
       id: "PoolManagerImplementation",
-    }
+    },
   );
 
   // deploy AaveFundingPool implementation
   const AaveFundingPoolImplementation = m.contract(
     "AaveFundingPool",
     [m.getParameter("PoolManagerProxy"), m.getParameter("LendingPool"), m.getParameter("BaseAsset")],
-    { id: "AaveFundingPoolImplementation" }
+    { id: "AaveFundingPoolImplementation" },
   );
 
   // deploy FxUSDBasePool implementation
@@ -31,10 +31,10 @@ export default buildModule("Upgrade20250318", (m) => {
       encodeChainlinkPriceFeed(
         ChainlinkPriceFeed.ethereum["USDC-USD"].feed,
         ChainlinkPriceFeed.ethereum["USDC-USD"].scale,
-        ChainlinkPriceFeed.ethereum["USDC-USD"].heartbeat
+        ChainlinkPriceFeed.ethereum["USDC-USD"].heartbeat,
       ),
     ],
-    { id: "FxUSDBasePoolImplementation" }
+    { id: "FxUSDBasePoolImplementation" },
   );
 
   // deploy PositionOperateFlashLoanFacetV2
@@ -57,14 +57,14 @@ export default buildModule("Upgrade20250318", (m) => {
     [m.getParameter("Treasury"), m.getParameter("Treasury"), "0x11E91BB6d1334585AA37D8F4fde3932C7960B938"],
     {
       id: "CloseRevenuePool",
-    }
+    },
   );
   const MiscRevenuePool = m.contract(
     "RevenuePool",
     [m.getParameter("Treasury"), m.getParameter("Treasury"), "0x11E91BB6d1334585AA37D8F4fde3932C7960B938"],
     {
       id: "MiscRevenuePool",
-    }
+    },
   );
 
   // add reward token to MiscRevenuePool and CloseRevenuePool
@@ -78,7 +78,7 @@ export default buildModule("Upgrade20250318", (m) => {
       ethers.parseUnits("0.3", 9),
       ethers.parseUnits("0.7", 9),
     ],
-    { id: "CloseRevenuePool_addRewardToken_wstETH" }
+    { id: "CloseRevenuePool_addRewardToken_wstETH" },
   );
   m.call(
     CloseRevenuePool,
@@ -90,7 +90,7 @@ export default buildModule("Upgrade20250318", (m) => {
       ethers.parseUnits("0.3", 9),
       ethers.parseUnits("0.7", 9),
     ],
-    { id: "CloseRevenuePool_addRewardToken_WBTC" }
+    { id: "CloseRevenuePool_addRewardToken_WBTC" },
   );
   m.call(
     MiscRevenuePool,
@@ -102,7 +102,7 @@ export default buildModule("Upgrade20250318", (m) => {
       ethers.parseUnits("0.3", 9),
       ethers.parseUnits("0.7", 9),
     ],
-    { id: "MiscRevenuePool_addRewardToken_wstETH" }
+    { id: "MiscRevenuePool_addRewardToken_wstETH" },
   );
   m.call(
     MiscRevenuePool,
@@ -114,7 +114,7 @@ export default buildModule("Upgrade20250318", (m) => {
       ethers.parseUnits("0.3", 9),
       ethers.parseUnits("0.7", 9),
     ],
-    { id: "MiscRevenuePool_addRewardToken_WBTC" }
+    { id: "MiscRevenuePool_addRewardToken_WBTC" },
   );
 
   return {

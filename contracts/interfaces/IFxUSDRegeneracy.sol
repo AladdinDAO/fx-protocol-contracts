@@ -6,12 +6,12 @@ interface IFxUSDRegeneracy {
   /**********
    * Events *
    **********/
-  
+
   /// @notice Emitted when rebalance/liquidate with stable token.
   /// @param amountStable The amount of stable token used.
   /// @param amountFxUSD The corresponding amount of fxUSD.
   event RebalanceWithStable(uint256 amountStable, uint256 amountFxUSD);
-  
+
   /// @notice Emitted when buyback fxUSD with stable reserve.
   /// @param amountStable the amount of stable token used.
   /// @param amountFxUSD The amount of fxUSD bought.

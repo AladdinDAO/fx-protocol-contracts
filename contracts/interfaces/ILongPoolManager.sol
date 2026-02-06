@@ -137,10 +137,7 @@ interface ILongPoolManager is IPoolManager {
   /// @param longPool The address of long pool.
   /// @param amountFxUSD The amount of fxUSD to redeem.
   /// @return colls The amount of collateral token redeemed.
-  function redeemForSettle(
-    address longPool,
-    uint256 amountFxUSD
-  ) external returns (uint256 colls);
+  function redeemForSettle(address longPool, uint256 amountFxUSD) external returns (uint256 colls);
 
   /// @notice Settle short pool.
   /// @param longPool The address of long pool.

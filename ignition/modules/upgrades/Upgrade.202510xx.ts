@@ -34,7 +34,7 @@ export default buildModule("Upgrade202510xx", (m) => {
       EthereumTokens.USDC.address,
       m.getParameter("FxUSDPriceOracleProxy"),
     ],
-    { id: "FxUSDBasePoolImplementation" }
+    { id: "FxUSDBasePoolImplementation" },
   );
 
   // deploy FxUSDPriceOracle implementation
@@ -45,12 +45,12 @@ export default buildModule("Upgrade202510xx", (m) => {
       encodeChainlinkPriceFeed(
         ChainlinkPriceFeed.ethereum["USDC-USD"].feed,
         ChainlinkPriceFeed.ethereum["USDC-USD"].scale,
-        ChainlinkPriceFeed.ethereum["USDC-USD"].heartbeat
+        ChainlinkPriceFeed.ethereum["USDC-USD"].heartbeat,
       ),
     ],
     {
       id: "FxUSDPriceOracleImplementation",
-    }
+    },
   );
 
   // deploy PoolConfiguration implementation
@@ -63,14 +63,14 @@ export default buildModule("Upgrade202510xx", (m) => {
       m.getParameter("PoolManagerProxy"),
       m.getParameter("ShortPoolManagerProxy"),
     ],
-    { id: "PoolConfigurationImplementation" }
+    { id: "PoolConfigurationImplementation" },
   );
 
   // deploy AaveFundingPool implementation
   const AaveFundingPoolImplementation = m.contract(
     "AaveFundingPool",
     [m.getParameter("PoolManagerProxy"), m.getParameter("PoolConfigurationProxy")],
-    { id: "AaveFundingPoolImplementation" }
+    { id: "AaveFundingPoolImplementation" },
   );
 
   // deploy PoolManager implementation
@@ -83,7 +83,7 @@ export default buildModule("Upgrade202510xx", (m) => {
       m.getParameter("PoolConfigurationProxy"),
       ZeroAddress,
     ],
-    { id: "PoolManagerImplementation" }
+    { id: "PoolManagerImplementation" },
   );
 
   // deploy ShortPoolManager implementation
@@ -95,14 +95,14 @@ export default buildModule("Upgrade202510xx", (m) => {
       m.getParameter("PoolConfigurationProxy"),
       ZeroAddress,
     ],
-    { id: "ShortPoolManagerImplementation" }
+    { id: "ShortPoolManagerImplementation" },
   );
 
   // deploy ShortPool implementation
   const ShortPoolImplementation = m.contract(
     "ShortPool",
     [m.getParameter("ShortPoolManagerProxy"), m.getParameter("PoolConfigurationProxy")],
-    { id: "ShortPoolImplementation" }
+    { id: "ShortPoolImplementation" },
   );
 
   // deploy SavingFxUSDFacet
@@ -201,7 +201,7 @@ export default buildModule("Upgrade202510xx", (m) => {
         initCalldata: "0x",
       },
     ],
-    { id: "FxMintRouter" }
+    { id: "FxMintRouter" },
   );
   // config parameters
   const RouterManagementFacet = m.contractAt("RouterManagementFacet", FxMintRouter);

@@ -66,7 +66,7 @@ describe("GaugeRewarder.spec", async () => {
           router: ZeroAddress,
           data: "0x",
           minOut: 0n,
-        })
+        }),
       )
         .to.revertedWithCustomError(rewarder, "AccessControlUnauthorizedAccount")
         .withArgs(signer.address, id("PERMISSIONED_TRADER_ROLE"));
@@ -79,7 +79,7 @@ describe("GaugeRewarder.spec", async () => {
           router: await mockConverter.getAddress(),
           data: "0x",
           minOut: 0n,
-        })
+        }),
       )
         .to.revertedWithCustomError(rewarder, "AccessControlUnauthorizedAccount")
         .withArgs(await mockConverter.getAddress(), id("PERMISSIONED_ROUTER_ROLE"));
@@ -122,7 +122,7 @@ describe("GaugeRewarder.spec", async () => {
             [],
           ]),
           minOut: ethers.parseEther("10") + 1n,
-        })
+        }),
       ).to.revertedWithCustomError(rewarder, "InsufficientOutputToken");
       await rewarder.connect(signer).swapAndDistribute(token0.getAddress(), token1.getAddress(), {
         router: await mockConverter.getAddress(),

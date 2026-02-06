@@ -7,14 +7,14 @@ export default buildModule("Upgrade20250107", (m) => {
     [m.getParameter("FxUSDProxy"), m.getParameter("FxUSDBasePoolProxy"), m.getParameter("PegKeeperProxy")],
     {
       id: "PoolManagerImplementation",
-    }
+    },
   );
 
   // deploy AaveFundingPool implementation
   const AaveFundingPoolImplementation = m.contract(
     "AaveFundingPool",
     [m.getParameter("PoolManagerProxy"), m.getParameter("LendingPool"), m.getParameter("BaseAsset")],
-    { id: "AaveFundingPoolImplementation" }
+    { id: "AaveFundingPoolImplementation" },
   );
 
   return { AaveFundingPoolImplementation, PoolManagerImplementation };

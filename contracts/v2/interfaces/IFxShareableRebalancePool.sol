@@ -60,11 +60,7 @@ interface IFxShareableRebalancePool is IFxBoostableRebalancePool {
    ****************************/
 
   /// @notice Withdraw asset from this contract on behalf of someone
-  function withdrawFrom(
-    address owner,
-    uint256 amount,
-    address receiver
-  ) external;
+  function withdrawFrom(address owner, uint256 amount, address receiver) external;
 
   /// @notice Owner changes the vote sharing state for some user.
   /// @param staker The address of user to change.

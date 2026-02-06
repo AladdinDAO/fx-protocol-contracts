@@ -76,11 +76,7 @@ library LibDiamond {
   event DiamondCut(IDiamondCut.FacetCut[] _diamondCut, address _init, bytes _calldata);
 
   // Internal function version of diamondCut
-  function diamondCut(
-    IDiamondCut.FacetCut[] memory _diamondCut,
-    address _init,
-    bytes memory _calldata
-  ) internal {
+  function diamondCut(IDiamondCut.FacetCut[] memory _diamondCut, address _init, bytes memory _calldata) internal {
     for (uint256 facetIndex; facetIndex < _diamondCut.length; facetIndex++) {
       bytes4[] memory functionSelectors = _diamondCut[facetIndex].functionSelectors;
       address facetAddress = _diamondCut[facetIndex].facetAddress;

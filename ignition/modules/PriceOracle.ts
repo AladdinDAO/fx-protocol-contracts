@@ -3,24 +3,39 @@ import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 import { Addresses, ChainlinkPriceFeed, encodeChainlinkPriceFeed, SpotPriceEncodings } from "@/utils/index";
 
 export default buildModule("PriceOracle", (m) => {
-  // deploy StETHPriceOracle
-  const StETHPriceOracle = m.contract("StETHPriceOracle", [
+  // deploy ETHPriceOracle
+  const ETHPriceOracle = m.contract("ETHPriceOracle", [
     m.getParameter("SpotPriceOracle"),
     encodeChainlinkPriceFeed(
-      ChainlinkPriceFeed.ethereum["ETH-USD"].feed,
-      ChainlinkPriceFeed.ethereum["ETH-USD"].scale,
-      ChainlinkPriceFeed.ethereum["ETH-USD"].heartbeat
+      ChainlinkPriceFeed.katana["ETH-USD"].feed,
+      ChainlinkPriceFeed.katana["ETH-USD"].scale,
+      ChainlinkPriceFeed.katana["ETH-USD"].heartbeat,
     ),
-    Addresses["CRV_SP_ETH/stETH_303"],
   ]);
-  m.call(StETHPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["WETH/USDC"], 0], {
-    id: "StETH_onchainSpotEncodings_ETHUSD",
+  m.call(ETHPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["ETH/USDC"]], {
+    id: "ETH_onchainSpotEncodings_ETHUSD",
   });
-  m.call(StETHPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["stETH/WETH"], 1], {
-    id: "StETH_onchainSpotEncodings_LSDETH",
-  });
+  m.call(ETHPriceOracle, "updateMaxPriceDeviation", [2n * 10n ** 16n]); // 2%
+
+  // deploy WBTCPriceOracle
+  const WBTCPriceOracle = m.contract("WBTCPriceOracle", [
+    m.getParameter("SpotPriceOracle"),
+    encodeChainlinkPriceFeed(
+      ChainlinkPriceFeed.katana["BTC-USD"].feed,
+      ChainlinkPriceFeed.katana["BTC-USD"].scale,
+      ChainlinkPriceFeed.katana["BTC-USD"].heartbeat,
+    ),
+    encodeChainlinkPriceFeed(
+      ChainlinkPriceFeed.katana["WBTC-BTC"].feed,
+      ChainlinkPriceFeed.katana["WBTC-BTC"].scale,
+      ChainlinkPriceFeed.katana["WBTC-BTC"].heartbeat,
+    ),
+  ]);
+  m.call(WBTCPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["WBTC/USDC"]]);
+  m.call(WBTCPriceOracle, "updateMaxPriceDeviation", [2n * 10n ** 16n]); // 2%
 
   return {
-    StETHPriceOracle
+    ETHPriceOracle,
+    WBTCPriceOracle,
   };
 });

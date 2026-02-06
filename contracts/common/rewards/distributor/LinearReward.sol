@@ -31,11 +31,7 @@ library LinearReward {
   /// @param _data The struct of reward data, will be modified inplace.
   /// @param _periodLength The length of a period, caller should make sure it is at least `86400`.
   /// @param _amount The amount of new rewards to distribute.
-  function increase(
-    RewardData memory _data,
-    uint256 _periodLength,
-    uint256 _amount
-  ) internal view {
+  function increase(RewardData memory _data, uint256 _periodLength, uint256 _amount) internal view {
     _amount = _amount + _data.queued;
     _data.queued = 0;
 

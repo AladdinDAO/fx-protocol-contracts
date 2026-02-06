@@ -11,13 +11,13 @@ interface ISavingFxUSD {
   /// @param oldThreshold The value of the previous threshold.
   /// @param newThreshold The value of the current threshold.
   event UpdateThreshold(uint256 oldThreshold, uint256 newThreshold);
-  
+
   /// @notice Emitted when user direct request unlocking through this contract.
   /// @param owner The address of token owner.
   /// @param shares The amount of shares to unlock.
   /// @param assets The amount of corresponding assets.
   event RequestRedeem(address owner, uint256 shares, uint256 assets);
-  
+
   /// @notice Emitted when user claim unlocked tokens.
   /// @param owner The address of token owner.
   /// @param receiver The address of token receiver.

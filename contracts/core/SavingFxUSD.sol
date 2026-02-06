@@ -80,7 +80,7 @@ contract SavingFxUSD is ERC20PermitUpgradeable, ERC4626Upgradeable, Concentrator
 
   /// @dev The offset of threshold in `_miscData`.
   uint256 private constant THRESHOLD_OFFSET = 60;
-  
+
   /// @dev The maximum value of threshold, 2^80-1.
   uint256 private constant MAX_THRESHOLD = 1208925819614629174706175;
 

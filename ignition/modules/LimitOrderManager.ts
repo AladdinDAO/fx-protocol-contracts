@@ -6,7 +6,7 @@ export default buildModule("LimitOrderManager", (m) => {
   const LimitOrderManagerImplementation = m.contract(
     "LimitOrderManager",
     [m.getParameter("PoolManagerProxy"), m.getParameter("ShortPoolManagerProxy"), m.getParameter("FxUSDProxy")],
-    { id: "LimitOrderManagerImplementation" }
+    { id: "LimitOrderManagerImplementation" },
   );
   const LimitOrderManagerInitializer = m.encodeFunctionCall(LimitOrderManagerImplementation, "initialize", [
     deployer,
@@ -15,7 +15,7 @@ export default buildModule("LimitOrderManager", (m) => {
   const LimitOrderManagerProxy = m.contract(
     "TransparentUpgradeableProxy",
     [LimitOrderManagerImplementation, m.getParameter("FxProxyAdmin"), LimitOrderManagerInitializer],
-    { id: "LimitOrderManagerProxy" }
+    { id: "LimitOrderManagerProxy" },
   );
   const LimitOrderManager = m.contractAt("LimitOrderManager", LimitOrderManagerProxy);
   m.call(LimitOrderManager, "grantRole", [ZeroHash, m.getParameter("Treasury")], {

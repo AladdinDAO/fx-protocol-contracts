@@ -35,7 +35,7 @@ interface IFxUSDBasePool {
     uint256 amountDeposited,
     uint256 amountSharesOut
   );
-  
+
   /// @notice Emitted when users request redeem.
   /// @param caller The address of caller.
   /// @param shares The amount of shares to redeem.
@@ -172,14 +172,20 @@ interface IFxUSDBasePool {
   /// @param shares The amount of pool shares to redeem.
   /// @return amountYieldOut The amount of yield token should received.
   /// @return amountStableOut The amount of stable token should received.
-  function instantRedeem(address receiver, uint256 shares) external returns (uint256 amountYieldOut, uint256 amountStableOut);
+  function instantRedeem(
+    address receiver,
+    uint256 shares
+  ) external returns (uint256 amountYieldOut, uint256 amountStableOut);
 
   /// @notice Redeem pool shares instantly without withdraw fee.
   /// @param receiver The address of token recipient.
   /// @param shares The amount of pool shares to redeem.
   /// @return amountYieldOut The amount of yield token should received.
   /// @return amountStableOut The amount of stable token should received.
-  function instantRedeemNoFee(address receiver, uint256 shares) external returns (uint256 amountYieldOut, uint256 amountStableOut);
+  function instantRedeemNoFee(
+    address receiver,
+    uint256 shares
+  ) external returns (uint256 amountYieldOut, uint256 amountStableOut);
 
   /// @notice Rebalance all positions in the given tick.
   /// @param pool The address of pool to rebalance.

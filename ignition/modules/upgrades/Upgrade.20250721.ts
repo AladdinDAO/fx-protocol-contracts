@@ -12,7 +12,7 @@ export default buildModule("Upgrade20250721", (m) => {
     ],
     {
       id: "PoolManagerImplementation",
-    }
+    },
   );
 
   // deploy AaveFundingPool implementation
@@ -21,7 +21,7 @@ export default buildModule("Upgrade20250721", (m) => {
     [m.getParameter("PoolManagerProxy"), m.getParameter("PoolConfigurationProxy")],
     {
       id: "AaveFundingPoolImplementation",
-    }
+    },
   );
 
   // deploy ShortPoolManager implementation
@@ -30,7 +30,7 @@ export default buildModule("Upgrade20250721", (m) => {
     [m.getParameter("FxUSDProxy"), m.getParameter("PoolManagerProxy"), m.getParameter("PoolConfigurationProxy")],
     {
       id: "ShortPoolManagerImplementation",
-    }
+    },
   );
 
   // deploy ShortPool implementation
@@ -39,7 +39,7 @@ export default buildModule("Upgrade20250721", (m) => {
     [m.getParameter("ShortPoolManagerProxy"), m.getParameter("PoolConfigurationProxy")],
     {
       id: "ShortPoolImplementation",
-    }
+    },
   );
 
   return {

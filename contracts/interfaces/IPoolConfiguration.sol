@@ -42,10 +42,9 @@ interface IPoolConfiguration {
   event UpdateShortFundingRatioParameter(uint64 scalarC, uint64 maxBorrowRatio);
 
   /// @notice Emitted when the snapshot is taken.
-  /// @param borrowIndex The borrow index.
   /// @param lastInterestRate The last interest rate.
   /// @param timestamp The timestamp of the snapshot.
-  event Snapshot(uint256 borrowIndex, uint256 lastInterestRate, uint256 timestamp);
+  event Snapshot(uint256 lastInterestRate, uint256 timestamp);
 
   /// @notice Emitted when the stable depeg price is updated.
   /// @param oldStableDepegPrice The old stable depeg price.

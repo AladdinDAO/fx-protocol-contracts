@@ -21,10 +21,7 @@ contract FxUSDBasePoolFacet {
    *************/
 
   /// @notice The address of USDC token.
-  address private constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-
-  /// @notice The address of fxUSD token.
-  address private constant fxUSD = 0x085780639CC2cACd35E474e71f4d000e2405d8f6;
+  address private constant USDC = 0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36;
 
   /***********************
    * Immutable Variables *
@@ -39,14 +36,18 @@ contract FxUSDBasePoolFacet {
   /// @dev The address of fxBASE gauge contract.
   address private immutable gauge;
 
+  /// @notice The address of fxUSD token.
+  address private immutable fxUSD;
+
   /***************
    * Constructor *
    ***************/
 
-  constructor(address _poolManager, address _fxBASE, address _gauge) {
+  constructor(address _poolManager, address _fxBASE, address _gauge, address _fxUSD) {
     poolManager = _poolManager;
     fxBASE = _fxBASE;
     gauge = _gauge;
+    fxUSD = _fxUSD;
   }
 
   /****************************
@@ -118,7 +119,7 @@ contract FxUSDBasePoolFacet {
     LibRouter.approve(fxBASE, gauge, shares);
     ILiquidityGauge(gauge).deposit(shares, receiver);
   }
-  
+
   /*
   /// @notice Burn fxBASE shares and then convert USDC and fxUSD to another token.
   /// @param fxusdParams The parameters to convert fxUSD to target token.

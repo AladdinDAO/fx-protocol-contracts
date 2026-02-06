@@ -97,31 +97,19 @@ interface IFxUSD {
   /// @param baseToken The address of corresponding base token.
   /// @param amount The amount of fToken to wrap.
   /// @param receiver The address of fxUSD recipient.
-  function wrap(
-    address baseToken,
-    uint256 amount,
-    address receiver
-  ) external;
+  function wrap(address baseToken, uint256 amount, address receiver) external;
 
   /// @notice Unwrap fxUSD to fToken.
   /// @param baseToken The address of corresponding base token.
   /// @param amount The amount of fxUSD to unwrap.
   /// @param receiver The address of fToken recipient.
-  function unwrap(
-    address baseToken,
-    uint256 amount,
-    address receiver
-  ) external;
+  function unwrap(address baseToken, uint256 amount, address receiver) external;
 
   /// @notice Wrap fToken from rebalance pool to fxUSD.
   /// @param pool The address of rebalance pool.
   /// @param amount The amount of fToken to wrap.
   /// @param receiver The address of fxUSD recipient.
-  function wrapFrom(
-    address pool,
-    uint256 amount,
-    address receiver
-  ) external;
+  function wrapFrom(address pool, uint256 amount, address receiver) external;
 
   /// @notice Mint fxUSD with base token.
   /// @param baseToken The address of the base token.
@@ -140,11 +128,7 @@ interface IFxUSD {
   /// @param pool The address of rebalance pool.
   /// @param amount The amount of fxUSD to use.
   /// @param receiver The address of rebalance pool share recipient.
-  function earn(
-    address pool,
-    uint256 amount,
-    address receiver
-  ) external;
+  function earn(address pool, uint256 amount, address receiver) external;
 
   /// @notice Mint fxUSD with base token and deposit to rebalance pool.
   /// @param pool The address of rebalance pool.
@@ -197,11 +181,5 @@ interface IFxUSD {
     uint256 amountIn,
     address receiver,
     uint256[] memory minOuts
-  )
-    external
-    returns (
-      address[] memory baseTokens,
-      uint256[] memory amountOuts,
-      uint256[] memory bonusOuts
-    );
+  ) external returns (address[] memory baseTokens, uint256[] memory amountOuts, uint256[] memory bonusOuts);
 }

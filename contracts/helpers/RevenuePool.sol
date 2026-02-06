@@ -98,11 +98,7 @@ contract RevenuePool is Ownable, IRewardSplitter {
    * Constructor *
    ***************/
 
-  constructor(
-    address _treasury,
-    address _ecosystem,
-    address _staker
-  ) Ownable(_msgSender()) {
+  constructor(address _treasury, address _ecosystem, address _staker) Ownable(_msgSender()) {
     _ensureNonZeroAddress(_treasury, "treasury");
     _ensureNonZeroAddress(_ecosystem, "ecosystem");
     _ensureNonZeroAddress(_staker, "staker");
@@ -280,11 +276,7 @@ contract RevenuePool is Ownable, IRewardSplitter {
    * Internal Functions *
    **********************/
 
-  function _checkRatioRange(
-    uint32 _stakerRatio,
-    uint32 _treasuryRatio,
-    uint32 _lockerRatio
-  ) internal pure {
+  function _checkRatioRange(uint32 _stakerRatio, uint32 _treasuryRatio, uint32 _lockerRatio) internal pure {
     require(_stakerRatio <= FEE_PRECISION, "staker ratio too large");
     require(_treasuryRatio <= FEE_PRECISION, "treasury ratio too large");
     require(_lockerRatio <= FEE_PRECISION, "locker ratio too large");

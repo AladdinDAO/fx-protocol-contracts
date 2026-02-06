@@ -8,6 +8,8 @@ import { EthereumTokens } from "./tokens.ts";
 /* eslint-disable prettier/prettier */
 // prettier-ignore
 export const SWAP_PATH: { [name: string]:  bigint } = {
+  // ethereum
+  /*
   "USDC/WETH-UniV3500": encodePoolHintV3(Addresses["UniV3_USDC/WETH_500"], PoolTypeV3.UniswapV3, 2, 0, 1, Action.Swap, {fee_num: 500}),
   "USDC/fxUSD-CrvSN193": encodePoolHintV3(Addresses["CRV_SN_USDC/fxUSD_193"], PoolTypeV3.CurveStableSwapNG, 2, 0, 1, Action.Swap),
   "fxUSD/USDC-CrvSN193": encodePoolHintV3(Addresses["CRV_SN_USDC/fxUSD_193"], PoolTypeV3.CurveStableSwapNG, 2, 1, 0, Action.Swap),
@@ -18,12 +20,13 @@ export const SWAP_PATH: { [name: string]:  bigint } = {
   "stETH/WETH-CrvSB": encodePoolHintV3(Addresses["CRV_SB_ETH/stETH"], PoolTypeV3.CurvePlainPool, 2, 1, 0, Action.Swap),
   "stETH/wstETH-Lido": encodePoolHintV3(EthereumTokens.wstETH.address, PoolTypeV3.Lido, 2, 0, 0, Action.Add),
   "wstETH/stETH-Lido": encodePoolHintV3(EthereumTokens.wstETH.address, PoolTypeV3.Lido, 2, 0, 0, Action.Remove),
+  */
 };
 /* eslint-enable prettier/prettier */
 
 export function encodeMultiPath(
   paths: (bigint | bigint[])[],
-  parts: bigint[]
+  parts: bigint[],
 ): {
   encoding: bigint;
   routes: bigint[];
@@ -62,6 +65,8 @@ export const MULTI_PATH_CONVERTER_ROUTES: {
     };
   };
 } = {
+  // ethereum
+  /*
   USDC: {
     WETH: encodeMultiPath([SWAP_PATH["USDC/WETH-UniV3500"]], [100n]),
     fxUSD: encodeMultiPath([SWAP_PATH["USDC/fxUSD-CrvSN193"]], [100n]),
@@ -103,5 +108,6 @@ export const MULTI_PATH_CONVERTER_ROUTES: {
     ),
     stETH: encodeMultiPath([SWAP_PATH["wstETH/stETH-Lido"]], [100n])
   },
+  */
 };
 /* eslint-enable prettier/prettier */

@@ -67,8 +67,8 @@ const config: HardhatUserConfig = {
     },
     tenderly: {
       type: "http",
-      url: `https://virtual.mainnet.rpc.tenderly.co/${process.env.TENDERLY_ETHEREUM_RPC_ID || ""}`,
-      chainId: parseInt(process.env.TENDERLY_ETHEREUM_CHAIN_ID || "1"),
+      url: `https://virtual.katana.eu.rpc.tenderly.co/${process.env.TENDERLY_KATANA_RPC_ID || ""}`,
+      chainId: parseInt(process.env.TENDERLY_ETHEREUM_CHAIN_ID || "747474"),
       accounts: testAccounts,
       ignition: {
         maxPriorityFeePerGas: ethers.parseUnits("0.01", "gwei"),

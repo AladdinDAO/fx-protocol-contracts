@@ -7,10 +7,12 @@ interface IFxUSDPriceOracle {
    * Events *
    **********/
 
-  /// @notice Emitted when the curve pool contract is updated.
-  /// @param oldPool The address of previous curve pool contract.
-  /// @param newPool The address of current curve pool contract.
-  event UpdateCurvePool(address indexed oldPool, address indexed newPool);
+  /// @notice Emitted when the sushi pool contract is updated.
+  /// @param oldPool The address of previous sushi pool contract.
+  /// @param newPool The address of current sushi pool contract.
+  /// @param secondsAgo The seconds ago to consult the price.
+  /// @param minLiquidity The minimum liquidity to consult the price.
+  event UpdateSushiPool(address indexed oldPool, address indexed newPool, uint256 secondsAgo, uint128 minLiquidity);
 
   /// @notice Emitted when the max price deviation is updated.
   /// @param oldDePegDeviation The value of previous depeg price deviation

@@ -67,7 +67,7 @@ describe("PegKeeper.spec", async () => {
     mockPriceOracle = await MockPriceOracle.deploy(
       ethers.parseEther("3000"),
       ethers.parseEther("2999"),
-      ethers.parseEther("3001")
+      ethers.parseEther("3001"),
     );
     mockRateProvider = await MockRateProvider.deploy(TokenRate);
     mockAaveV3Pool = await MockAaveV3Pool.deploy(ethers.parseUnits("0.05", 27));
@@ -93,18 +93,18 @@ describe("PegKeeper.spec", async () => {
     const FxUSDRegeneracyProxy = await TransparentUpgradeableProxy.deploy(
       empty.getAddress(),
       proxyAdmin.getAddress(),
-      "0x"
+      "0x",
     );
     const PegKeeperProxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), proxyAdmin.getAddress(), "0x");
     const PoolManagerProxy = await TransparentUpgradeableProxy.deploy(
       empty.getAddress(),
       proxyAdmin.getAddress(),
-      "0x"
+      "0x",
     );
     const FxUSDBasePoolProxy = await TransparentUpgradeableProxy.deploy(
       empty.getAddress(),
       proxyAdmin.getAddress(),
-      "0x"
+      "0x",
     );
 
     // deploy ReservePool
@@ -114,7 +114,7 @@ describe("PegKeeper.spec", async () => {
     const PoolManagerImpl = await PoolManager.deploy(
       FxUSDRegeneracyProxy.getAddress(),
       FxUSDBasePoolProxy.getAddress(),
-      PegKeeperProxy.getAddress()
+      PegKeeperProxy.getAddress(),
     );
     await proxyAdmin.upgradeAndCall(
       PoolManagerProxy.getAddress(),
@@ -127,7 +127,7 @@ describe("PegKeeper.spec", async () => {
         treasury.address,
         revenuePool.address,
         await reservePool.getAddress(),
-      ])
+      ]),
     );
     poolManager = await ethers.getContractAt("PoolManager", await PoolManagerProxy.getAddress(), admin);
 
@@ -135,7 +135,7 @@ describe("PegKeeper.spec", async () => {
     const FxUSDRegeneracyImpl = await FxUSDRegeneracy.deploy(
       PoolManagerProxy.getAddress(),
       stableToken.getAddress(),
-      PegKeeperProxy.getAddress()
+      PegKeeperProxy.getAddress(),
     );
     await proxyAdmin.upgrade(FxUSDRegeneracyProxy.getAddress(), FxUSDRegeneracyImpl.getAddress());
     fxUSD = await ethers.getContractAt("FxUSDRegeneracy", await FxUSDRegeneracyProxy.getAddress(), admin);
@@ -148,7 +148,7 @@ describe("PegKeeper.spec", async () => {
       PegKeeperProxy.getAddress(),
       FxUSDRegeneracyProxy.getAddress(),
       stableToken.getAddress(),
-      encodeChainlinkPriceFeed(await mockAggregatorV3Interface.getAddress(), 10n ** 10n, 1000000000)
+      encodeChainlinkPriceFeed(await mockAggregatorV3Interface.getAddress(), 10n ** 10n, 1000000000),
     );
     await proxyAdmin.upgradeAndCall(
       FxUSDBasePoolProxy.getAddress(),
@@ -159,7 +159,7 @@ describe("PegKeeper.spec", async () => {
         "fxBASE",
         ethers.parseEther("0.95"),
         0n,
-      ])
+      ]),
     );
     fxBASE = await ethers.getContractAt("FxUSDBasePool", await FxUSDBasePoolProxy.getAddress(), admin);
 
@@ -172,7 +172,7 @@ describe("PegKeeper.spec", async () => {
         admin.address,
         await mockConverter.getAddress(),
         await mockCurveStableSwapNG.getAddress(),
-      ])
+      ]),
     );
     pegKeeper = await ethers.getContractAt("PegKeeper", await PegKeeperProxy.getAddress(), admin);
 
@@ -181,14 +181,14 @@ describe("PegKeeper.spec", async () => {
     pool = await AaveFundingPool.deploy(
       poolManager.getAddress(),
       mockAaveV3Pool.getAddress(),
-      stableToken.getAddress()
+      stableToken.getAddress(),
     );
     await pool.initialize(
       admin.address,
       "f(x) wstETH position",
       "xstETH",
       collateralToken.getAddress(),
-      mockPriceOracle.getAddress()
+      mockPriceOracle.getAddress(),
     );
     await pool.updateRebalanceRatios(ethers.parseEther("0.88"), ethers.parseUnits("0.025", 9));
     await pool.updateLiquidateRatios(ethers.parseEther("0.92"), ethers.parseUnits("0.05", 9));
@@ -198,7 +198,7 @@ describe("PegKeeper.spec", async () => {
       pool.getAddress(),
       rewarder.getAddress(),
       ethers.parseUnits("10000", 18),
-      ethers.parseEther("10000000")
+      ethers.parseEther("10000000"),
     );
     await poolManager.updateRateProvider(collateralToken.getAddress(), mockRateProvider.getAddress());
     await mockCurveStableSwapNG.setCoin(0, stableToken.getAddress());
@@ -222,7 +222,7 @@ describe("PegKeeper.spec", async () => {
     it("should revert, when initialize again", async () => {
       await expect(pegKeeper.initialize(ZeroAddress, ZeroAddress, ZeroAddress)).to.revertedWithCustomError(
         pool,
-        "InvalidInitialization"
+        "InvalidInitialization",
       );
     });
   });
@@ -238,7 +238,7 @@ describe("PegKeeper.spec", async () => {
       it("should revert, when ErrorZeroAddress", async () => {
         await expect(pegKeeper.connect(admin).updateConverter(ZeroAddress)).to.revertedWithCustomError(
           pool,
-          "ErrorZeroAddress"
+          "ErrorZeroAddress",
         );
       });
 
@@ -261,7 +261,7 @@ describe("PegKeeper.spec", async () => {
       it("should revert, when ErrorZeroAddress", async () => {
         await expect(pegKeeper.connect(admin).updateCurvePool(ZeroAddress)).to.revertedWithCustomError(
           pool,
-          "ErrorZeroAddress"
+          "ErrorZeroAddress",
         );
       });
 
@@ -365,7 +365,7 @@ describe("PegKeeper.spec", async () => {
     it("should revert, when not in context", async () => {
       await expect(pegKeeper.onSwap(ZeroAddress, ZeroAddress, 0n, "0x")).to.revertedWithCustomError(
         pegKeeper,
-        "ErrorNotInCallbackContext"
+        "ErrorNotInCallbackContext",
       );
     });
   });

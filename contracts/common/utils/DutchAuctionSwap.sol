@@ -144,7 +144,7 @@ abstract contract DutchAuctionSwap is PermissionedSwap, BaseConditionalOrder {
 
     // check if the auction is canceled
     if (isAuctionCanceled[keccak256(staticInput)]) {
-        revert PollNever("auction canceled");
+      revert PollNever("auction canceled");
     }
 
     Data memory data = abi.decode(staticInput, (Data));

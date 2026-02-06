@@ -1,4 +1,12 @@
 export const Addresses: { [name: string]: string } = {
+  // katana
+  "SushiV3_USDC/ETH_500": "0x2a2c512beaa8eb15495726c235472d82effb7a6b",
+  "SushiV3_WBTC/ETH_3000": "0x8d6daef922532571e33924dccc5aa09edd9eef77",
+  "SushiV3_WBTC/USDC_500": "0x744676b3ced942d78f9b8e9cd22246db5c32395c",
+
+  /*
+  // ethereum
+
   // Curve:
   // + SB for stable base;
   // + SP for stable plain;
@@ -90,4 +98,5 @@ export const Addresses: { [name: string]: string } = {
   "BalV2_S_wstETH/WETH_1474": "0x93d199263632a4EF4Bb438F1feB99e57b4b5f0BD",
   "BalV2_S_GHO/USDC/USDT_1497": "0x8353157092ED8Be69a9DF8F95af097bbF33Cb2aF",
   "BalV2_S_ezETH/WETH_1625": "0x596192bB6e41802428Ac943D2f1476C1Af25CC0E",
+  */
 };

@@ -6,46 +6,46 @@ abstract contract PoolErrors {
   /**********
    * Errors *
    **********/
-  
+
   /// @dev Thrown when the given address is zero.
   error ErrorZeroAddress();
 
   /// @dev Thrown when the given value exceeds maximum value.
   error ErrorValueTooLarge();
-  
+
   /// @dev Thrown when the caller is not pool manager.
   error ErrorCallerNotPoolManager();
-  
+
   /// @dev Thrown when the debt amount is too small.
   error ErrorDebtTooSmall();
 
   /// @dev Thrown when the collateral amount is too small.
   error ErrorCollateralTooSmall();
-  
+
   /// @dev Thrown when both collateral amount and debt amount are zero.
   error ErrorNoSupplyAndNoBorrow();
-  
+
   /// @dev Thrown when borrow is paused.
   error ErrorBorrowPaused();
 
   /// @dev Thrown when redeem is paused.
   error ErrorRedeemPaused();
-  
+
   /// @dev Thrown when the caller is not position owner during withdraw or borrow.
   error ErrorNotPositionOwner();
-  
+
   /// @dev Thrown when withdraw more than supplied.
   error ErrorWithdrawExceedSupply();
-  
+
   /// @dev Thrown when the debt ratio is too small.
   error ErrorDebtRatioTooSmall();
 
   /// @dev Thrown when the debt ratio is too large.
   error ErrorDebtRatioTooLarge();
-  
+
   /// @dev Thrown when pool is under collateral.
   error ErrorPoolUnderCollateral();
-  
+
   /// @dev Thrown when the current debt ratio <= rebalance debt ratio.
   error ErrorRebalanceDebtRatioNotReached();
 

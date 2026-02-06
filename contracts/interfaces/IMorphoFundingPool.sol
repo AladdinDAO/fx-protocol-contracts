@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 
 import { IPool } from "./IPool.sol";
 
-interface IAaveFundingPool is IPool {
+interface IMorphoFundingPool is IPool {
   /**********
    * Events *
    **********/

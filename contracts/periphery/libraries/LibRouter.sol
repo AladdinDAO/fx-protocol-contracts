@@ -38,7 +38,7 @@ library LibRouter {
   bytes32 private constant ROUTER_STORAGE_SLOT = keccak256("diamond.router.storage");
 
   /// @dev The address of WETH token.
-  address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+  address internal constant WETH = 0xEE7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62;
 
   uint8 internal constant NOT_FLASH_LOAN = 0;
 

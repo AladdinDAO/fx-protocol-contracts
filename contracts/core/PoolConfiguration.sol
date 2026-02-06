@@ -4,7 +4,6 @@ pragma solidity ^0.8.26;
 
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
-import { IAaveV3Pool } from "../interfaces/Aave/IAaveV3Pool.sol";
 import { IFxUSDBasePool } from "../interfaces/IFxUSDBasePool.sol";
 import { IPoolConfiguration } from "../interfaces/IPoolConfiguration.sol";
 import { IFxUSDPriceOracle } from "../interfaces/IFxUSDPriceOracle.sol";
@@ -35,7 +34,7 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
    * Constants *
    *************/
 
-  /// @dev The minimum Aave borrow index snapshot delay.
+  /// @dev The minimum Morpho borrow index snapshot delay.
   uint256 private constant MIN_SNAPSHOT_DELAY = 30 minutes;
 
   /// @dev The precision used for fee ratio calculation.
@@ -73,15 +72,12 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
   /// @dev The role to unlock the pool manager.
   bytes32 public constant UNLOCK_ROLE = keccak256("UNLOCK_ROLE");
 
+  /// @dev The role to set the interest rate.
+  bytes32 public constant INTEREST_RATE_SET_ROLE = keccak256("INTEREST_RATE_SET_ROLE");
+
   /***********************
    * Immutable Variables *
    ***********************/
-
-  /// @notice The address of the Aave lending pool.
-  address public immutable AAVE_LENDING_POOL;
-
-  /// @notice The address of the Aave base asset.
-  address public immutable AAVE_BASE_ASSET;
 
   /// @notice The address of the FxUSDBasePool contract.
   address public immutable FXUSD_BASE_POOL;
@@ -96,13 +92,10 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
    * Structs *
    ***********/
 
-  /// @dev The struct for AAVE borrow rate snapshot.
-  /// @param borrowIndex The current borrow index of AAVE, multiplied by 1e27.
+  /// @dev The struct for MORPHO borrow rate snapshot.
   /// @param lastInterestRate The last recorded interest rate, multiplied by 1e18.
   /// @param timestamp The timestamp when the snapshot is taken.
-  struct BorrowRateSnapshot {
-    // The initial value of `borrowIndex` is `10^27`, it is very unlikely this value will exceed `2^128`.
-    uint128 borrowIndex;
+  struct InterestRateSnapshot {
     uint80 lastInterestRate;
     uint48 timestamp;
   }
@@ -131,7 +124,7 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
   address public oracle;
 
   /// @notice The borrow rate snapshot.
-  BorrowRateSnapshot public borrowRateSnapshot;
+  InterestRateSnapshot public interestRateSnapshot;
 
   /// @dev Mapping from pool address to the pool fee ratio.
   mapping(address => PoolFeeRatioStruct) private poolFeeRatio;
@@ -183,20 +176,10 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
 
   /// @notice Constructor.
   /// @param _fxUSDBasePool The address of the FxUSDBasePool contract.
-  /// @param _aaveLendingPool The address of the Aave lending pool.
-  /// @param _aaveBaseAsset The address of the Aave base asset.
   /// @param _poolManager The address of the pool manager.
   /// @param _shortPoolManager The address of the short pool manager.
-  constructor(
-    address _fxUSDBasePool,
-    address _aaveLendingPool,
-    address _aaveBaseAsset,
-    address _poolManager,
-    address _shortPoolManager
-  ) {
+  constructor(address _fxUSDBasePool, address _poolManager, address _shortPoolManager) {
     FXUSD_BASE_POOL = _fxUSDBasePool;
-    AAVE_LENDING_POOL = _aaveLendingPool;
-    AAVE_BASE_ASSET = _aaveBaseAsset;
     POOL_MANAGER = _poolManager;
     SHORT_POOL_MANAGER = _shortPoolManager;
   }
@@ -211,10 +194,6 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
 
     _grantRole(DEFAULT_ADMIN_ROLE, admin);
     _updateOracle(_oracle);
-
-    uint256 borrowIndex = IAaveV3Pool(AAVE_LENDING_POOL).getReserveNormalizedVariableDebt(AAVE_BASE_ASSET);
-    IAaveV3Pool.ReserveDataLegacy memory reserveData = IAaveV3Pool(AAVE_LENDING_POOL).getReserveData(AAVE_BASE_ASSET);
-    _updateBorrowRateSnapshot(borrowIndex, reserveData.currentVariableBorrowRate / 1e9);
   }
 
   /*************************
@@ -242,6 +221,18 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
     return IFxUSDPriceOracle(oracle).isPriceAboveMaxDeviation() && stablePrice > stableDepegPrice;
   }
 
+  function setInterestRate(uint256 interestRate) external onlyRole(INTEREST_RATE_SET_ROLE) {
+    interestRateSnapshot = InterestRateSnapshot({
+      lastInterestRate: uint80(interestRate),
+      timestamp: uint48(block.timestamp)
+    });
+    emit Snapshot(interestRate, block.timestamp);
+  }
+
+  function _getInterestRate() internal view returns (uint256) {
+    return interestRateSnapshot.lastInterestRate;
+  }
+
   /// @inheritdoc IPoolConfiguration
   function getPoolFeeRatio(
     address pool,
@@ -258,10 +249,10 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
 
     uint256 supplyRatio = data.decodeUint(SUPPLY_RATIO_OFFSET, 30);
     uint256 supplyRatioStep = data.decodeUint(SUPPLY_RATIO_STEP_OFFSET, 60);
-    uint256 interestRate = _getAverageInterestRate(borrowRateSnapshot);
+    uint256 interestRate = _getInterestRate();
     unchecked {
-      uint256 aaveRatio = interestRate <= supplyRatioStep ? 1 : (interestRate - 1) / supplyRatioStep;
-      supplyFeeRatio = aaveRatio * supplyRatio;
+      uint256 morphoRatio = interestRate <= supplyRatioStep ? 1 : (interestRate - 1) / supplyRatioStep;
+      supplyFeeRatio = morphoRatio * supplyRatio;
     }
     withdrawFeeRatio = data.decodeUint(WITHDRAW_FEE_RATIO_OFFSET, 30);
     borrowFeeRatio = data.decodeUint(BORROW_FEE_RATIO_OFFSET, 30);
@@ -275,7 +266,7 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
     uint256 scalarB = parameter.decodeUint(SCALAR_B_OFFSET, 64);
     uint256 maxFxUSDratio = parameter.decodeUint(MAX_FXUSD_RATIO_OFFSET, 64);
 
-    uint256 interestRate = _getAverageInterestRate(borrowRateSnapshot);
+    uint256 interestRate = _getInterestRate();
     if (IFxUSDPriceOracle(oracle).isPriceBelowMaxDeviation()) {
       fundingRatio = (scalarB * interestRate) / PRECISION;
     } else {
@@ -305,7 +296,7 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
     uint256 scalarC = parameter.decodeUint(SCALAR_C_OFFSET, 64);
     uint256 maxBorrowRatio = parameter.decodeUint(MAX_BORROW_RATIO_OFFSET, 64);
 
-    uint256 interestRate = _getAverageInterestRate(borrowRateSnapshot);
+    uint256 interestRate = _getInterestRate();
     address counterparty = IShortPool(pool).counterparty();
     address collateralToken = ILongPool(counterparty).collateralToken();
     uint256 longScalingFactor = ILongPoolManager(POOL_MANAGER).getTokenScalingFactor(collateralToken);
@@ -329,7 +320,7 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
   /// @notice Get the average interest rate.
   /// @return rate The average interest rate, multiplied by 1e18.
   function getAverageInterestRate() external view returns (uint256) {
-    return _getAverageInterestRate(borrowRateSnapshot);
+    return _getInterestRate();
   }
 
   /****************************
@@ -342,16 +333,6 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
   function checkpoint(address pool) external {
     if (pool != _msgSender()) revert ErrorInvalidPool();
     if (poolFeeRatio[pool].defaultFeeRatio == bytes32(0)) revert ErrorInvalidPool();
-
-    BorrowRateSnapshot memory snapshot = borrowRateSnapshot;
-    uint256 duration = block.timestamp - snapshot.timestamp;
-    if (duration >= MIN_SNAPSHOT_DELAY) {
-      uint256 newBorrowIndex = IAaveV3Pool(AAVE_LENDING_POOL).getReserveNormalizedVariableDebt(AAVE_BASE_ASSET);
-      uint256 lastInterestRate = _computeAverageInterestRate(snapshot.borrowIndex, newBorrowIndex, duration);
-      if (lastInterestRate == 0) lastInterestRate = snapshot.lastInterestRate;
-
-      _updateBorrowRateSnapshot(newBorrowIndex, lastInterestRate);
-    }
   }
 
   /// @inheritdoc IPoolConfiguration
@@ -500,52 +481,6 @@ contract PoolConfiguration is AccessControlUpgradeable, IPoolConfiguration {
     oracle = newOracle;
 
     emit UpdateOracle(oldOracle, newOracle);
-  }
-
-  /// @dev Internal function to return interest rate snapshot.
-  /// @param snapshot The previous borrow index snapshot.
-  /// @return rate The annual interest rate, multiplied by 1e18.
-  function _getAverageInterestRate(BorrowRateSnapshot memory snapshot) internal view returns (uint256 rate) {
-    // absolute rate change is (new - prev) / prev
-    // annual interest rate is (new - prev) / prev / duration * 365 days
-    uint256 duration = block.timestamp - snapshot.timestamp;
-    // @note Users can trigger this every `MIN_SNAPSHOT_DELAY` seconds and make the interest rate never change.
-    // We allow users to do so, since the risk is not very high. And if we remove this if, the computed interest
-    // rate may not correct due to small `duration`.
-    if (duration < MIN_SNAPSHOT_DELAY) {
-      rate = snapshot.lastInterestRate;
-    } else {
-      uint256 prevBorrowIndex = snapshot.borrowIndex;
-      uint256 newBorrowIndex = IAaveV3Pool(AAVE_LENDING_POOL).getReserveNormalizedVariableDebt(AAVE_BASE_ASSET);
-      rate = _computeAverageInterestRate(prevBorrowIndex, newBorrowIndex, duration);
-      if (rate == 0) rate = snapshot.lastInterestRate;
-    }
-  }
-
-  /// @dev Internal function to compute the average interest rate.
-  /// @param prevBorrowIndex The previous borrow index.
-  /// @param newBorrowIndex The new borrow index.
-  /// @param duration The duration of the snapshot.
-  /// @return rate The average interest rate, multiplied by 1e18.
-  function _computeAverageInterestRate(
-    uint256 prevBorrowIndex,
-    uint256 newBorrowIndex,
-    uint256 duration
-  ) internal pure returns (uint256 rate) {
-    rate = ((newBorrowIndex - prevBorrowIndex) * 365 days * PRECISION) / (prevBorrowIndex * duration);
-  }
-
-  /// @dev Internal function to update the borrow rate snapshot.
-  /// @param borrowIndex The borrow index to update.
-  /// @param interestRate The interest rate to update.
-  function _updateBorrowRateSnapshot(uint256 borrowIndex, uint256 interestRate) internal {
-    borrowRateSnapshot = BorrowRateSnapshot({
-      borrowIndex: uint128(borrowIndex),
-      lastInterestRate: uint80(interestRate),
-      timestamp: uint48(block.timestamp)
-    });
-
-    emit Snapshot(borrowIndex, interestRate, block.timestamp);
   }
 
   /// @dev Internal function to check value not too large.

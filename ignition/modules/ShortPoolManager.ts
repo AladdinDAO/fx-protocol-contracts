@@ -34,7 +34,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [FxUSDPriceOracleImplementation, FxProxyAdmin, FxUSDPriceOracleInitializer],
     {
       id: "FxUSDPriceOracleProxy",
-    }
+    },
   );
   const FxUSDPriceOracle = m.contractAt("FxUSDPriceOracle", FxUSDPriceOracleProxy);
 
@@ -48,21 +48,21 @@ export default buildModule("ShortPoolManager", (m) => {
     [ProtocolTreasuryImplementation, FxProxyAdmin, ProtocolTreasuryInitializer],
     {
       id: "ProtocolTreasuryProxy",
-    }
+    },
   );
   const ProtocolTreasuryProxyFunding = m.contract(
     "TransparentUpgradeableProxy",
     [ProtocolTreasuryImplementation, FxProxyAdmin, ProtocolTreasuryInitializer],
     {
       id: "ProtocolTreasuryProxy_Funding",
-    }
+    },
   );
 
   // deploy PoolConfiguration
   const PoolConfigurationImplementation = m.contract(
     "PoolConfiguration",
     [m.getParameter("FxUSDBasePoolProxy"), m.getParameter("LendingPool"), m.getParameter("BaseAsset")],
-    { id: "PoolConfigurationImplementation" }
+    { id: "PoolConfigurationImplementation" },
   );
   const PoolConfigurationInitializer = m.encodeFunctionCall(PoolConfigurationImplementation, "initialize", [
     admin,
@@ -73,7 +73,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [PoolConfigurationImplementation, FxProxyAdmin, PoolConfigurationInitializer],
     {
       id: "PoolConfigurationProxy",
-    }
+    },
   );
   const PoolConfiguration = m.contractAt("PoolConfiguration", PoolConfigurationProxy);
   m.call(PoolConfiguration, "register", [id("PoolRewardsTreasury"), ProtocolTreasuryProxy], {
@@ -92,7 +92,7 @@ export default buildModule("ShortPoolManager", (m) => {
   const ShortPoolManagerImplementation = m.contract(
     "ShortPoolManager",
     [EthereumTokens.fxUSD.address, PoolManager, PoolConfigurationProxy],
-    { id: "ShortPoolManagerImplementation" }
+    { id: "ShortPoolManagerImplementation" },
   );
   const ShortPoolManagerInitializer = m.encodeFunctionCall(ShortPoolManagerImplementation, "initialize", [
     admin,
@@ -108,7 +108,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [ShortPoolManagerImplementation, FxProxyAdmin, ShortPoolManagerInitializer],
     {
       id: "ShortPoolManagerProxy",
-    }
+    },
   );
   const ShortPoolManager = m.contractAt("ShortPoolManager", ShortPoolManagerProxy);
 
@@ -118,7 +118,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [EthereumTokens.fxUSD.address, m.getParameter("FxUSDBasePoolProxy"), ShortPoolManager, PoolConfiguration],
     {
       id: "PoolManagerImplementation",
-    }
+    },
   );
   /*const PoolManagerUpgrade = m.call(FxProxyAdmin, "upgrade", [PoolManager, PoolManagerImplementation], {
     id: "PoolManagerUpgrade",
@@ -150,7 +150,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [m.getParameter("StETHPriceOracle"), m.getParameter("RateProvider")],
     {
       id: "InverseWstETHPriceOracle",
-    }
+    },
   );
 
   // deploy CreditNote for wstETH
@@ -167,7 +167,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [CreditNoteImplementation, FxProxyAdmin, CreditNoteInitializer],
     {
       id: "CreditNoteProxy",
-    }
+    },
   );
   const CreditNote = m.contractAt("CreditNote", CreditNoteProxy);
 
@@ -188,7 +188,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [ShortPoolImplementation, FxProxyAdmin, ShortPoolInitializer],
     {
       id: "WstETHShortPoolProxy",
-    }
+    },
   );
   const WstETHShortPool = m.contractAt("ShortPool", WstETHShortPoolProxy, { id: "WstETHShortPool" });
 
@@ -203,7 +203,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [WstETHLongPool, m.getParameter("Router"), 3000000n, 300000000000000000n, 1000000n, 0, 0],
     {
       id: "WstETHLongPoolFeeRatio",
-    }
+    },
   );
   m.call(
     PoolConfiguration,
@@ -211,7 +211,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [WstETHLongPool, ZeroAddress, 3000000n, 300000000000000000n, 1000000n, 0, 0],
     {
       id: "WstETHLongPoolDefaultFeeRatio",
-    }
+    },
   );
   m.call(
     PoolConfiguration,
@@ -219,7 +219,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [WBTCLongPool, m.getParameter("Router"), 3000000n, 300000000000000000n, 1000000n, 0, 0],
     {
       id: "WBTCLongPoolFeeRatio",
-    }
+    },
   );
   m.call(
     PoolConfiguration,
@@ -227,7 +227,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [WBTCLongPool, ZeroAddress, 3000000n, 300000000000000000n, 1000000n, 0, 0],
     {
       id: "WBTCLongPoolDefaultFeeRatio",
-    }
+    },
   );
   m.call(
     PoolConfiguration,
@@ -235,7 +235,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [WstETHLongPool, 1000000000000000000n, 10000000000000000000n, 950000000000000000n],
     {
       id: "WstETHLongPoolFundingRatioParameter",
-    }
+    },
   );
   m.call(
     PoolConfiguration,
@@ -243,7 +243,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [WBTCLongPool, 1000000000000000000n, 10000000000000000000n, 950000000000000000n],
     {
       id: "WBTCLongPoolFundingRatioParameter",
-    }
+    },
   );
   /*
   m.call(PoolManager, "updateShortBorrowCapacityRatio", [WstETHLongPool, ethers.parseEther("1")], {
@@ -258,7 +258,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [WstETHShortPool, m.getParameter("Router"), 3000000n, 300000000000000000n, 1000000n, 0, 0],
     {
       id: "WstETHShortPoolFeeRatio",
-    }
+    },
   );
   m.call(
     PoolConfiguration,
@@ -266,7 +266,7 @@ export default buildModule("ShortPoolManager", (m) => {
     [WstETHShortPool, ZeroAddress, 3000000n, 300000000000000000n, 1000000n, 0, 0],
     {
       id: "WstETHShortPoolDefaultFeeRatio",
-    }
+    },
   );
   m.call(PoolConfiguration, "updateShortFundingRatioParameter", [
     WstETHShortPool,

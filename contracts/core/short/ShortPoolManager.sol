@@ -472,7 +472,7 @@ contract ShortPoolManager is ProtocolFees, FlashLoans, AssetManagement, IShortPo
     killPoolData[pool] = data;
 
     if (data.settledColls == data.colls) {
-      if (data.debts > data.settledDebts) { 
+      if (data.debts > data.settledDebts) {
         ILongPoolManager(counterparty).settleShortPool(longPool, pool, data.debts - data.settledDebts);
       } else {
         ILongPoolManager(counterparty).settleShortPool(longPool, pool, 0);

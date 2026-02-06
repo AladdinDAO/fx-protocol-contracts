@@ -1,0 +1,69 @@
+{
+  "KatanaFxMint": {},
+  "EmptyContract": {},
+  "TokenConverter": {
+    "GeneralTokenConverter": "0xDf14d7Fc0171eBeC68c916ce1349D09eEA720Dd7"
+  },
+  "FxUSDPriceOracle": {
+    "SushiPool": "0xA9f7730A6487512919095032a39376d694e9D336",
+    "secondsAgo": "10",
+    "minLiquidity": "0"
+  },
+  "FxUSD": {
+    "FxUSDInitSupply": "1000000000000000000000000",
+    "FxUSDInitRecipient": "0x64Ba6e5B1C01484EE5a68657477A61AF9e6157cb"
+  },
+  "FxProtocol": {
+    "RewardsExpenseRatio": "0",
+    "FundingExpenseRatio": "0",
+    "LiquidationExpenseRatio": "100000000",
+    "RedeemFeeRatio": "5000000",
+    "HarvesterRatio": "10000000",
+    "FlashLoanFeeRatio": "100000",
+    "Treasury": "0x64Ba6e5B1C01484EE5a68657477A61AF9e6157cb",
+    "StableDepegPrice": "995000000000000000",
+    "RedeemCoolDownPeriod": "1800"
+  },
+  "PriceOracle": {
+    "SpotPriceOracle": "0x6Bd32469C02fA913C950B0D9D312CF53fc7a628E"
+  },
+  "WeETHPool": {
+    "SpotPriceOracle": "0x6Bd32469C02fA913C950B0D9D312CF53fc7a628E",
+    "burner": "0x64Ba6e5B1C01484EE5a68657477A61AF9e6157cb",
+    "Name": "f(x) weETH position",
+    "Symbol": "xETH",
+    "CollateralCapacity": "50000000000000000000000",
+    "DebtCapacity": "22500000000000000000000000",
+    "DebtRatioLower": "90909090909090909",
+    "DebtRatioUpper": "866666666666666666",
+    "RebalanceDebtRatio": "880000000000000000",
+    "RebalanceBonusRatio": "25000000",
+    "LiquidateDebtRatio": "950000000000000000",
+    "LiquidateBonusRatio": "40000000",
+    "OpenRatio": "1000000",
+    "OpenRatioStep": "300000000000000000",
+    "CloseFeeRatio": "1000000",
+    "FundingRatio": "1000000000"
+  },
+  "WBTCPool": {
+    "SpotPriceOracle": "0x6Bd32469C02fA913C950B0D9D312CF53fc7a628E",
+    "burner": "0x64Ba6e5B1C01484EE5a68657477A61AF9e6157cb",
+    "Name": "f(x) WBTC position",
+    "Symbol": "xWBTC",
+    "CollateralCapacity": "160700000000",
+    "DebtCapacity": "22500000000000000000000000",
+    "DebtRatioLower": "90909090909090909",
+    "DebtRatioUpper": "866666666666666666",
+    "RebalanceDebtRatio": "880000000000000000",
+    "RebalanceBonusRatio": "25000000",
+    "LiquidateDebtRatio": "950000000000000000",
+    "LiquidateBonusRatio": "40000000",
+    "OpenRatio": "3000000",
+    "OpenRatioStep": "300000000000000000",
+    "CloseFeeRatio": "1000000",
+    "FundingRatio": "1000000000"
+  },
+  "Router": {
+    "Treasury": "0x64Ba6e5B1C01484EE5a68657477A61AF9e6157cb"
+  }
+}

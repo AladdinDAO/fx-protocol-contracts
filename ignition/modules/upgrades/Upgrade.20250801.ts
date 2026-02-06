@@ -34,7 +34,7 @@ export default buildModule("Upgrade20250801", (m) => {
     ],
     {
       id: "PoolManagerImplementation",
-    }
+    },
   );
 
   // deploy ShortPoolManager implementation
@@ -48,7 +48,7 @@ export default buildModule("Upgrade20250801", (m) => {
     ],
     {
       id: "ShortPoolManagerImplementation",
-    }
+    },
   );
 
   // deploy PositionOperateFlashLoanFacetV2

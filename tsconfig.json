@@ -13,7 +13,8 @@
       "@/utils/*": ["src/utils/*"]
     },
     "target": "es2022",
-    "module": "node16",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,

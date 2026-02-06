@@ -22,4 +22,13 @@ ignition/deployments/tenderly*
 ignition/deployments/**/artifacts
 ignition/deployments/**/build-info
 
+# test deploy scripts
+ignition/modules/borrow.ts
+
 /src/@types
+
+# yarn
+yarn-error.log
+
+# vscode
+.vscode

@@ -66,7 +66,7 @@ export default buildModule("Upgrade20251030", (m) => {
         initCalldata: "0x",
       },
     ],
-    { id: "FxMintRouter" }
+    { id: "FxMintRouter" },
   );
   // config parameters
   const RouterManagementFacet = m.contractAt("RouterManagementFacet", FxMintRouter);

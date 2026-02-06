@@ -47,7 +47,13 @@ contract FxUSDBasePoolV2Facet {
   /// @param amountIn The amount of rebalance pool shares to migrate.
   /// @param minShares The minimum shares should receive.
   /// @param receiver The address of fxBASE share recipient.
-  function migrateToFxBaseGaugeV2(address pool, address gauge, uint256 amountIn, uint256 minShares, address receiver) external {
+  function migrateToFxBaseGaugeV2(
+    address pool,
+    address gauge,
+    uint256 amountIn,
+    uint256 minShares,
+    address receiver
+  ) external {
     LibRouter.ensureWhitelisted(gauge);
     IFxShareableRebalancePool(pool).withdrawFrom(msg.sender, amountIn, address(this));
     address baseToken = IFxShareableRebalancePool(pool).baseToken();

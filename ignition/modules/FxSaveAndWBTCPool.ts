@@ -52,7 +52,7 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
     [LiquidityGaugeImplementation, FxProxyAdmin, LiquidityGaugeInitializer],
     {
       id: "FxUSDBasePoolGaugeProxyV2",
-    }
+    },
   );
   const LinearMultipleRewardDistributor = m.contractAt("LinearMultipleRewardDistributor", FxUSDBasePoolGaugeProxyV2);
   const FxUSDBasePoolGaugeGrantRoleCall = m.call(LinearMultipleRewardDistributor, "grantRole", [
@@ -75,7 +75,7 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
     [FxUSDBasePoolProxy, m.getParameter("FxUSDBasePoolGaugeProxyV1")],
     {
       id: "SavingFxUSDImplementation",
-    }
+    },
   );
   const SavingFxUSDInitializer = m.encodeFunctionCall(SavingFxUSDImplementation, "initialize", [
     admin,
@@ -94,7 +94,7 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
     [SavingFxUSDProxy, SavingFxUSDImplementation, SavingFxUSDInitializer],
     {
       id: "SavingFxUSDProxy_upgradeAndCall",
-    }
+    },
   );
   // change admin
   m.call(CustomProxyAdmin, "changeProxyAdmin", [SavingFxUSDProxy, FxProxyAdmin], {
@@ -113,7 +113,7 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
       EthereumTokens.USDC.address,
       "0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c",
     ],
-    { id: "AaveV3StrategyUSDC" }
+    { id: "AaveV3StrategyUSDC" },
   );
   // deploy AaveV3Strategy for PoolManager
   const AaveV3StrategyWstETH = m.contract(
@@ -126,7 +126,7 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
       EthereumTokens.wstETH.address,
       "0xC035a7cf15375cE2706766804551791aD035E0C2",
     ],
-    { id: "AaveV3StrategyWstETH" }
+    { id: "AaveV3StrategyWstETH" },
   );
   // deploy SavingFxUSDFacet
   const SavingFxUSDFacet = m.contract("SavingFxUSDFacet", [FxUSDBasePoolProxy, SavingFxUSDProxy]);
@@ -137,12 +137,12 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
     encodeChainlinkPriceFeed(
       ChainlinkPriceFeed.ethereum["BTC-USD"].feed,
       ChainlinkPriceFeed.ethereum["BTC-USD"].scale,
-      ChainlinkPriceFeed.ethereum["BTC-USD"].heartbeat
+      ChainlinkPriceFeed.ethereum["BTC-USD"].heartbeat,
     ),
     encodeChainlinkPriceFeed(
       ChainlinkPriceFeed.ethereum["WBTC-BTC"].feed,
       ChainlinkPriceFeed.ethereum["WBTC-BTC"].scale,
-      ChainlinkPriceFeed.ethereum["WBTC-BTC"].heartbeat
+      ChainlinkPriceFeed.ethereum["WBTC-BTC"].heartbeat,
     ),
   ]);
   m.call(WBTCPriceOracle, "updateOnchainSpotEncodings", [SpotPriceEncodings["WBTC/USDC"]]);
@@ -159,7 +159,7 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
   const WBTCPoolProxy = m.contract(
     "TransparentUpgradeableProxy",
     [AaveFundingPoolImplementation, FxProxyAdmin, WBTCPoolInitializer],
-    { id: "WBTCPoolProxy" }
+    { id: "WBTCPoolProxy" },
   );
   const WBTCPool = m.contractAt("AaveFundingPool", WBTCPoolProxy, { id: "WBTCPool" });
   m.call(WBTCPool, "updateDebtRatioRange", [m.getParameter("DebtRatioLower"), m.getParameter("DebtRatioUpper")]);
@@ -183,7 +183,7 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
     encodeChainlinkPriceFeed(
       ChainlinkPriceFeed.ethereum["ETH-USD"].feed,
       ChainlinkPriceFeed.ethereum["ETH-USD"].scale,
-      ChainlinkPriceFeed.ethereum["ETH-USD"].heartbeat
+      ChainlinkPriceFeed.ethereum["ETH-USD"].heartbeat,
     ),
     Addresses["CRV_SP_ETH/stETH_303"],
   ]);
@@ -199,7 +199,7 @@ export default buildModule("FxSaveAndWBTCPool", (m) => {
     [m.getParameter("Treasury"), m.getParameter("Treasury"), "0x11E91BB6d1334585AA37D8F4fde3932C7960B938"],
     {
       id: "PlatformSplitterV2",
-    }
+    },
   );
 
   // upgrade facets

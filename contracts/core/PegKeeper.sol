@@ -12,6 +12,7 @@ import { ICurveStableSwapNG } from "../interfaces/Curve/ICurveStableSwapNG.sol";
 import { IFxUSDRegeneracy } from "../interfaces/IFxUSDRegeneracy.sol";
 import { IPegKeeper } from "../interfaces/IPegKeeper.sol";
 import { IFxUSDBasePool } from "../interfaces/IFxUSDBasePool.sol";
+import { IFxUSDPriceOracle } from "../interfaces/IFxUSDPriceOracle.sol";
 
 contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   using SafeERC20 for IERC20;
@@ -67,8 +68,8 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
   /// @notice The address of MultiPathConverter.
   address public converter;
 
-  /// @notice The curve pool for stable and fxUSD
-  address public curvePool;
+  /// @notice The address of FxUSDPriceOracle.
+  address public oracle;
 
   /// @notice The fxUSD depeg price threshold.
   uint256 public priceThreshold;
@@ -93,7 +94,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     stable = IFxUSDBasePool(_fxBASE).stableToken();
   }
 
-  function initialize(address admin, address _converter, address _curvePool) external initializer {
+  function initialize(address admin, address _converter, address _oracle) external initializer {
     __Context_init();
     __ERC165_init();
     __AccessControl_init();
@@ -101,7 +102,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
     _updateConverter(_converter);
-    _updateCurvePool(_curvePool);
+    _updateFxUSDPriceOracle(_oracle);
     _updatePriceThreshold(995000000000000000); // 0.995
 
     context = CONTEXT_NO_CONTEXT;
@@ -113,22 +114,22 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
 
   /// @inheritdoc IPegKeeper
   function isBorrowAllowed() external view returns (bool) {
-    return _getFxUSDEmaPrice() >= priceThreshold;
+    return _getFxUSDTwapPrice() >= priceThreshold;
   }
 
   /// @inheritdoc IPegKeeper
   function isFundingEnabled() external view returns (bool) {
-    return _getFxUSDEmaPrice() < priceThreshold;
+    return _getFxUSDTwapPrice() < priceThreshold;
   }
 
   /// @inheritdoc IPegKeeper
   function isRedeemAllowed() external view returns (bool) {
-    return _getFxUSDEmaPrice() < priceThreshold;
+    return _getFxUSDTwapPrice() < priceThreshold;
   }
 
   /// @inheritdoc IPegKeeper
   function getFxUSDPrice() external view returns (uint256) {
-    return _getFxUSDEmaPrice();
+    return _getFxUSDTwapPrice();
   }
 
   /****************************
@@ -177,10 +178,10 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     _updateConverter(newConverter);
   }
 
-  /// @notice Update the address of curve pool.
-  /// @param newPool The address of curve pool.
-  function updateCurvePool(address newPool) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    _updateCurvePool(newPool);
+  /// @notice Update the address of FxUSDPriceOracle.
+  /// @param newOracle The address of FxUSDPriceOracle.
+  function updateFxUSDPriceOracle(address newOracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateFxUSDPriceOracle(newOracle);
   }
 
   /// @notice Update the value of depeg price threshold.
@@ -204,15 +205,15 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     emit UpdateConverter(oldConverter, newConverter);
   }
 
-  /// @dev Internal function to update the address of curve pool.
-  /// @param newPool The address of curve pool.
-  function _updateCurvePool(address newPool) internal {
-    if (newPool == address(0)) revert ErrorZeroAddress();
+  /// @dev Internal function to update the address of FxUSDPriceOracle.
+  /// @param newOracle The address of FxUSDPriceOracle.
+  function _updateFxUSDPriceOracle(address newOracle) internal {
+    if (newOracle == address(0)) revert ErrorZeroAddress();
 
-    address oldPool = curvePool;
-    curvePool = newPool;
+    address oldOracle = oracle;
+    oracle = newOracle;
 
-    emit UpdateCurvePool(oldPool, newPool);
+    emit UpdateFxUSDPriceOracle(oldOracle, newOracle);
   }
 
   /// @dev Internal function to update the value of depeg price threshold.
@@ -237,14 +238,7 @@ contract PegKeeper is AccessControlUpgradeable, IPegKeeper {
     if (amountOut < minOut) revert ErrorInsufficientOutput();
   }
 
-  /// @dev Internal function to get curve ema price for fxUSD.
-  /// @return price The value of ema price, multiplied by 1e18.
-  function _getFxUSDEmaPrice() internal view returns (uint256 price) {
-    address cachedCurvePool = curvePool; // gas saving
-    address firstCoin = ICurveStableSwapNG(cachedCurvePool).coins(0);
-    price = ICurveStableSwapNG(cachedCurvePool).price_oracle(0);
-    if (firstCoin == fxUSD) {
-      price = (PRECISION * PRECISION) / price;
-    }
+  function _getFxUSDTwapPrice() internal view returns (uint256 price) {
+    (, price) = IFxUSDPriceOracle(oracle).getPrice();
   }
 }

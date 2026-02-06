@@ -11,6 +11,7 @@ export const ChainlinkPriceFeed: {
     };
   };
 } = {
+  /*
   ethereum: {
     "USDC-USD": {
       feed: "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6",
@@ -38,11 +39,45 @@ export const ChainlinkPriceFeed: {
       heartbeat: (86400 * 3) / 2, // 1.5 multiple
     },
   },
+  */
+  katana: {
+    "USDC-USD": {
+      feed: "0xbe5CE90e16B9d9d988D64b0E1f6ed46EbAfb9606",
+      scale: 10n ** (18n - 8n),
+      heartbeat: (86400 * 3) / 2, // 1.5 multiple
+    },
+    "ETH-USD": {
+      feed: "0x7BdBDB772f4a073BadD676A567C6ED82049a8eEE",
+      scale: 10n ** (18n - 8n),
+      heartbeat: (86400 * 3) / 2, // 1.5 multiple
+    },
+    "BTC-USD": {
+      feed: "0x41DdB7F8F5e1b2bD28193B84C1C36Be698dEd162",
+      scale: 10n ** (18n - 8n),
+      heartbeat: (86400 * 3) / 2, // 1.5 multiple
+    },
+    "WBTC-BTC": {
+      feed: "0xAd2937e7D25c237856B03319265465C0291b1895",
+      scale: 10n ** (18n - 8n),
+      heartbeat: (86400 * 3) / 2, // 1.5 multiple
+    },
+    "weETH-ETH": {
+      feed: "0x3Eae75C0a2f9b1038C7c9993C1Da36281E838811",
+      scale: 10n ** (18n - 8n),
+      heartbeat: (86400 * 3) / 2, // 1.5 multiple
+    },
+  },
 };
 
 /* eslint-disable prettier/prettier */
 // prettier-ignore
 export const SpotPricePool: { [name: string]: bigint } = {
+  // katana
+  "ETH/USDC-Sushi500": encodeSpotPricePool(Addresses["SushiV3_USDC/ETH_500"], SpotPricePoolType.UniswapV3, {base_index: 1, base_scale: 0, quote_scale: 12}),
+  "WBTC/ETH-Sushi3000": encodeSpotPricePool(Addresses["SushiV3_WBTC/ETH_3000"], SpotPricePoolType.UniswapV3, {base_index: 0, base_scale: 10, quote_scale: 0}),
+  "WBTC/USDC-Sushi500": encodeSpotPricePool(Addresses["SushiV3_WBTC/USDC_500"], SpotPricePoolType.UniswapV3, {base_index: 0, base_scale: 10, quote_scale: 12}),
+  // ethereum
+  /*
   "WBTC/USDC-Crv3C0": encodeSpotPricePool(Addresses["CRV_3C_USDC/WBTC/WETH_0"], SpotPricePoolType.CurveTriCrypto, {base_index: 1, quote_index: 0}),
   "WBTC/USDC-V3Uni3000": encodeSpotPricePool(Addresses["UniV3_WBTC/USDC_3000"], SpotPricePoolType.UniswapV3, {base_index: 0, base_scale: 10, quote_scale: 12}),
   "WBTC/WETH-V3Uni3000": encodeSpotPricePool(Addresses["UniV3_WBTC/WETH_3000"], SpotPricePoolType.UniswapV3, {base_index: 0, base_scale: 10, quote_scale: 0}),
@@ -54,23 +89,17 @@ export const SpotPricePool: { [name: string]: bigint } = {
   "stETH/WETH-CrvP303": encodeSpotPricePool(Addresses["CRV_SP_ETH/stETH_303"], SpotPricePoolType.CurvePlainWithOracle, {base_index: 1, use_cache: true}),
   "stETH/wstETH-LSD": encodeSpotPricePool(EthereumTokens.wstETH.address, SpotPricePoolType.ETHLSD, {base_is_ETH: true}),
   "wstETH/WETH-V3Uni100": encodeSpotPricePool(Addresses["UniV3_wstETH/WETH_100"], SpotPricePoolType.UniswapV3, {base_index: 0, base_scale: 0, quote_scale: 0}),
+  */
 };
 
 // prettier-ignore
 export const SpotPriceEncodings: { [pair: string]: string } = {
   "WBTC/USDC": encodeSpotPriceSources([
-    [SpotPricePool["WBTC/WETH-V3Uni3000"], SpotPricePool["WETH/USDC-V3Uni500"]],
-    [SpotPricePool["WBTC/USDC-V3Uni3000"]],
+    [SpotPricePool["WBTC/ETH-Sushi3000"], SpotPricePool["ETH/USDC-Sushi500"]],
+    [SpotPricePool["WBTC/USDC-Sushi500"]],
   ]),
-  "WETH/USDC": encodeSpotPriceSources([
-    [SpotPricePool["WETH/USDC-V3Uni500"]],
-    [SpotPricePool["WETH/USDC-V3Uni3000"]],
-  ]),
-  "stETH/WETH": encodeSpotPriceSources([
-    [SpotPricePool["stETH/wstETH-LSD"], SpotPricePool["wstETH/WETH-V3Uni100"]],
-    [SpotPricePool["stETH/WETH-BalV2S"]],
-    [SpotPricePool["stETH/WETH-CrvP303"]],
-    [SpotPricePool["stETH/WETH-CrvB"]],
+  "ETH/USDC": encodeSpotPriceSources([
+    [SpotPricePool["ETH/USDC-Sushi500"]],
   ]),
 }
 /* eslint-enable prettier/prettier */

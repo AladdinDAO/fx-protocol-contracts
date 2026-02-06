@@ -147,7 +147,12 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
     pegKeeper = _pegKeeper;
   }
 
-  function initialize(string memory _name, string memory _symbol) external initializer {
+  function initialize(
+    string memory _name,
+    string memory _symbol,
+    uint256 _initSupply,
+    address _recipient
+  ) external initializer {
     __Context_init();
     __ERC165_init();
     __AccessControl_init();
@@ -155,11 +160,13 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
     __ERC20Permit_init(_name);
 
     _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
-  }
 
-  function initializeV2() external reinitializer(2) {
+    // old init v2
     stableReserve.decimals = FxUSDRegeneracy(stableToken).decimals();
     legacyTotalSupply = totalSupply();
+
+    // init supply
+    _mint(_recipient, _initSupply);
   }
 
   /*************************

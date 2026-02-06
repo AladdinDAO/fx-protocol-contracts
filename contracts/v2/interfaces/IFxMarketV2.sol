@@ -242,9 +242,5 @@ interface IFxMarketV2 {
   /// @param recipient The address of receiver for base token.
   /// @param minBaseOut The minimum amount of wrapped value of base token should be received.
   /// @return baseOut The amount of wrapped value of base token should be received.
-  function redeemXToken(
-    uint256 xTokenIn,
-    address recipient,
-    uint256 minBaseOut
-  ) external returns (uint256 baseOut);
+  function redeemXToken(uint256 xTokenIn, address recipient, uint256 minBaseOut) external returns (uint256 baseOut);
 }

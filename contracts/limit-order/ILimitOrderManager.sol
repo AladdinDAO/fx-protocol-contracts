@@ -25,7 +25,15 @@ interface ILimitOrderManager {
   /// @param taker The taker of the order.
   /// @param makingAmount The making amount.
   /// @param takingAmount The taking amount.
-  event FillOrder(bytes32 indexed orderHash, address indexed maker, address indexed taker, address pool, uint256 positionId, uint256 makingAmount, uint256 takingAmount);
+  event FillOrder(
+    bytes32 indexed orderHash,
+    address indexed maker,
+    address indexed taker,
+    address pool,
+    uint256 positionId,
+    uint256 makingAmount,
+    uint256 takingAmount
+  );
 
   /// @notice Emitted when the address of treasury contract is updated.
   /// @param oldTreasury The address of the old treasury contract.

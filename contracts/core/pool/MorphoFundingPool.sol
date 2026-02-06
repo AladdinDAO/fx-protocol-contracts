@@ -7,7 +7,7 @@ import { IPoolConfiguration } from "../../interfaces/IPoolConfiguration.sol";
 import { Math } from "../../libraries/Math.sol";
 import { BasePool } from "./BasePool.sol";
 
-contract AaveFundingPool is BasePool {
+contract MorphoFundingPool is BasePool {
   /// @dev Error when reducing more than total collateral.
   error ErrorReduceTooMuchCollateral();
 
@@ -15,8 +15,8 @@ contract AaveFundingPool is BasePool {
    * Structs *
    ***********/
 
-  /// @dev The struct for AAVE borrow rate snapshot.
-  /// @param borrowIndex The current borrow index of AAVE, multiplied by 1e27.
+  /// @dev The struct for borrow rate snapshot.
+  /// @param borrowIndex The current borrow index, multiplied by 1e27.
   /// @param lastInterestRate The last recorded interest rate, multiplied by 1e18.
   /// @param timestamp The timestamp when the snapshot is taken.
   struct BorrowRateSnapshot {
@@ -44,7 +44,7 @@ contract AaveFundingPool is BasePool {
   /// [ MSB                                                                   LSB ]
   bytes32 private fundingMiscData;
 
-  /// @notice The snapshot for AAVE borrow rate.
+  /// @notice The snapshot for borrow rate.
   /// @dev `borrowIndex` and `lastInterestRate` are deprecated
   BorrowRateSnapshot public borrowRateSnapshot;
 

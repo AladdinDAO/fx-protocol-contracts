@@ -21,7 +21,7 @@ export default buildModule("Upgrade20250810", (m) => {
     [m.getParameter("FxUSDBasePoolProxy"), m.getParameter("AaveLendingPool"), m.getParameter("AaveBaseAsset")],
     {
       id: "PoolConfigurationImplementation",
-    }
+    },
   );
 
   // deploy PoolManager implementation
@@ -36,7 +36,7 @@ export default buildModule("Upgrade20250810", (m) => {
     ],
     {
       id: "PoolManagerImplementation",
-    }
+    },
   );
 
   // deploy ShortPoolManager implementation
@@ -50,7 +50,7 @@ export default buildModule("Upgrade20250810", (m) => {
     ],
     {
       id: "ShortPoolManagerImplementation",
-    }
+    },
   );
 
   // deploy PositionOperateFlashLoanFacetV2

@@ -104,11 +104,7 @@ interface ITokenConverter {
   /// @param amountIn The amount of input token.
   /// @param recipient The address of token receiver.
   /// @return amountOut The amount of output token received.
-  function convert(
-    uint256 encoding,
-    uint256 amountIn,
-    address recipient
-  ) external payable returns (uint256 amountOut);
+  function convert(uint256 encoding, uint256 amountIn, address recipient) external payable returns (uint256 amountOut);
 
   /// @notice Withdraw dust assets in this contract.
   /// @param token The address of token to withdraw.

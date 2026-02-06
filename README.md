@@ -10,11 +10,12 @@ This repo contains smart contracts for f(x) protocol v2.
 - coverage: `yarn coverage`
 
 ## Deployment
-
 ```bash
-npx hardhat ignition deploy ignition/modules/pools/WstETHPool.ts --network <network> --parameters <parameters>
-npx hardhat ignition deploy ignition/modules/Router.ts --network <network> --parameters <parameters>
-npx hardhat ignition deploy ignition/modules/Migration.ts --network <network> --parameters <parameters>
+yarn hardhat --network tenderly ignition deploy ignition/modules/FxUSD.ts --deployment-id katana-test --parameters ignition/parameters/katana-test.json
+```
+Deploy FxUSD-USDC sushi pool and fill it in the katana parameters.
+```bash
+yarn hardhat --network tenderly ignition deploy ignition/modules/KatanaFxMint.ts --deployment-id katana-test --parameters ignition/parameters/katana-test.json 
 ```
 
 ## Verify

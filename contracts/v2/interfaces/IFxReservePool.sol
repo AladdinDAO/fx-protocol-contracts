@@ -8,9 +8,5 @@ interface IFxReservePool {
   /// @param receiver The address recipient for the bonus token.
   /// @param originalAmount The original amount of token used.
   /// @param bonus The amount of bonus token received.
-  function requestBonus(
-    address token,
-    address receiver,
-    uint256 originalAmount
-  ) external returns (uint256 bonus);
+  function requestBonus(address token, address receiver, uint256 originalAmount) external returns (uint256 bonus);
 }
