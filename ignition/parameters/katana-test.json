@@ -5,7 +5,7 @@
     "GeneralTokenConverter": "0xDf14d7Fc0171eBeC68c916ce1349D09eEA720Dd7"
   },
   "FxUSDPriceOracle": {
-    "SushiPool": "0xA9f7730A6487512919095032a39376d694e9D336",
+    "SushiPool": "0x8B001766eEA265BD32462Eb3b583f9096E558d5C",
     "secondsAgo": "10",
     "minLiquidity": "0"
   },
