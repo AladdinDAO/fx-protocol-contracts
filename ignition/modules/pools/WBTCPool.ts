@@ -58,8 +58,8 @@ export default buildModule("WBTCPool", (m) => {
     KatanaTokens.WBTC.address,
     m.getParameter("burner"),
     0n,
-    ethers.parseUnits("0.3", 9),
-    ethers.parseUnits("0.7", 9),
+    ethers.parseUnits("1", 9),
+    0n,
   ]);
 
   m.call(

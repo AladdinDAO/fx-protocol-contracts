@@ -2,16 +2,16 @@
   "KatanaFxMint": {},
   "EmptyContract": {},
   "TokenConverter": {
-    "GeneralTokenConverter": "0xDf14d7Fc0171eBeC68c916ce1349D09eEA720Dd7"
+    "GeneralTokenConverter": "0x2921a86f1B667c97a054cD0d29bafA56B1ebA4e9"
   },
   "FxUSDPriceOracle": {
-    "SushiPool": "0x8B001766eEA265BD32462Eb3b583f9096E558d5C",
-    "secondsAgo": "10",
+    "SushiPool": "0xe1578cEF06331d77bC99273d5f1aF48eC2de92db",
+    "secondsAgo": "1800",
     "minLiquidity": "0"
   },
   "FxUSD": {
     "FxUSDInitSupply": "1000000000000000000000000",
-    "FxUSDInitRecipient": "0x64Ba6e5B1C01484EE5a68657477A61AF9e6157cb"
+    "FxUSDInitRecipient": "0xC9265822F1E37fD96DA15321153D8422641bc813"
   },
   "FxProtocol": {
     "RewardsExpenseRatio": "0",
@@ -20,21 +20,21 @@
     "RedeemFeeRatio": "5000000",
     "HarvesterRatio": "10000000",
     "FlashLoanFeeRatio": "100000",
-    "Treasury": "0x64Ba6e5B1C01484EE5a68657477A61AF9e6157cb",
+    "Treasury": "0x26B2ec4E02ebe2F54583af25b647b1D619e67BbF",
     "StableDepegPrice": "995000000000000000",
     "RedeemCoolDownPeriod": "1800"
   },
   "PriceOracle": {
-    "SpotPriceOracle": "0x6Bd32469C02fA913C950B0D9D312CF53fc7a628E"
+    "SpotPriceOracle": "0x68035dd65B23426Fa35454204Ed8EC98233B7F2D"
   },
   "WeETHPool": {
-    "SpotPriceOracle": "0x6Bd32469C02fA913C950B0D9D312CF53fc7a628E",
-    "burner": "0x64Ba6e5B1C01484EE5a68657477A61AF9e6157cb",
+    "SpotPriceOracle": "0x68035dd65B23426Fa35454204Ed8EC98233B7F2D",
+    "burner": "0xa470d2b334e9e9681ca4f87f98caa2786a38a86b",
     "Name": "f(x) weETH position",
     "Symbol": "xETH",
     "CollateralCapacity": "50000000000000000000000",
-    "DebtCapacity": "22500000000000000000000000",
-    "DebtRatioLower": "90909090909090909",
+    "DebtCapacity": "100000000000000000000000000",
+    "DebtRatioLower": "100000000000000",
     "DebtRatioUpper": "866666666666666666",
     "RebalanceDebtRatio": "880000000000000000",
     "RebalanceBonusRatio": "25000000",
@@ -46,13 +46,13 @@
     "FundingRatio": "1000000000"
   },
   "WBTCPool": {
-    "SpotPriceOracle": "0x6Bd32469C02fA913C950B0D9D312CF53fc7a628E",
-    "burner": "0x64Ba6e5B1C01484EE5a68657477A61AF9e6157cb",
+    "SpotPriceOracle": "0x68035dd65B23426Fa35454204Ed8EC98233B7F2D",
+    "burner": "0xa470d2b334e9e9681ca4f87f98caa2786a38a86b",
     "Name": "f(x) WBTC position",
     "Symbol": "xWBTC",
-    "CollateralCapacity": "160700000000",
-    "DebtCapacity": "22500000000000000000000000",
-    "DebtRatioLower": "90909090909090909",
+    "CollateralCapacity": "100000000000",
+    "DebtCapacity": "100000000000000000000000000",
+    "DebtRatioLower": "100000000000000",
     "DebtRatioUpper": "866666666666666666",
     "RebalanceDebtRatio": "880000000000000000",
     "RebalanceBonusRatio": "25000000",
@@ -64,6 +64,6 @@
     "FundingRatio": "1000000000"
   },
   "Router": {
-    "Treasury": "0x64Ba6e5B1C01484EE5a68657477A61AF9e6157cb"
+    "Treasury": "0x26B2ec4E02ebe2F54583af25b647b1D619e67BbF"
   }
 }

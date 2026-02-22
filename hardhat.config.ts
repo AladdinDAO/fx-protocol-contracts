@@ -47,6 +47,16 @@ const config: HardhatUserConfig = {
         maxFeePerGasLimit: ethers.parseUnits("100", "gwei"),
       },
     },
+    katana: {
+      type: "http",
+      url: process.env.KATANA_RPC_URL || "https://katana.gateway.tenderly.co",
+      chainId: 747474,
+      accounts: [process.env.PRIVATE_KEY_KATANA!],
+      ignition: {
+        maxPriorityFeePerGas: ethers.parseUnits("0.01", "gwei"),
+        maxFeePerGasLimit: ethers.parseUnits("100", "gwei"),
+      },
+    },
     hermez: {
       type: "http",
       url: process.env.HERMEZ_RPC_URL || "https://zkevm-rpc.com",
@@ -83,6 +93,18 @@ const config: HardhatUserConfig = {
     timeBeforeBumpingFees: 3 * 60 * 1_000,
     maxFeeBumps: 3,
     disableFeeBumping: false,
+  },
+  chainDescriptors: {
+    747474: {
+      name: "katana",
+      blockExplorers: {
+        etherscan: {
+          name: "Katana Explorer",
+          url: "https://katanascan.com/",
+          apiUrl: "https://api.etherscan.io/v2/api",
+        },
+      },
+    },
   },
   verify: {
     etherscan: {
