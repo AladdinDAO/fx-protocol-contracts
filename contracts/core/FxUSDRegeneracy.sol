@@ -254,7 +254,10 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
     _checkBaseToken(_baseToken);
     _checkMarketMintable(_baseToken, false);
 
+    address _fToken = markets[_baseToken].fToken;
+    uint256 _balance = IERC20Upgradeable(_fToken).balanceOf(address(this));
     IFxShareableRebalancePool(_pool).withdrawFrom(_msgSender(), _amount, address(this));
+    _amount = IERC20Upgradeable(_fToken).balanceOf(address(this)) - _balance;
     _mintShares(_baseToken, _receiver, _amount);
 
     emit Wrap(_baseToken, _msgSender(), _receiver, _amount);
