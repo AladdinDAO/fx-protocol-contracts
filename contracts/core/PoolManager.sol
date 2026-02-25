@@ -528,7 +528,6 @@ contract PoolManager is ProtocolFees, FlashLoans, AssetManagement, ILongPoolMana
     onlyRegisteredPool(pool)
     nonReentrant
     whenNotPaused
-    onlyFxUSDSave
     lock
     returns (uint256 colls, uint256 fxUSDUsed, uint256 stableUsed)
   {

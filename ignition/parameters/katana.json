@@ -14,6 +14,9 @@
     "FxUSDInitRecipient": "0xC9265822F1E37fD96DA15321153D8422641bc813"
   },
   "FxProtocol": {
+    "Harvester": "0x11e91bb6d1334585aa37d8f4fde3932c7960b938",
+    "Staker": "0x11E91BB6d1334585AA37D8F4fde3932C7960B938",
+    "Keeper": "0x4215F2014239Cf0E1A8617b31Fcaf88AaC6e4779",
     "RewardsExpenseRatio": "0",
     "FundingExpenseRatio": "0",
     "LiquidationExpenseRatio": "100000000",

@@ -71,14 +71,14 @@ export default buildModule("WeETHPool", (m) => {
     KatanaTokens.weETH.address,
     m.getParameter("burner"),
     0n,
-    ethers.parseUnits("1", 9),
-    0n,
+    ethers.parseUnits("0.5", 9),
+    ethers.parseUnits("0.5", 9),
   ]);
 
   m.call(
     PoolConfiguration,
     "updatePoolFeeRatio",
-    [WeETHPool, ZeroAddress, 3000000n, 300000000000000000n, 1000000n, 0, 0],
+    [WeETHPool, ZeroAddress, 0n, 300000000000000000n, 0n, 5000000n, 2000000n],
     {
       id: "WstETHLongPoolDefaultFeeRatio",
     },

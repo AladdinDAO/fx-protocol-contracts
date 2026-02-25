@@ -44,6 +44,9 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
   /// @notice The role for migrator.
   bytes32 public constant MIGRATOR_ROLE = keccak256("MIGRATOR_ROLE");
 
+  /// @notice The role for minter.
+  bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+
   /// @dev The precision used to compute nav.
   uint256 private constant PRECISION = 1e18;
 
@@ -160,6 +163,7 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
     __ERC20Permit_init(_name);
 
     _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+    _grantRole(MINTER_ROLE, _msgSender());
 
     // old init v2
     stableReserve.decimals = FxUSDRegeneracy(stableToken).decimals();
@@ -390,6 +394,11 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
       address _market = markets[_baseTokens[i]].market;
       (_amountOuts[i], _bonusOuts[i]) = IFxMarketV2(_market).redeemFToken(_amountOuts[i], _receiver, _minOuts[i]);
     }
+  }
+
+  /// @notice Mint fxUSD by minter role.
+  function mintByMinter(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
+    _mint(to, amount);
   }
 
   /// @inheritdoc IFxUSDRegeneracy

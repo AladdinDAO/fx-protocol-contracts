@@ -23,7 +23,11 @@ export default buildModule("FxProtocol", (m) => {
     id: "ReservePool_grant_POOL_MANAGER_ROLE_PoolManager",
   });
   // deploy ReservePool
-  const RevenuePool = m.contract("RevenuePool", [m.getParameter("Treasury"), m.getParameter("Treasury"), admin]);
+  const RevenuePool = m.contract("RevenuePool", [
+    m.getParameter("Treasury"),
+    m.getParameter("Treasury"),
+    m.getParameter("Staker"),
+  ]);
 
   // deploy PoolManager implementation and initialize PoolManager proxy
   const PoolManagerImplementation = m.contract(
@@ -86,6 +90,13 @@ export default buildModule("FxProtocol", (m) => {
   m.call(FxProxyAdmin, "upgradeAndCall", [PegKeeperProxy, PegKeeperImplementation, PegKeeperInitializer], {
     id: "PegKeeperProxy_upgradeAndCall",
   });
+  const PegKeeper = m.contractAt("PegKeeper", PegKeeperProxy);
+  m.call(PegKeeper, "grantRole", [id("BUYBACK_ROLE"), m.getParameter("Keeper")], {
+    id: "PegKeeper_grant_BUYBACK_ROLE_PoolManager",
+  });
+  m.call(PegKeeper, "grantRole", [id("STABILIZE_ROLE"), m.getParameter("Keeper")], {
+    id: "PegKeeper_grant_BUYBACK_ROLE_PoolManager",
+  });
 
   /*
   // deploy FxUSDBasePool Gauge
@@ -135,6 +146,12 @@ export default buildModule("FxProtocol", (m) => {
   m.call(PoolManager, "updateRedeemFeeRatio", [m.getParameter("RedeemFeeRatio")], {
     after: [PoolManagerProxyUpgradeAndInitializeCall],
   });
+  m.call(PoolManager, "grantRole", [id("HARVESTER_ROLE"), m.getParameter("Harvester")], {
+    after: [PoolManagerProxyUpgradeAndInitializeCall],
+  });
+  m.call(PoolManager, "updateThreshold", [], {
+    after: [PoolManagerProxyUpgradeAndInitializeCall],
+  });
 
   // deploy PoolConfiguration
   const PoolConfigurationImplementation = m.contract(
@@ -163,6 +180,29 @@ export default buildModule("FxProtocol", (m) => {
     after: [PoolConfigurationUpgradeAndInitializeCall],
   });
 
+  m.call(PoolConfiguration, "grantRole", [id("INTEREST_RATE_SET_ROLE"), m.getParameter("Treasury")], {
+    after: [PoolConfigurationUpgradeAndInitializeCall],
+  });
+
+  // deploy ProtocolTreasury
+  const ProtocolTreasuryImplementation = m.contract("ProtocolTreasury", [], {
+    id: "ProtocolTreasuryImplementation",
+  });
+  const ProtocolTreasuryInitializer = m.encodeFunctionCall(ProtocolTreasuryImplementation, "initialize", [admin]);
+  const ProtocolTreasuryProxy = m.contract(
+    "TransparentUpgradeableProxy",
+    [ProtocolTreasuryImplementation, FxProxyAdmin, ProtocolTreasuryInitializer],
+    {
+      id: "ProtocolTreasuryProxy",
+    },
+  );
+  m.call(PoolConfiguration, "register", [id("PoolRewardsTreasury"), ProtocolTreasuryProxy], {
+    after: [PoolConfigurationUpgradeAndInitializeCall],
+  });
+  m.call(PoolConfiguration, "register", [id("PoolFundingTreasury"), ProtocolTreasuryProxy], {
+    after: [PoolConfigurationUpgradeAndInitializeCall],
+  });
+
   return {
     ReservePool,
     PoolManagerProxy: PoolManager,
@@ -177,5 +217,6 @@ export default buildModule("FxProtocol", (m) => {
     // GaugeRewarder,
     PoolConfiguration,
     ShortPoolManagerProxy,
+    ProtocolTreasuryProxy,
   };
 });
