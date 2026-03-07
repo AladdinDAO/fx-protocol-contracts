@@ -12,6 +12,7 @@ import { ethers, Interface, ZeroAddress } from "ethers";
 import {
   DiamondCutFacet__factory,
   DiamondLoupeFacet__factory,
+  FxUSDBasePoolV2Facet__factory,
   OwnershipFacet__factory,
   PositionOperateFacet__factory,
   RouterManagementFacet__factory,
@@ -33,7 +34,7 @@ export default buildModule("KatanaFxMint", (m) => {
   const { fx: ProxyAdmin } = m.useModule(ProxyAdminModule);
   const { MorphoFundingPoolImplementation } = m.useModule(MorphoFundingPoolModule);
   const { ETHPriceOracle, WBTCPriceOracle } = m.useModule(PriceOracleModule);
-  const { PoolManagerProxy, ShortPoolManagerProxy, RevenuePool, FxUSDProxy, PoolConfiguration } =
+  const { PoolManagerProxy, ShortPoolManagerProxy, RevenuePool, FxUSDProxy, PoolConfiguration, FxUSDBasePoolProxy } =
     m.useModule(FxProtocolModule);
   const { WBTCPool } = m.useModule(WBTCPoolModule);
   const { WeETHPool } = m.useModule(WeETHPoolModule);
@@ -52,6 +53,7 @@ export default buildModule("KatanaFxMint", (m) => {
   const DiamondLoupeFacet = m.contract("DiamondLoupeFacet", []);
   const OwnershipFacet = m.contract("OwnershipFacet", []);
   const RouterManagementFacet = m.contract("RouterManagementFacet", []);
+  const FxUSDBasePoolV2Facet = m.contract("FxUSDBasePoolV2Facet", [FxUSDBasePoolProxy]);
   const diamondCuts = [
     {
       facetAddress: DiamondCutFacet,
@@ -77,6 +79,11 @@ export default buildModule("KatanaFxMint", (m) => {
       facetAddress: PositionOperateFacet,
       action: 0,
       functionSelectors: getAllSignatures(PositionOperateFacet__factory.createInterface()),
+    },
+    {
+      facetAddress: FxUSDBasePoolV2Facet,
+      action: 0,
+      functionSelectors: getAllSignatures(FxUSDBasePoolV2Facet__factory.createInterface()),
     },
   ];
   // deploy Router

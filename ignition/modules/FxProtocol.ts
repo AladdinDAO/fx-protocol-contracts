@@ -7,6 +7,7 @@ import EmptyContractModule from "./EmptyContract";
 import ProxyAdminModule from "./ProxyAdmin";
 import FxUSDPriceOracleModule from "./FxUSDPriceOracle";
 import ProxiesModule from "./Proxies";
+import TokenConverterModule from "./TokenConverter";
 
 export default buildModule("FxProtocol", (m) => {
   const admin = m.getAccount(0);
@@ -15,7 +16,7 @@ export default buildModule("FxProtocol", (m) => {
   const { PoolManagerProxy, PoolConfigurationProxy, FxUSDBasePoolProxy, ShortPoolManagerProxy, PegKeeperProxy } =
     m.useModule(ProxiesModule);
   const { EmptyContract } = m.useModule(EmptyContractModule);
-  // const { MultiPathConverter } = m.useModule(TokenConverterModule);
+  const { MultiPathConverter } = m.useModule(TokenConverterModule);
 
   // deploy ReservePool
   const ReservePool = m.contract("ReservePool", [admin, PoolManagerProxy]);
@@ -84,7 +85,7 @@ export default buildModule("FxProtocol", (m) => {
   });
   const PegKeeperInitializer = m.encodeFunctionCall(PegKeeperImplementation, "initialize", [
     admin,
-    EmptyContract, // MultiPathConverter
+    MultiPathConverter, // MultiPathConverter
     FxUSDPriceOracle,
   ]);
   m.call(FxProxyAdmin, "upgradeAndCall", [PegKeeperProxy, PegKeeperImplementation, PegKeeperInitializer], {
@@ -98,7 +99,6 @@ export default buildModule("FxProtocol", (m) => {
     id: "PegKeeper_grant_BUYBACK_ROLE_PoolManager",
   });
 
-  /*
   // deploy FxUSDBasePool Gauge
   const LiquidityGaugeImplementation = m.contractAt("ILiquidityGauge", m.getParameter("LiquidityGaugeImplementation"));
   const LiquidityGaugeInitializer = m.encodeFunctionCall(LiquidityGaugeImplementation, "initialize", [
@@ -110,12 +110,20 @@ export default buildModule("FxProtocol", (m) => {
     {
       id: "FxUSDBasePoolGaugeProxy",
       after: [FxUSDBasePoolProxyUpgradeAndInitializeCall],
-    }
+    },
   );
 
   // deploy GaugeRewarder
   const GaugeRewarder = m.contract("GaugeRewarder", [FxUSDBasePoolGaugeProxy]);
+  m.call(GaugeRewarder, "grantRole", [id("PERMISSIONED_TRADER_ROLE"), m.getParameter("Keeper")], {
+    id: "GaugeRewarder_grant_PERMISSIONED_TRADER_ROLE_Keeper",
+  });
 
+  m.call(GaugeRewarder, "grantRole", [id("PERMISSIONED_ROUTER_ROLE"), MultiPathConverter], {
+    id: "GaugeRewarder_grant_PERMISSIONED_ROUTER_ROLE_admin",
+  });
+
+  /*
   const LinearMultipleRewardDistributor = m.contractAt("LinearMultipleRewardDistributor", FxUSDBasePoolGaugeProxy);
   const FxUSDBasePoolGaugeGrantRoleCall = m.call(LinearMultipleRewardDistributor, "grantRole", [
     id("REWARD_MANAGER_ROLE"),
@@ -214,7 +222,7 @@ export default buildModule("FxProtocol", (m) => {
     FxUSDProxy: m.contractAt("FxUSDRegeneracy", FxUSDProxy, { id: "FxUSD" }),
     // FxUSDBasePoolGaugeProxy,
     RevenuePool,
-    // GaugeRewarder,
+    GaugeRewarder,
     PoolConfiguration,
     ShortPoolManagerProxy,
     ProtocolTreasuryProxy,

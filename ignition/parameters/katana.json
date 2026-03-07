@@ -14,6 +14,7 @@
     "FxUSDInitRecipient": "0xC9265822F1E37fD96DA15321153D8422641bc813"
   },
   "FxProtocol": {
+    "LiquidityGaugeImplementation": "0xbF0b85DF2a92D84634CEf31E7245c16e530D0586",
     "Harvester": "0x11e91bb6d1334585aa37d8f4fde3932c7960b938",
     "Staker": "0x11E91BB6d1334585AA37D8F4fde3932C7960B938",
     "Keeper": "0x4215F2014239Cf0E1A8617b31Fcaf88AaC6e4779",
@@ -32,7 +33,6 @@
   },
   "WeETHPool": {
     "SpotPriceOracle": "0x68035dd65B23426Fa35454204Ed8EC98233B7F2D",
-    "burner": "0xa470d2b334e9e9681ca4f87f98caa2786a38a86b",
     "Name": "f(x) weETH position",
     "Symbol": "xETH",
     "CollateralCapacity": "50000000000000000000000",
@@ -50,7 +50,6 @@
   },
   "WBTCPool": {
     "SpotPriceOracle": "0x68035dd65B23426Fa35454204Ed8EC98233B7F2D",
-    "burner": "0xa470d2b334e9e9681ca4f87f98caa2786a38a86b",
     "Name": "f(x) WBTC position",
     "Symbol": "xWBTC",
     "CollateralCapacity": "100000000000",

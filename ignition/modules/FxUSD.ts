@@ -4,9 +4,10 @@ import { KatanaTokens } from "@/utils/index";
 
 import ProxyAdminModule from "./ProxyAdmin";
 import ProxiesModule from "./Proxies";
-import { parseUnits } from "ethers";
 
 export default buildModule("FxUSD", (m) => {
+  const admin = m.getAccount(0);
+
   const { fx: FxProxyAdmin } = m.useModule(ProxyAdminModule);
   const { FxUSDProxy, PoolManagerProxy, PegKeeperProxy } = m.useModule(ProxiesModule);
 
@@ -22,6 +23,7 @@ export default buildModule("FxUSD", (m) => {
     "fxUSD",
     m.getParameter("FxUSDInitSupply"),
     m.getParameter("FxUSDInitRecipient"),
+    admin,
   ]);
   m.call(FxProxyAdmin, "upgradeAndCall", [FxUSDProxy, FxUSDImplementation, FxUSDInitializer], {
     id: "FxUSDProxy_upgradeAndCall",

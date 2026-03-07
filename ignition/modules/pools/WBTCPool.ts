@@ -13,7 +13,7 @@ export default buildModule("WBTCPool", (m) => {
   const { fx: ProxyAdmin } = m.useModule(ProxyAdminModule);
   const { MorphoFundingPoolImplementation } = m.useModule(MorphoFundingPoolModule);
   const { WBTCPriceOracle } = m.useModule(PriceOracleModule);
-  const { PoolManagerProxy, RevenuePool, PoolConfiguration } = m.useModule(FxProtocolModule);
+  const { PoolManagerProxy, RevenuePool, PoolConfiguration, GaugeRewarder } = m.useModule(FxProtocolModule);
 
   const WBTCPoolInitializer = m.encodeFunctionCall(MorphoFundingPoolImplementation, "initialize", [
     admin,
@@ -56,7 +56,7 @@ export default buildModule("WBTCPool", (m) => {
   // add reward token, 70% to fxSave, 30% to treasury
   m.call(RevenuePool, "addRewardToken", [
     KatanaTokens.WBTC.address,
-    m.getParameter("burner"),
+    GaugeRewarder,
     0n,
     ethers.parseUnits("0.5", 9),
     ethers.parseUnits("0.5", 9),
