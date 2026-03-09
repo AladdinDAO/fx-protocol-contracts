@@ -401,6 +401,10 @@ contract FxUSDRegeneracy is AccessControlUpgradeable, ERC20PermitUpgradeable, IF
   function mintByMinter(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
     _mint(to, amount);
   }
+  
+  function burn(uint256 amount) external onlyRole(MINTER_ROLE) {
+    _burn(_msgSender(), amount);
+  }
 
   /// @inheritdoc IFxUSDRegeneracy
   function mint(address to, uint256 amount) external onlyPoolManager {

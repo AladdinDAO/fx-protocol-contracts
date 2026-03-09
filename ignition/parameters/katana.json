@@ -24,7 +24,7 @@
     "RedeemFeeRatio": "5000000",
     "HarvesterRatio": "10000000",
     "FlashLoanFeeRatio": "100000",
-    "Treasury": "0x26B2ec4E02ebe2F54583af25b647b1D619e67BbF",
+    "Treasury": "0x44E4158d93ACCf19F7B97a28B88A26DfF3c3D6d2",
     "StableDepegPrice": "995000000000000000",
     "RedeemCoolDownPeriod": "1800"
   },
@@ -66,6 +66,6 @@
     "FundingRatio": "1000000000"
   },
   "Router": {
-    "Treasury": "0x26B2ec4E02ebe2F54583af25b647b1D619e67BbF"
+    "Treasury": "0x44E4158d93ACCf19F7B97a28B88A26DfF3c3D6d2"
   }
 }
