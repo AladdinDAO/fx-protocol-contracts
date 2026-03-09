@@ -67,5 +67,8 @@
   },
   "Router": {
     "Treasury": "0x44E4158d93ACCf19F7B97a28B88A26DfF3c3D6d2"
+  },
+  "KatanaTransferAuthority": {
+    "Treasury": "0x44E4158d93ACCf19F7B97a28B88A26DfF3c3D6d2"
   }
 }
