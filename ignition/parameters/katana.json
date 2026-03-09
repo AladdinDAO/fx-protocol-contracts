@@ -70,5 +70,11 @@
   },
   "KatanaTransferAuthority": {
     "Treasury": "0x44E4158d93ACCf19F7B97a28B88A26DfF3c3D6d2"
+  },
+  "KatanaTransferAuthority2": {
+    "Treasury": "0x44E4158d93ACCf19F7B97a28B88A26DfF3c3D6d2",
+    "ETHPriceOracle": "0x849b9e3119B7c4E4Dd0DdfaD1E0DFe587158692d",
+    "WBTCPriceOracle": "0x8244bDfb7E7fA52E05b725e6D5fbc2bcAEAfC52B",
+    "WeETHRateProvider": "0xDDDCF7c93895545AEfA6B9A2b60F3955669B81b4"
   }
 }
