@@ -88,15 +88,17 @@ export default buildModule("FxProtocol", (m) => {
     MultiPathConverter, // MultiPathConverter
     FxUSDPriceOracle,
   ]);
-  m.call(FxProxyAdmin, "upgradeAndCall", [PegKeeperProxy, PegKeeperImplementation, PegKeeperInitializer], {
+  const PegKeeperUpgradeAndInitializeCall = m.call(FxProxyAdmin, "upgradeAndCall", [PegKeeperProxy, PegKeeperImplementation, PegKeeperInitializer], {
     id: "PegKeeperProxy_upgradeAndCall",
   });
   const PegKeeper = m.contractAt("PegKeeper", PegKeeperProxy);
   m.call(PegKeeper, "grantRole", [id("BUYBACK_ROLE"), m.getParameter("Keeper")], {
+    after: [PegKeeperUpgradeAndInitializeCall],
     id: "PegKeeper_grant_BUYBACK_ROLE_PoolManager",
   });
   m.call(PegKeeper, "grantRole", [id("STABILIZE_ROLE"), m.getParameter("Keeper")], {
-    id: "PegKeeper_grant_BUYBACK_ROLE_PoolManager",
+    after: [PegKeeperUpgradeAndInitializeCall],
+    id: "PegKeeper_grant_STABILIZE_ROLE_PoolManager",
   });
 
   // deploy FxUSDBasePool Gauge
@@ -157,9 +159,11 @@ export default buildModule("FxProtocol", (m) => {
   m.call(PoolManager, "grantRole", [id("HARVESTER_ROLE"), m.getParameter("Harvester")], {
     after: [PoolManagerProxyUpgradeAndInitializeCall],
   });
+  /*
   m.call(PoolManager, "updateThreshold", [], {
     after: [PoolManagerProxyUpgradeAndInitializeCall],
   });
+  */
 
   // deploy PoolConfiguration
   const PoolConfigurationImplementation = m.contract(
@@ -206,9 +210,11 @@ export default buildModule("FxProtocol", (m) => {
   );
   m.call(PoolConfiguration, "register", [id("PoolRewardsTreasury"), ProtocolTreasuryProxy], {
     after: [PoolConfigurationUpgradeAndInitializeCall],
+    id: "registerPoolRewardsTreasury"
   });
   m.call(PoolConfiguration, "register", [id("PoolFundingTreasury"), ProtocolTreasuryProxy], {
     after: [PoolConfigurationUpgradeAndInitializeCall],
+    id: "registerPoolFundingTreasury"
   });
 
   return {
@@ -217,7 +223,7 @@ export default buildModule("FxProtocol", (m) => {
     PoolManagerImplementation,
     FxUSDBasePoolProxy: m.contractAt("FxUSDBasePool", FxUSDBasePoolProxy, { id: "FxUSDBasePool" }),
     FxUSDBasePoolImplementation,
-    PegKeeperProxy: m.contractAt("PegKeeper", PegKeeperProxy, { id: "PegKeeper" }),
+    PegKeeperProxy: PegKeeper,
     PegKeeperImplementation,
     FxUSDProxy: m.contractAt("FxUSDRegeneracy", FxUSDProxy, { id: "FxUSD" }),
     // FxUSDBasePoolGaugeProxy,

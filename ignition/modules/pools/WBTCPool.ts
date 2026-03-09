@@ -37,8 +37,8 @@ export default buildModule("WBTCPool", (m) => {
     m.getParameter("LiquidateDebtRatio"),
     m.getParameter("LiquidateBonusRatio"),
   ]);
-  // const grantRole = m.call(WBTCPool, "grantRole", [id("EMERGENCY_ROLE"), admin]);
-  // m.call(WBTCPool, "updateBorrowAndRedeemStatus", [true, true], { after: [grantRole] });
+  const grantRole = m.call(WBTCPool, "grantRole", [id("EMERGENCY_ROLE"), admin]);
+  m.call(WBTCPool, "updateBorrowAndRedeemStatus", [true, true], { after: [grantRole] });
   // m.call(WBTCPool, "updateOpenRatio", [m.getParameter("OpenRatio"), m.getParameter("OpenRatioStep")]);
   // m.call(WBTCPool, "updateCloseFeeRatio", [m.getParameter("CloseFeeRatio")]);
   // m.call(WBTCPool, "updateFundingRatio", [m.getParameter("FundingRatio")]);

@@ -5,12 +5,12 @@
     "GeneralTokenConverter": "0x2921a86f1B667c97a054cD0d29bafA56B1ebA4e9"
   },
   "FxUSDPriceOracle": {
-    "SushiPool": "0xe1578cEF06331d77bC99273d5f1aF48eC2de92db",
+    "SushiPool": "0x2D43e7931329dbB709F33d7049C937c6794Bae10",
     "secondsAgo": "1800",
     "minLiquidity": "0"
   },
   "FxUSD": {
-    "FxUSDInitSupply": "1000000000000000000000000",
+    "FxUSDInitSupply": "10000000000000000000000",
     "FxUSDInitRecipient": "0xC9265822F1E37fD96DA15321153D8422641bc813"
   },
   "FxProtocol": {

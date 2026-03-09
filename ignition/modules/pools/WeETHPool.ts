@@ -40,8 +40,8 @@ export default buildModule("WeETHPool", (m) => {
     m.getParameter("LiquidateDebtRatio"),
     m.getParameter("LiquidateBonusRatio"),
   ]);
-  // const grantRole = m.call(WeETHPool, "grantRole", [id("EMERGENCY_ROLE"), admin]);
-  // m.call(WeETHPool, "updateBorrowAndRedeemStatus", [true, true], { after: [grantRole] });
+  const grantRole = m.call(WeETHPool, "grantRole", [id("EMERGENCY_ROLE"), admin]);
+  m.call(WeETHPool, "updateBorrowAndRedeemStatus", [true, true], { after: [grantRole] });
   // m.call(WeETHPool, "updateOpenRatio", [m.getParameter("OpenRatio"), m.getParameter("OpenRatioStep")]);
   // m.call(WeETHPool, "updateCloseFeeRatio", [m.getParameter("CloseFeeRatio")]);
   // m.call(WeETHPool, "updateFundingRatio", [m.getParameter("FundingRatio")]);
